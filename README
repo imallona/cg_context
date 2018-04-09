@@ -1,0 +1,12 @@
+CG context analysis on WT/mutant bamfiles
+
+## let's keep the mapping reference locations, even though the parsing is read-based
+
+algorithm start
+  split the bamfile into fw and rv mapping (as compared to mm9)
+  get the methylation call once already called
+  (ongoing)
+algorithm end
+
+
+Started Mon  9 Apr 08:15:16 CEST 2018
