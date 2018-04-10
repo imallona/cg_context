@@ -9,30 +9,26 @@ TASK="cg_context"
 WD=/home/imallona/"$TASK"
 
 USER="Izaskun Mallona"
-HOMEMOUNT=/mnt/home
-BAUBECMOUNT=/mnt/baubec
+
+BAUBECMOUNT=/home/imallona/mnt/baubec
 BAUBEC="Group Baubec"
 
-mkdir -p $WD
-cd $WD
+# taupo
+FASTQC=
 
-sudo mount.cifs  //130.60.120.7/home $HOMEMOUNT \
-  -o user='Izaskun Mallona',sec=ntlm,uid=1000,gid=1000,iocharset=utf8,file_mode=0777,dir_mode=0777
+mkdir -p $WD $BAUBECMOUNT
+cd $WD
 
 sudo mount.cifs  //130.60.120.7/"$BAUBEC" $BAUBECMOUNT \
   -o user='Izaskun Mallona',sec=ntlm,uid=1000,gid=1000,iocharset=utf8,file_mode=0777,dir_mode=0777
 
-sudo mount.cifs  //130.60.120.7/"$BAUBEC" /home/imallona/tmp/test \
-     -o user='Izaskun Mallona',sec=ntlm,uid=1000,gid=1000,iocharset=utf8,file_mode=0444,dir_mode=044
-
-sudo chmod a+r /home/imallona/tmp/test
 
 ## sampling some bamfiles to play with
 ## TOYBAM=/home/ubuntu/MOUNT/manzo/WGBS/Baubec2015/SRR1653152_trimmed_bismark_bt2.deduplicated.bam
 
-scp -i ~/.ssh/cloudServer.key ubuntu@172.23.28.228:/"$TOYBAM" .
+# scp -i ~/.ssh/cloudServer.key ubuntu@172.23.28.228:/"$TOYBAM" .
 
-toybam=$(basename "$TOYBAM" .bam)
+# toybam=$(basename "$TOYBAM" .bam)
 
 # MethylDackel mbias \
 #              refgenome \
@@ -47,4 +43,35 @@ toybam=$(basename "$TOYBAM" .bam)
 # for instance, with sra-dump
 # SRR3106762	
 
-/usr/local/software/sratoolkit.2.9.0-ubuntu64/bin/fastq-dump -I --split-files SRR3106762
+# /usr/local/software/sratoolkit.2.9.0-ubuntu64/bin/fastq-dump -I --split-files SRR3106762
+
+## using, rather, the real data
+
+cd "$HOME"/data
+/usr/local/software/sratoolkit.2.9.0-ubuntu64/bin/fastq-dump -I --gzip --split-files SRR1653150
+## wtf these are 50 nt long!
+
+# plus those from the synology nas
+# "$BAUBECMOUNT"/REPOSITORY/HTS\ data/FGCZ_backup/hiSeq/p2046/HiSeq_20151223_RUN242_DataDelivery
+
+
+## this oocyte stuff my help too
+# https://www.ncbi.nlm.nih.gov/sra?term=SRX1404264
+# SRR2878513
+
+/usr/local/software/sratoolkit.2.9.0-ubuntu64/bin/fastq-dump -I --gzip --split-files SRR2878513
+
+
+## fastqc checks
+
+# for sample in ${samples[@]}
+# do
+#     for pair in R1 R2
+#     do
+#         curr=${WD}/quality/${sample}_${pair}
+#         mkdir $curr
+        
+#         $FASTQC ${DAT}/${sample}_${pair}.fastq --outdir ${curr} \
+#                 -t $NTHREADS &> ${curr}/${sample}_${pair}_fastqc.log
+#     done
+# done
