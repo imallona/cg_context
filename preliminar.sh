@@ -9,6 +9,8 @@ TASK="cg_context"
 WD=/home/imallona/"$TASK"
 DATA="$HOME"/data
 SOFT="$HOME"/soft
+MM9=/home/Shared/data/annotation/Mouse/mm9/mm9.fa
+VIRTENVS=~/virtenvs
 
 NTHREADS=6
 
@@ -187,16 +189,26 @@ echo sickle
 ## till here
 
 
+echo "let's try to bwa-meth this with default settings "
+echo "(even though bwa-mem is not suited for se 50 nt long reads)"
+
+deactivate
+
+source $VIRTENVS/bwa-meth/bin/activate
+
+sample=SRR1653150_1_cutadapt_sickle
+# bwameth.py --reference "$MM9" \
+#            "$sample".fastq.gz \
+#            --threads $NTHREADS | samtools view -bS - > "$sample"_bwameth_default.bam 2>&1 | \
+#     tee "$sample"_bwameth_default.log
+
+# bwameth.py --reference "$MM9" \
+#            "$sample".fastq.gz \
+#            --threads $NTHREADS |  samtools view -bS - > "$sample"_bwameth_default.bam 2> test.log
 
 
-# "$SICKLE" pe \
-#           -c "${TMP}/${sample}_cutadapted.fastq" \
-#           -g \
-#           -t sanger \
-#           -m "${TMP}/${sample}_sickle_combined" \
-#           -s "$TMP"/"$sample"_sickle_singles_trimmed_file &> "${TMP}/${sample}_sickle.log" 
+( bwameth.py --reference "$MM9" \
+           "$sample".fastq.gz \
+           --threads $NTHREADS |  samtools view -bS - > "$sample"_bwameth_default.bam ) \
+    3>&1 1>&2 2>&3 | tee "$sample"_bwameth_default.log
 
-# echo "Fastqc"
-
-# "$FASTQC" "${TMP}/${sample}_sickle_combined" -outdir "${TMP}" \
-#                                -t $NTHREADS &> "${TMP}/${sample}_fastq.log"
