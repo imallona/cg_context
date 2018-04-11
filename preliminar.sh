@@ -33,7 +33,7 @@ mkdir -p $WD $BAUBECMOUNT
 cd $WD
 
 sudo mount.cifs  //130.60.120.7/"$BAUBEC" $BAUBECMOUNT \
-  -o user='Izaskun Mallona',sec=ntlm,uid=1000,gid=1000,iocharset=utf8,file_mode=0777,dir_mode=0777
+     -o user='Izaskun Mallona',sec=ntlm,uid=1000,gid=1000,iocharset=utf8,file_mode=0777,dir_mode=0777
 
 
 ## sampling some bamfiles to play with
@@ -146,44 +146,8 @@ $FASTQC "$WD"/${sample}_1_cutadapt_sickle.fastq.gz \
 ## run till here #########
 
 echo  "remove the cutadapted tmp file here!"
+# done
 
-
-NTHREADS=2
-## paired end stuff
-for sample in SRR2878513_ 20151223.B-MmES_TKOD3A1c1-3_R 
-do
-    # for read in 1 2
-    # do
-    cutadapt \
-        -j $NTHREADS \
-        -b $ILLUMINA_UNIVERSAL -b $ILLUMINA \
-        -o "$WD"/"${sample}"1_cutadapt.fastq.gz \
-        -p "$WD"/"${sample}"2_cutadapt.fastq.gz \
-        "$DATA"/"$sample"1.fastq.gz "$DATA"/"$sample"2.fastq.gz &> "$WD"/"$sample"_cutadapt.log 
-
-    "$SICKLE" pe \
-              -f "$WD"/"$sample"1_cutadapt.fastq.gz \
-              -r "$WD"/"$sample"2_cutadapt.fastq.gz \
-              -o "$WD"/"$sample"1_cutadapt_sickle.fastq.gz \
-              -p "$WD"/"$sample"2_cutadapt_sickle.fastq.gz \
-              -t sanger \
-              -s "$WD"/"$sample"_cutadapt_sickle_singles.fastq.gz \
-              -g &> "$WD"/"$sample"_cutadapt_sickle.log
-
-    for read in 1 2
-    do
-        curr="$sample"_cutadapt_sickle_"$read"
-        mkdir -p "$WD"/$curr
-        $FASTQC "$WD"/${sample}"$read"_cutadapt_sickle.fastq.gz \
-                --outdir "$WD"/"$curr" \
-                -t $NTHREADS &> ${curr}/${sample}"$read"_fastqc.log
-
-    done
-    # done
-done
-
-
-echo sickle
 
 
 ## till here
@@ -206,9 +170,67 @@ sample=SRR1653150_1_cutadapt_sickle
 #            "$sample".fastq.gz \
 #            --threads $NTHREADS |  samtools view -bS - > "$sample"_bwameth_default.bam 2> test.log
 
-
 ( bwameth.py --reference "$MM9" \
-           "$sample".fastq.gz \
-           --threads $NTHREADS |  samtools view -bS - > "$sample"_bwameth_default.bam ) \
+             "$sample".fastq.gz \
+             --threads $NTHREADS |  samtools view -bS - > "$sample"_bwameth_default.bam ) \
     3>&1 1>&2 2>&3 | tee "$sample"_bwameth_default.log
+
+# samtools view SRR1653150_1_cutadapt_sickle_bwameth_default.bam | head -1000 | cut -f2 | sort | uniq -c
+
+
+
+
+
+
+NTHREADS=6
+## paired end stuff
+for sample in SRR2878513_ 20151223.B-MmES_TKOD3A1c1-3_R 
+do
+    
+    source $VIRTENVS/cutadapt/bin/activate
+
+    cutadapt \
+        -j $NTHREADS \
+        -b $ILLUMINA_UNIVERSAL -b $ILLUMINA \
+        -B $ILLUMINA_UNIVERSAL -B $ILLUMINA \
+        -o "$WD"/"${sample}"1_cutadapt.fastq.gz \
+        -p "$WD"/"${sample}"2_cutadapt.fastq.gz \
+        "$DATA"/"$sample"1.fastq.gz "$DATA"/"$sample"2.fastq.gz &> "$WD"/"$sample"_cutadapt.log
+
+    deactivate
+
+    "$SICKLE" pe \
+              -f "$WD"/"$sample"1_cutadapt.fastq.gz \
+              -r "$WD"/"$sample"2_cutadapt.fastq.gz \
+              -o "$WD"/"$sample"1_cutadapt_sickle.fastq.gz \
+              -p "$WD"/"$sample"2_cutadapt_sickle.fastq.gz \
+              -t sanger \
+              -s "$WD"/"$sample"_cutadapt_sickle_singles.fastq.gz \
+              -g &> "$WD"/"$sample"_cutadapt_sickle.log
+
+    for read in 1 2
+    do
+        curr="$sample"_cutadapt_sickle_"$read"
+        mkdir -p "$WD"/$curr
+        $FASTQC "$WD"/${sample}"$read"_cutadapt_sickle.fastq.gz \
+                --outdir "$WD"/"$curr" \
+                -t $NTHREADS &> ${curr}/${sample}"$read"_fastqc.log
+
+    done
+    # done
+
+    source $VIRTENVS/bwa-meth/bin/activate
+
+    fw="$sample"1_cutadapt_sickle.fastq.gz
+    rv="$sample"2_cutadapt_sickle.fastq.gz
+
+    ( bwameth.py --reference "$MM9" \
+                 $fw $rv \
+                 --threads $NTHREADS |  samtools view -bS - > "$sample"_bwameth_default.bam ) \
+            3>&1 1>&2 2>&3 | tee "$sample"_bwameth_default.log
+
+    deactivate
+done
+
+
 
