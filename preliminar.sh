@@ -148,32 +148,33 @@ echo  "remove the cutadapted tmp file here!"
 
 NTHREADS=2
 ## paired end stuff
-for sample in SRR2878513 20151223.B-MmES_TKOD3A1c1-3_R 
+for sample in SRR2878513_ 20151223.B-MmES_TKOD3A1c1-3_R 
 do
     # for read in 1 2
     # do
     cutadapt \
         -j $NTHREADS \
         -b $ILLUMINA_UNIVERSAL -b $ILLUMINA \
-        -o "$WD"/"${sample}"_1_cutadapt.fastq.gz \
-        -p "$WD"/"${sample}"_2_cutadapt.fastq.gz \
-        "$DATA"/"$sample"_1.fastq.gz "$DATA"/"$sample"_2.fastq.gz &> "$WD"/"$sample"_cutadapt.log 
+        -o "$WD"/"${sample}"1_cutadapt.fastq.gz \
+        -p "$WD"/"${sample}"2_cutadapt.fastq.gz \
+        "$DATA"/"$sample"1.fastq.gz "$DATA"/"$sample"2.fastq.gz &> "$WD"/"$sample"_cutadapt.log 
 
     "$SICKLE" pe \
-              --pe-file1 "$WD"/"$sample"_1_cutadapt.fastq.gz \
-              --pe-file2 "$WD"/"$sample"_2_cutadapt.fastq.gz \
-              --output-file1 "$WD"/"$sample"_1_cutadapt_sickle.fastq.gz \
-              --output-file2 "$WD"/"$sample"_2_cutadapt_sickle.fastq.gz \
-              -g \
-              -t sanger &> "$WD"/"$sample"_cutadapt_sickle.log
+              -f "$WD"/"$sample"1_cutadapt.fastq.gz \
+              -r "$WD"/"$sample"2_cutadapt.fastq.gz \
+              -o "$WD"/"$sample"1_cutadapt_sickle.fastq.gz \
+              -p "$WD"/"$sample"2_cutadapt_sickle.fastq.gz \
+              -t sanger \
+              -s "$WD"/"$sample"_cutadapt_sickle_singles.fastq.gz \
+              -g &> "$WD"/"$sample"_cutadapt_sickle.log
 
     for read in 1 2
     do
         curr="$sample"_cutadapt_sickle_"$read"
         mkdir -p "$WD"/$curr
-        $FASTQC "$WD"/${sample}_"$read"_cutadapt_sickle.fastq.gz \
+        $FASTQC "$WD"/${sample}"$read"_cutadapt_sickle.fastq.gz \
                 --outdir "$WD"/"$curr" \
-                -t $NTHREADS &> ${curr}/${sample}_"$read"_fastqc.log
+                -t $NTHREADS &> ${curr}/${sample}"$read"_fastqc.log
 
     done
     # done
