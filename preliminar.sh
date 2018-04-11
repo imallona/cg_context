@@ -7,14 +7,18 @@
 
 TASK="cg_context"
 WD=/home/imallona/"$TASK"
+DATA="$HOME"/data
+SOFT="$HOME"/soft
+
+NTHREADS=6
 
 USER="Izaskun Mallona"
-
 BAUBECMOUNT=/home/imallona/mnt/baubec
 BAUBEC="Group Baubec"
 
-# taupo
-FASTQC=
+# taupo soft
+FASTQC=/usr/local/software/FastQC/fastqc
+SICKLE="$HOME"/sickle/sickle-1.33/sickle
 
 mkdir -p $WD $BAUBECMOUNT
 cd $WD
@@ -64,14 +68,55 @@ cd "$HOME"/data
 
 ## fastqc checks
 
-# for sample in ${samples[@]}
-# do
-#     for pair in R1 R2
-#     do
-#         curr=${WD}/quality/${sample}_${pair}
-#         mkdir $curr
-        
-#         $FASTQC ${DAT}/${sample}_${pair}.fastq --outdir ${curr} \
-#                 -t $NTHREADS &> ${curr}/${sample}_${pair}_fastqc.log
-#     done
-# done
+samples="SRR1653150_1 SRR2878513_1 SRR2878513_2 20151223.B-MmES_TKOD3A1c1-3_R1  20151223.B-MmES_TKOD3A1c1-3_R2"
+# samples="20151223.B-MmES_TKOD3A1c1-3_R1 20151223.B-MmES_TKOD3A1c1-3_R2"
+for sample in ${samples[@]}
+do
+
+    curr=${WD}/${sample}
+    mkdir -p $curr
+    
+    $FASTQC ${DATA}/${sample}.fastq.gz --outdir ${curr} \
+            -t $NTHREADS &> ${curr}/${sample}_fastqc.log
+done
+
+## needed some trimming and adaptor cutting
+
+# no adaptors found for the single end stuff, let's just sickle it
+# file:///home/imallona/cg_context/SRR1653150_1/SRR1653150_1_fastqc.html
+
+
+"$SICKLE" se \
+          -c "$DATA"/SRR1653150_1.fastq.gz \
+          -g \
+          -t sanger \
+          -m "$WD"/SRR1653150_1_sickle.fastq.gz &> "${WD}"/SRR1653150_1_sickle.log
+
+
+## paired end stuff
+
+
+# currd=$(basename $1)
+sample=$(basename $1 .fastq)
+echo "Temptative adaptor trimming, just the illumina adaptor"
+
+cutadapt \
+    -b $ILLUMINA \
+    -o "$TMP"/"${sample}_cutadapted.fastq" \
+    -m $MIN_LENGTH \
+    --discard-trimmed \
+    $(dirname $1)/"$sample"".fastq" &> "${TMP}/${sample}_cutadapt.log" 
+
+echo "Sickle"
+
+"$SICKLE" pe \
+          -c "${TMP}/${sample}_cutadapted.fastq" \
+          -g \
+          -t sanger \
+          -m "${TMP}/${sample}_sickle_combined" \
+          -s "$TMP"/"$sample"_sickle_singles_trimmed_file &> "${TMP}/${sample}_sickle.log" 
+
+echo "Fastqc"
+
+"$FASTQC" "${TMP}/${sample}_sickle_combined" -outdir "${TMP}" \
+                               -t $NTHREADS &> "${TMP}/${sample}_fastq.log"
