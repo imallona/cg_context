@@ -1,9 +1,10 @@
 #!/bin/bash
 ##
-## Playground with sampled BAM files
+## WGBS qualcheck and mapping
 ##
 # Izaskun Mallona
 # Mon  9 Apr 08:41:47 CEST 2018
+# GPL
 
 TASK="cg_context"
 WD=/home/imallona/"$TASK"
@@ -234,3 +235,18 @@ done
 
 
 
+## extra round of fastqc to detect the 10-mer enrichment
+## on our samples
+sample=SRR2878513
+for r in in 1 2
+do
+    curr="$sample"_cutadapt_sickle_"$read"_10kmers
+    mkdir -p "$WD"/"$curr"
+
+    "$FASTQC" "$WD"/"$sample"_"$r"_cutadapt.fastq.gz \
+              -k 10 \
+              --outdir ${curr} \
+              -t $NTHREADS &> ${curr}/${sample}_fastqc.log
+done
+
+## check mapq distribution to get rid of multimappers!
