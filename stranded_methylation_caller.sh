@@ -16,16 +16,17 @@ NTHREADS=6
 
 QUALIMAP="$SOFT"/qualimap/qualimap_v2.2.1/qualimap
 METHYLDACKEL="$SOFT"/methyldackel/MethylDackel/MethylDackel
+MARKDUPLICATES=/usr/local/software/picard-tools-1.96/MarkDuplicates.jar
 
 cd $WD
 
 ## even though this is (probably) not well mapped since 50 nt long and run with bwa-meth bwa-mem default
 toy=SRR1653150_1_cutadapt_sickle_bwameth_default.bam
 samtools sort $toy --threads $NTHREADS > sorted.bam
-mv sorted.bam SRR1653150_1_cutadapt_sickle_bwameth_default_sorted.bam
+mv sorted.bam $toy
 
 "$QUALIMAP"  bamqc \
-             -bam SRR1653150_1_cutadapt_sickle_bwameth_default_sorted.bam \
+             -bam "$toy" \
              -gd mm9 \
              -outdir "$(basename $toy .bam)"_qualimap \
              --java-mem-size=10G \
@@ -34,4 +35,19 @@ mv sorted.bam SRR1653150_1_cutadapt_sickle_bwameth_default_sorted.bam
 
 ## mark duplicates
 
+## beware of the ram
+java -jar -XX:ParallelGCThreads=$NTHREADS \
+     $MARKDUPLICATES INPUT=$WD/"$toy" \
+     OUTPUT=$WD/"$(basename $toy .bam)""_dup_marked.bam" \
+     METRICS_FILE=$WD/"$(basename $toy .bam)""_dup_marked.metrics"
+
+
+# split for/rev strands
+
+## this might not be easy for paired end stuff
+# https://broadinstitute.github.io/picard/explaian-flags.html
+# http://www.cureffi.org/2012/12/19/forward-and-reverse-reads-in-paired-end-sequencing/
+
 ## methyldackel here
+
+
