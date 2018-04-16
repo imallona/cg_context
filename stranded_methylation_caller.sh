@@ -12,7 +12,7 @@ TASK="cg_context"
 WD=/home/imallona/"$TASK"
 DATA="$HOME"/data
 SOFT="$HOME"/soft
-NTHREADS=6
+NTHREADS=20
 
 QUALIMAP="$SOFT"/qualimap/qualimap_v2.2.1/qualimap
 METHYLDACKEL="$SOFT"/methyldackel/MethylDackel/MethylDackel
@@ -40,6 +40,28 @@ java -jar -XX:ParallelGCThreads=$NTHREADS \
      $MARKDUPLICATES INPUT=$WD/"$toy" \
      OUTPUT=$WD/"$(basename $toy .bam)""_dup_marked.bam" \
      METRICS_FILE=$WD/"$(basename $toy .bam)""_dup_marked.metrics"
+
+## same for the others
+
+for toy in 20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default.bam SRR2878513__bwameth_default.bam
+do
+    samtools sort $toy --threads $NTHREADS > sorted.bam
+    mv sorted.bam $toy
+    
+    "$QUALIMAP"  bamqc \
+             -bam "$toy" \
+             -gd mm9 \
+             -outdir "$(basename $toy .bam)"_qualimap \
+             --java-mem-size=40G \
+             -nt $NTHREADS
+
+
+    java -jar -XX:ParallelGCThreads=$NTHREADS \
+         $MARKDUPLICATES INPUT=$WD/"$toy" \
+         OUTPUT=$WD/"$(basename $toy .bam)""_dup_marked.bam" \
+         METRICS_FILE=$WD/"$(basename $toy .bam)""_dup_marked.metrics"
+    
+done
 
 
 # split for/rev strands
