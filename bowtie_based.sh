@@ -51,13 +51,27 @@ done
 # echo paired end
 
 
-# for sample in SRR2878513_ 20151223.B-MmES_TKOD3A1c1-3_R
-# do
-#     echo $sample
-#     r1="$sample"1_cutadapt_sickle.fastq.gz
-#     r2="$sample"2_cutadapt_sickle.fastq.gz
+for sample in SRR2878513_ 20151223.B-MmES_TKOD3A1c1-3_R
+do
+    echo $sample
+    r1="$sample"1_cutadapt_sickle.fastq.gz
+    r2="$sample"2_cutadapt_sickle.fastq.gz
 
-# done
+    echo $sample
+    fastq="$DATA"/"$sample"_cutadapt_sickle.fastq.gz
+    ( "$BISMARK" --bowtie2 \
+                 --genome $MM9 \
+                 --N 0 \
+                 -D 20 \
+                 -R 3 \
+                 -L 20 \
+                 --gzip \
+                 --parallel $NTHREADS_BISMARK \
+                 -p $NTHREADS_BOWTIE \
+                 --1 "$r1" \
+                 --2 "$r2"
+    ) 2>&1 | tee "$WD"/"$sample"_bismark.log
+done
 
 
 
