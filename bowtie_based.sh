@@ -16,7 +16,7 @@ SOFT="$HOME"/soft
 MM9=/home/ubuntu/REPOS/annotation/mm9_genome/
 VIRTENVS=~/virtenvs
 
-NTHREADS_BOWTIE=4
+NTHREADS_BOWTIE=2
 NTHREADS_BISMARK=2
 
 # baubeclab soft

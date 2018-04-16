@@ -71,5 +71,11 @@ done
 # http://www.cureffi.org/2012/12/19/forward-and-reverse-reads-in-paired-end-sequencing/
 
 ## methyldackel here
+\
+# MAPQ_THRES=40
+# this to extract watson ones
+# samtools view -f 99 -f 147 -bq $MAPQ_THRES file.bam > watson.bam
 
 
+# this to extract watson ones
+# samtools view -f 163 -f 83 -bq $MAPQ_THRES file.bam > crick.bam
