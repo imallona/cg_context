@@ -54,8 +54,8 @@ done
 for sample in SRR2878513_ 20151223.B-MmES_TKOD3A1c1-3_R
 do
     echo $sample
-    r1="$sample"1_cutadapt_sickle.fastq.gz
-    r2="$sample"2_cutadapt_sickle.fastq.gz
+    r1="$DATA"/"$sample"1_cutadapt_sickle.fastq.gz
+    r2="$DATA"/"$sample"2_cutadapt_sickle.fastq.gz
 
     echo $sample
     fastq="$DATA"/"$sample"_cutadapt_sickle.fastq.gz
@@ -73,94 +73,3 @@ do
     ) 2>&1 | tee "$WD"/"$sample"_bismark.log
 done
 
-
-
-# sample=SRR1653150_1_cutadapt_sickle
-# # bwameth.py --reference "$MM9" \
-# #            "$sample".fastq.gz \
-# #            --threads $NTHREADS | samtools view -bS - > "$sample"_bwameth_default.bam 2>&1 | \
-# #     tee "$sample"_bwameth_default.log
-
-# # bwameth.py --reference "$MM9" \
-# #            "$sample".fastq.gz \
-# #            --threads $NTHREADS |  samtools view -bS - > "$sample"_bwameth_default.bam 2> test.log
-
-# ( bwameth.py --reference "$MM9" \
-#              "$sample".fastq.gz \
-#              --threads $NTHREADS |  samtools view -bS - > "$sample"_bwameth_default.bam ) \
-#     3>&1 1>&2 2>&3 | tee "$sample"_bwameth_default.log
-
-# # samtools view SRR1653150_1_cutadapt_sickle_bwameth_default.bam | head -1000 | cut -f2 | sort | uniq -c
-
-
-
-
-
-
-# NTHREADS=6
-# ## paired end stuff
-# for sample in SRR2878513_ 20151223.B-MmES_TKOD3A1c1-3_R 
-# do
-    
-#     source $VIRTENVS/cutadapt/bin/activate
-
-#     cutadapt \
-#         -j $NTHREADS \
-#         -b $ILLUMINA_UNIVERSAL -b $ILLUMINA \
-#         -B $ILLUMINA_UNIVERSAL -B $ILLUMINA \
-#         -o "$WD"/"${sample}"1_cutadapt.fastq.gz \
-#         -p "$WD"/"${sample}"2_cutadapt.fastq.gz \
-#         "$DATA"/"$sample"1.fastq.gz "$DATA"/"$sample"2.fastq.gz &> "$WD"/"$sample"_cutadapt.log
-
-#     deactivate
-
-#     "$SICKLE" pe \
-#               -f "$WD"/"$sample"1_cutadapt.fastq.gz \
-#               -r "$WD"/"$sample"2_cutadapt.fastq.gz \
-#               -o "$WD"/"$sample"1_cutadapt_sickle.fastq.gz \
-#               -p "$WD"/"$sample"2_cutadapt_sickle.fastq.gz \
-#               -t sanger \
-#               -s "$WD"/"$sample"_cutadapt_sickle_singles.fastq.gz \
-#               -g &> "$WD"/"$sample"_cutadapt_sickle.log
-
-#     for read in 1 2
-#     do
-#         curr="$sample"_cutadapt_sickle_"$read"
-#         mkdir -p "$WD"/$curr
-#         $FASTQC "$WD"/${sample}"$read"_cutadapt_sickle.fastq.gz \
-#                 --outdir "$WD"/"$curr" \
-#                 -t $NTHREADS &> ${curr}/${sample}"$read"_fastqc.log
-
-#     done
-#     # done
-
-#     source $VIRTENVS/bwa-meth/bin/activate
-
-#     fw="$sample"1_cutadapt_sickle.fastq.gz
-#     rv="$sample"2_cutadapt_sickle.fastq.gz
-
-#     ( bwameth.py --reference "$MM9" \
-#                  $fw $rv \
-#                  --threads $NTHREADS |  samtools view -bS - > "$sample"_bwameth_default.bam ) \
-#             3>&1 1>&2 2>&3 | tee "$sample"_bwameth_default.log
-
-#     deactivate
-# done
-
-
-
-# ## extra round of fastqc to detect the 10-mer enrichment
-# ## on our samples
-# sample=SRR2878513
-# for r in in 1 2
-# do
-#     curr="$sample"_cutadapt_sickle_"$read"_10kmers
-#     mkdir -p "$WD"/"$curr"
-
-#     "$FASTQC" "$WD"/"$sample"_"$r"_cutadapt.fastq.gz \
-#               -k 10 \
-#               --outdir ${curr} \
-#               -t $NTHREADS &> ${curr}/${sample}_fastqc.log
-# done
-
-# ## check mapq distribution to get rid of multimappers!
