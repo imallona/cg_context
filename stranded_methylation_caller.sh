@@ -220,3 +220,5 @@ done
 
 ## actually this is all stupid, better do that directly to the first bam file,
 ## without flag parsing
+
+# coding the simple_stranded_dna_meth_caller instead
