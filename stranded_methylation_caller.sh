@@ -77,5 +77,43 @@ done
 # samtools view -f 99 -f 147 -bq $MAPQ_THRES file.bam > watson.bam
 
 
-# this to extract watson ones
-# samtools view -f 163 -f 83 -bq $MAPQ_THRES file.bam > crick.bam
+# algorithm start
+#   retrieve 99 and 147 (watsons)
+
+#   retrieve 83 and 163 (cricks)
+
+#   for strand in watson or crick
+#       call methyldackel
+#       check for variants
+      
+#    for end
+          
+# algorithm end
+
+# SRR1653150_1_cutadapt_sickle_bwameth_default_dup_marked.bam 
+# for bam in 20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked.bam \
+#                SRR2878513__bwameth_default_dup_marked.bam
+
+MAPQ_THRES=40
+
+for bam in 20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked.bam
+do
+
+    echo $bam
+    fn="$WD"/$(basename $bam .bam)
+    mkdir -p $fn
+    
+    # proper pairs
+    samtools view -f 163 -f 83 -bq $MAPQ_THRES $bam > "$fn"/crick_paired.bam
+    samtools view -f 99 -f 147 -bq $MAPQ_THRES $bam > "$fn"/watson_paired.bam
+    
+    # http://www.samformat.info/sam-format-flag
+    # crick 89 153
+    samtools view -f 89 -bq $MAPQ_THRES $bam > "$fn"/crick_89.bam
+    samtools view -f 153 -bq $MAPQ_THRES $bam > "$fn"/crick_153.bam
+    
+    # watson 165 101
+    samtools view -f 165 -bq $MAPQ_THRES $bam > "$fn"/watson_165.bam
+    samtools view -f 101 -bq $MAPQ_THRES $bam > "$fn"/watson_101.bam
+    
+done
