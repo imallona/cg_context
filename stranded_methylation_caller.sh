@@ -18,6 +18,8 @@ QUALIMAP="$SOFT"/qualimap/qualimap_v2.2.1/qualimap
 METHYLDACKEL="$SOFT"/methyldackel/MethylDackel/MethylDackel
 MARKDUPLICATES=/usr/local/software/picard-tools-1.96/MarkDuplicates.jar
 
+MM9=/home/Shared/data/annotation/Mouse/mm9/mm9.fa
+
 cd $WD
 
 ## even though this is (probably) not well mapped since 50 nt long and run with bwa-meth bwa-mem default
@@ -94,6 +96,9 @@ done
 # for bam in 20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked.bam \
 #                SRR2878513__bwameth_default_dup_marked.bam
 
+
+echo 'paired end stuff'
+
 MAPQ_THRES=40
 NTHREADS=10
 
@@ -124,4 +129,39 @@ do
     samtools view -@ $NTHREADS -f 169 -bq $MAPQ_THRES $bam > "$fn"/watson_169.bam
     samtools view -@ $NTHREADS -f 105 -bq $MAPQ_THRES $bam > "$fn"/watson_105.bam
     
+done
+
+echo 'on methyldackel'
+
+for bam in 20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked.bam
+do
+    echo $bam
+    fn="$WD"/$(basename $bam .bam)
+
+    for subset in $(find $fn -name "*bam")
+    do
+        echo $subset
+        cd $fn
+           
+        ## ref genome missing!
+        $METHYLDACKEL mbias  --txt -@ $NTHREADS $MM9 $subset $(basename $subset .bam) 
+
+        # # $METHYLDACKEL extract \
+        # #               -@ $NTHREADS \
+        # #               --keepStrand \
+        # #               --cytosine_report \
+                      
+        $METHYLDACKEL extract \
+                      -@ $NTHREADS \
+                      -d 5 \
+                      -D 2000 \
+                      --CHG \
+                      --CHH \
+                      $MM9 \
+                      $subset \
+                      -o $(basename $subset .bam) 
+
+        cd ..
+        
+    done
 done
