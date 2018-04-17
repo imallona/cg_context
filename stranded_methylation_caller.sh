@@ -95,6 +95,7 @@ done
 #                SRR2878513__bwameth_default_dup_marked.bam
 
 MAPQ_THRES=40
+NTHREADS=10
 
 for bam in 20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked.bam
 do
@@ -104,16 +105,16 @@ do
     mkdir -p $fn
     
     # proper pairs
-    samtools view -f 163 -f 83 -bq $MAPQ_THRES $bam > "$fn"/crick_paired.bam
-    samtools view -f 99 -f 147 -bq $MAPQ_THRES $bam > "$fn"/watson_paired.bam
+    samtools view -@ $NTHREADS -f 163 -f 83 -bq $MAPQ_THRES $bam > "$fn"/crick_paired.bam
+    samtools view -@ $NTHREADS -f 99 -f 147 -bq $MAPQ_THRES $bam > "$fn"/watson_paired.bam
     
     # http://www.samformat.info/sam-format-flag
     # crick 89 153
-    samtools view -f 89 -bq $MAPQ_THRES $bam > "$fn"/crick_89.bam
-    samtools view -f 153 -bq $MAPQ_THRES $bam > "$fn"/crick_153.bam
+    samtools view -@ $NTHREADS -f 89 -bq $MAPQ_THRES $bam > "$fn"/crick_89.bam
+    samtools view -@ $NTHREADS -f 153 -bq $MAPQ_THRES $bam > "$fn"/crick_153.bam
     
     # watson 165 101
-    samtools view -f 165 -bq $MAPQ_THRES $bam > "$fn"/watson_165.bam
-    samtools view -f 101 -bq $MAPQ_THRES $bam > "$fn"/watson_101.bam
+    samtools view -@ $NTHREADS -f 165 -bq $MAPQ_THRES $bam > "$fn"/watson_165.bam
+    samtools view -@ $NTHREADS -f 101 -bq $MAPQ_THRES $bam > "$fn"/watson_101.bam
     
 done
