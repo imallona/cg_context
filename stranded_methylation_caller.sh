@@ -105,8 +105,15 @@ do
     mkdir -p $fn
     
     # proper pairs
-    samtools view -@ $NTHREADS -f 163 -f 83 -bq $MAPQ_THRES $bam > "$fn"/crick_paired.bam
-    samtools view -@ $NTHREADS -f 99 -f 147 -bq $MAPQ_THRES $bam > "$fn"/watson_paired.bam
+    # samtools view -@ $NTHREADS -f 163 -f 83 -bq $MAPQ_THRES $bam > "$fn"/crick_paired.bam
+    # samtools view -@ $NTHREADS -f 99 -f 147 -bq $MAPQ_THRES $bam > "$fn"/watson_paired.bam
+
+    samtools view -@ $NTHREADS -f 163  -bq $MAPQ_THRES $bam > "$fn"/crick_paired_163.bam
+    samtools view -@ $NTHREADS -f 83 -bq $MAPQ_THRES $bam > "$fn"/crick_paired_83.bam
+    
+    samtools view -@ $NTHREADS -f 99 -bq $MAPQ_THRES $bam > "$fn"/watson_paired_99.bam
+    samtools view -@ $NTHREADS -f 147 -bq $MAPQ_THRES $bam > "$fn"/watson_paired_147.bam
+    
     
     # http://www.samformat.info/sam-format-flag
     # crick 89 153
@@ -114,7 +121,7 @@ do
     samtools view -@ $NTHREADS -f 153 -bq $MAPQ_THRES $bam > "$fn"/crick_153.bam
     
     # watson 165 101
-    samtools view -@ $NTHREADS -f 165 -bq $MAPQ_THRES $bam > "$fn"/watson_165.bam
-    samtools view -@ $NTHREADS -f 101 -bq $MAPQ_THRES $bam > "$fn"/watson_101.bam
+    samtools view -@ $NTHREADS -f 169 -bq $MAPQ_THRES $bam > "$fn"/watson_169.bam
+    samtools view -@ $NTHREADS -f 105 -bq $MAPQ_THRES $bam > "$fn"/watson_105.bam
     
 done
