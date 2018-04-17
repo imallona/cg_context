@@ -107,6 +107,9 @@ do
 
     ## now get odd and even lines
     awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
+    rm -f tmp
+    mv bar "$(basename $bam .bam)"_stranded.txt
+    
 
 
 done
