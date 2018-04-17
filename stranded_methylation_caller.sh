@@ -17,6 +17,7 @@ NTHREADS=20
 QUALIMAP="$SOFT"/qualimap/qualimap_v2.2.1/qualimap
 METHYLDACKEL="$SOFT"/methyldackel/MethylDackel/MethylDackel
 MARKDUPLICATES=/usr/local/software/picard-tools-1.96/MarkDuplicates.jar
+BEDTOOLS="$SOFT"/bedtools/bin/bedtools
 
 MM9=/home/Shared/data/annotation/Mouse/mm9/mm9.fa
 
@@ -143,13 +144,7 @@ do
         echo $subset
         cd $fn
            
-        ## ref genome missing!
         $METHYLDACKEL mbias  --txt -@ $NTHREADS $MM9 $subset $(basename $subset .bam) 
-
-        # # $METHYLDACKEL extract \
-        # #               -@ $NTHREADS \
-        # #               --keepStrand \
-        # #               --cytosine_report \
                       
         $METHYLDACKEL extract \
                       -@ $NTHREADS \
@@ -165,3 +160,63 @@ do
         
     done
 done
+
+
+# out of curiosity, overlaps
+
+head -10000 watson_paired_147_CpG.bedGraph > watson147.head
+head -10000 crick_paired_83_CpG.bedGraph > crick83.head
+
+bedtools intersect -sorted \
+         -a watson147.head \
+         -b crick83.head | wc -l
+
+mysql --user=genome \
+      --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from mm9.chromInfo" > mm9.genome
+
+bedtools slop -i  watson147.head -g mm9.genome -l 0 -r 0 | 
+    bedtools intersect \
+             -wa -wb \
+             -sorted \
+             -a - \
+             -b crick83.head | head
+
+
+bedtools slop -i  watson147.head -g mm9.genome -l 0 -r 1 | 
+    bedtools intersect \
+             -wa -wb \
+             -sorted \
+             -a - \
+             -b crick83.head | head -2
+
+fgrep 3008937 watson147.head
+
+## ok, makes sense
+
+## let's extract the same for each C
+
+
+for bam in 20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked.bam
+do
+    echo $bam
+    fn="$WD"/$(basename $bam .bam)
+
+    for subset in $(find $fn -name "*bam")
+    do
+        echo $subset
+        cd $fn
+
+        $METHYLDACKEL extract \
+                      -@ $NTHREADS \
+                      --cytosine_report \
+                      $MM9 \
+                      $subset \
+                      -o $(basename $subset .bam) 
+
+        cd ..
+        
+    done
+done
+
+## actually this is all stupid, better do that directly to the first bam file,
+## without flag parsing
