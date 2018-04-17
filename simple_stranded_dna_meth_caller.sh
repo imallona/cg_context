@@ -50,38 +50,65 @@ do
 
     # now fetching the sequence for each c context
 
-    # awk '{OFS=FS="\t"; print $1,$2,$2+1,$4,$5,$3,$7}' 20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked.cytosine_report.txt  | head > tmp
-    
-    # "$BEDTOOLS" slop -i tmp \
-    #             -g mm9.genome \
-    #             -l 2 -r 2 -s | \
-    #     "$BEDTOOLS" getfasta -fi $MM9 \
-    #                 -bed - \
-    #                 -fo "$(basename $bam .bam)"_cytosine_report_slop.fa \
-    #                 -tab \
-    #                 -s
+#     awk '
+# { OFS=FS="\t";
+#   if ($3=="+") print $1,$2,$2+1,$4,$5,$3,$7 ;
+#   else  print $1,$2-2,$2-1,$4,$5,$3,$7 ;
 
-    # paste tmp "$(basename $bam .bam)"_cytosine_report_slop.fa
+# }
+# ' "$(basename $bam .bam)".cytosine_report.txt  |
+#     "$BEDTOOLS" slop -i - \
+#                 -g mm9.genome \
+#                 -l 3 -r 3 | \
+#     "$BEDTOOLS" getfasta -fi $MM9 \
+#                 -bed - \
+#                 -fo "$(basename $bam .bam)"_cytosine_report_slop.fa \
+#                 -tab \
+#                 -s
+
+#     awk '
+# { OFS=FS="\t";
+#   if ($3=="+") print $1,$2-4,$2+4,$4,$5,$3,$7 ;
+#   else  print $1,$2-5,$2+3,$4,$5,$3,$7 ;
+
+# }
+# ' "$(basename $bam .bam)".cytosine_report.txt  |
+#         "$BEDTOOLS" slop -i - \
+#                     -g mm9.genome \
+#                     -l 0 -r 0 | \
+#         "$BEDTOOLS" getfasta -fi $MM9 \
+#                     -bed - \
+#                     -fo "$(basename $bam .bam)"_cytosine_report_slop.fa \
+#                     -tab \
+#                     -s
+
+    #     # crashes due to the fact it goes outside the genome boundaries
 
     awk '
 { OFS=FS="\t";
-  if ($3=="+") print $1,$2,$2+1,$4,$5,$3,$7 ;
-  else  print $1,$2-2,$2-1,$4,$5,$3,$7 ;
+  if ($3=="+") print $1,$2-1,$2,$4,$5,$3,$7 ;
+  else  print $1,$2-1,$2,$4,$5,$3,$7 ;
 
 }
-' 20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked.cytosine_report.txt  | head > tmp
-        
-    "$BEDTOOLS" slop -i tmp \
-                -g mm9.genome \
-             -l 1 -r 1 | \
+' "$(basename $bam .bam)".cytosine_report.txt  |
+        "$BEDTOOLS" slop -i - \
+                    -g mm9.genome \
+                    -l 3 -r 4 -s | \
         "$BEDTOOLS" getfasta -fi $MM9 \
-                 -bed - \
-                 -fo "$(basename $bam .bam)"_cytosine_report_slop.fa \
-                 -tab \
-                 -s
+                    -bed - \
+                    -fo "$(basename $bam .bam)"_cytosine_report_slop.fa \
+                    -tab \
+                    -s
 
-    paste tmp "$(basename $bam .bam)"_cytosine_report_slop.fa
+    # crashes due to the fact it goes outside the genome boundaries
     
+    paste "$(basename $bam .bam)".cytosine_report.txt \
+          "$(basename $bam .bam)"_cytosine_report_slop.fa > tmp
+
+    ## now get odd and even lines
+    awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
+
+
 done
 
 
