@@ -10,3 +10,20 @@ algorithm end
 
 
 Started Mon  9 Apr 08:15:16 CEST 2018
+
+
+## samples
+
+
+20151223.B-MmES_TKOD3A1c1-3_R
+    a tko with 3a1 back
+SRR1653150
+    TKO_DNMT3B1_SETD2_bisulfite_seq single
+
+    note that paired end stuff exist, but myseqs
+
+
+    https://www.ncbi.nlm.nih.gov/sra?term=SRX760029
+ 
+SRR2878513
+    mouse oocytes, control https://www.ncbi.nlm.nih.gov/sra/?term=SRR2878513
