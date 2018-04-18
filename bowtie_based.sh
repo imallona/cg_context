@@ -16,8 +16,9 @@ SOFT="$HOME"/soft
 MM9=/home/ubuntu/REPOS/annotation/mm9_genome/
 VIRTENVS=~/virtenvs
 
-NTHREADS_BOWTIE=2
+NTHREADS_BOWTIE=4
 NTHREADS_BISMARK=2
+NTHREADS=6
 
 # baubeclab soft
 BISMARK=/home/ubuntu/Soft/Bismark-0.19.0/bismark
@@ -71,5 +72,25 @@ do
                  --1 "$r1" \
                  --2 "$r2"
     ) 2>&1 | tee "$WD"/"$sample"_bismark.log
+
+    echo dedup
+
+    "$(dirname $BISMARK)"/deduplicate_bismark -p \
+                         --output_dir $WD \
+                         --bam \
+                         "$sample"1_cutadapt_sickle_bismark_bt2_pe.bam
+
+
+    echo meth extract
+
+    # bismark_methylation_extractor --bedGraph --gzip Sample2_SE_trimmed.fq.gz_bismark.bam
+    "$(dirname $BISMARK)"/bismark_methylation_extractor \
+                         --paired \
+                         --parallel $NTHREADS \
+                         --zero_based \
+                         --cytosine_report \
+                         --genome_folder $MM9 \
+                         "$sample"1_cutadapt_sickle_bismark_bt2_pe.bam
+    
 done
 
