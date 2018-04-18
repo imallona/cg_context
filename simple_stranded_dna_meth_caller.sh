@@ -33,7 +33,8 @@ mysql --user=genome \
 echo 'paired end stuff'
 
 
-for bam in 20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked.bam
+# for bam in 20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked.bam SRR2878513__bwameth_default_dup_marked.bam
+for bam in SRR2878513__bwameth_default_dup_marked.bam
 do
     echo $bam
 
