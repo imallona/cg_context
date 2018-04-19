@@ -7,7 +7,7 @@
 # GPL
 
 TASK="cg_context_test"
-DEBUG="cg_context"
+DEBUG=/home/imallona/"cg_context"
 WD=/home/imallona/"$TASK"
 DATA="$HOME"/data
 SOFT="$HOME"/soft
@@ -37,8 +37,10 @@ for sample in SRR2878513_ 20151223.B-MmES_TKOD3A1c1-3_R
 do
     source $VIRTENVS/bwa-meth/bin/activate
 
-    zcat $DEBUG/"$sample"1_cutadapt_sickle.fastq.gz | head -10000 > "$sample"1_cutadapt_sickle.fastq.gz
-    zcat $DEBUG/"$sample"2_cutadapt_sickle.fastq.gz | head -10000 > "$sample"2_cutadapt_sickle.fastq.gz
+    zcat $DEBUG/"$sample"1_cutadapt_sickle.fastq.gz | \
+        head -10000 | gzip -c  > "$sample"1_cutadapt_sickle.fastq.gz
+    zcat $DEBUG/"$sample"2_cutadapt_sickle.fastq.gz | \
+        head -10000 | gzip -c > "$sample"2_cutadapt_sickle.fastq.gz
     
     fw="$sample"1_cutadapt_sickle.fastq.gz
     rv="$sample"2_cutadapt_sickle.fastq.gz
