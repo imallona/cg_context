@@ -22,6 +22,7 @@ NTHREADS=6
 
 # baubeclab soft
 BISMARK=/home/ubuntu/Soft/Bismark-0.19.0/bismark
+QUALIMAP="$SOFT"/qualimap/qualimap_v2.2.1/qualimap
 
 cd $DATA
 
@@ -73,6 +74,18 @@ do
                  --2 "$r2"
     ) 2>&1 | tee "$WD"/"$sample"_bismark.log
 
+    echo qualimap
+    bam="$sample"1_cutadapt_sickle_bismark_bt2_pe.bam
+    samtools sort --threads $NTHREADS "$bam" > sorted.bam
+    mv -v sorted.bam $bam
+    
+    "$QUALIMAP"  bamqc \
+                 -bam "$bam" \
+                 -gd mm9 \
+                 -outdir "$(basename $bam .bam)"_qualimap \
+                 --java-mem-size=10G \
+                 -nt $NTHREADS
+    
     echo dedup
 
     "$(dirname $BISMARK)"/deduplicate_bismark -p \
