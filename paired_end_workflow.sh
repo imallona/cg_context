@@ -1,14 +1,15 @@
 #!/bin/bash
 ##
-## WGBS analysis (of trimmed cutadapted fastq.gz) for pe samples
+## WGBS analysis of SRA pe samples
 ##
 # Izaskun Mallona
 # Mon  18 2018
 # GPL
 
-TASK="cg_context_test"
-WD=/home/imallona/"$TASK"
-DATA="$HOME"/data
+cat > conf.sh << EOL
+TASK="cg_context_bulk"
+WD=~/"$TASK"
+DATA="$HOME"/"$TASK"
 SOFT="$HOME"/soft
 MM9=/home/Shared/data/annotation/Mouse/mm9/mm9.fa
 VIRTENVS=~/virtenvs
@@ -26,18 +27,81 @@ QUALIMAP="$SOFT"/qualimap/qualimap_v2.2.1/qualimap
 METHYLDACKEL="$SOFT"/methyldackel/MethylDackel/MethylDackel
 MARKDUPLICATES=/usr/local/software/picard-tools-1.96/MarkDuplicates.jar
 BEDTOOLS="$SOFT"/bedtools/bin/bedtools
+FASTQDUMP=/usr/local/software/sratoolkit.2.9.0-ubuntu64/bin/fastq-dump 
+
+
+ILLUMINA_UNIVERSAL="AGATCGGAAGAG"
+ILLUMINA="CGGTTCAGCAGGAATGCCGAGATCGGAAGAGCGGTT"
+
+
+EOL
+
+source conf.sh
 
 cd $WD
 
-source $VIRTENVS/bwa-meth/bin/activate
+mysql --user=genome \
+      --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from mm9.chromInfo" > mm9.genome
+
+## fetching paired end as well
+# https://trace.ncbi.nlm.nih.gov/Traces/study/?acc=SRP041760
 
 ## paired end stuff
-for sample in SRR2878513_ 
+for sample in SRR2878513 SRR2878520 SRR1274742 SRR1274743 SRR1274744 SRR1274745 SRR1653162
 do
-    source $VIRTENVS/bwa-meth/bin/activate
 
-    fw="$sample"1_cutadapt_sickle.fastq.gz
-    rv="$sample"2_cutadapt_sickle.fastq.gz
+    $FASTQDUMP -I --gzip --split-files $sample
+
+    for r in 1 2
+    do
+        curr=${WD}/${sample}
+        mkdir -p $curr
+    
+        $FASTQC ${WD}/"$sample"_"$r".fastq.gz --outdir ${curr} \
+                -t $NTHREADS &> ${curr}/${sample}_fastqc.log
+
+        source $VIRTENVS/cutadapt/bin/activate
+        source soft.sh
+        
+        cutadapt \
+            -j $NTHREADS \
+            -b $ILLUMINA_UNIVERSAL -b $ILLUMINA \
+            -B $ILLUMINA_UNIVERSAL -B $ILLUMINA \
+            -o "$WD"/"${sample}"_1_cutadapt.fastq.gz \
+            -p "$WD"/"${sample}"_2_cutadapt.fastq.gz \
+            "$DATA"/"$sample"_1.fastq.gz "$DATA"/"$sample"_2.fastq.gz &> "$WD"/"$sample"_cutadapt.log
+
+        deactivate
+
+
+    done
+
+    "$SICKLE" pe \
+              -f "$WD"/"$sample"_1_cutadapt.fastq.gz \
+              -r "$WD"/"$sample"_2_cutadapt.fastq.gz \
+              -o "$WD"/"$sample"_1_cutadapt_sickle.fastq.gz \
+              -p "$WD"/"$sample"_2_cutadapt_sickle.fastq.gz \
+              -t sanger \
+              -s "$WD"/"$sample"_cutadapt_sickle_singles.fastq.gz \
+              -g &> "$WD"/"$sample"_cutadapt_sickle.log
+
+
+    rm -f "$WD"/"${sample}"_1_cutadapt.fastq.gz "$WD"/"${sample}"_2_cutadapt.fastq.gz
+    
+    for r in 1 2
+    do
+        curr="$sample"_"$read"_cutadapt_sickle
+        mkdir -p "$WD"/"$curr"
+        $FASTQC "$WD"/${sample}_"$read"_cutadapt_sickle.fastq.gz \
+                --outdir "$WD"/"$curr" \
+                -t $NTHREADS &> ${curr}/${sample}_"$read"_fastqc.log
+    done    
+
+    source $VIRTENVS/bwa-meth/bin/activate
+    source conf.sh
+    
+    fw="$sample"_1_cutadapt_sickle.fastq.gz
+    rv="$sample"_2_cutadapt_sickle.fastq.gz
 
     ( bwameth.py --reference "$MM9" \
                  $fw $rv \
@@ -99,5 +163,4 @@ do
     mv -f bar "$(basename $bam .bam)"_stranded.txt
 
 done
-
 
