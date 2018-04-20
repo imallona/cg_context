@@ -7,13 +7,10 @@
 # GPL
 
 cat > conf.sh << EOL
-#!/bin/bash
-#
-# taupo soft
-
+HOME=/home/imallona
 TASK="cg_context_bulk"
-WD=~/"$TASK"
-DATA="$HOME"/"$TASK"
+WD="$HOME"/"$TASK"
+DATA="$WD"
 SOFT="$HOME"/soft
 MM9=/home/Shared/data/annotation/Mouse/mm9/mm9.fa
 VIRTENVS=~/virtenvs
@@ -22,7 +19,6 @@ NTHREADS=12
 
 MAPQ_THRES=40
 
-# taupo soft
 FASTQC=/usr/local/software/FastQC/fastqc
 SICKLE="$HOME"/soft/sickle/sickle-1.33/sickle
 ##CUTADAPT=/usr/local/bin/cutadapt
@@ -39,9 +35,13 @@ ILLUMINA="CGGTTCAGCAGGAATGCCGAGATCGGAAGAGCGGTT"
 
 EOL
 
+set -a
 source conf.sh
+set +a
 
-cd $WD
+mkdir -p $WD
+
+cd $_
 
 mysql --user=genome \
       --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from mm9.chromInfo" > mm9.genome
