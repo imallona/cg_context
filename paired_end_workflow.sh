@@ -7,6 +7,10 @@
 # GPL
 
 cat > conf.sh << EOL
+#!/bin/bash
+#
+# taupo soft
+
 TASK="cg_context_bulk"
 WD=~/"$TASK"
 DATA="$HOME"/"$TASK"
@@ -32,7 +36,6 @@ FASTQDUMP=/usr/local/software/sratoolkit.2.9.0-ubuntu64/bin/fastq-dump
 
 ILLUMINA_UNIVERSAL="AGATCGGAAGAG"
 ILLUMINA="CGGTTCAGCAGGAATGCCGAGATCGGAAGAGCGGTT"
-
 
 EOL
 
