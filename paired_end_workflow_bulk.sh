@@ -6,45 +6,34 @@
 # Mon  18 apr 2018
 # GPL
 
-echo 'BEING REBUILT'
+export HOME=/home/imallona
+export TASK="cg_context_bulk"
+export CONF="$HOME"/"$TASK"/conf.sh
 
-HOME=/home/imallona
-TASK="cg_context_bulk"
-CONF="$HOME"/"$TASK"/conf.sh
+export HOME=/home/imallona
+export TASK="cg_context_bulk"
+export WD="$HOME"/"$TASK"
+export DATA="$HOME"/"$TASK"
+export SOFT="$HOME"/soft
+export MM9=/home/Shared/data/annotation/Mouse/mm9/mm9.fa
+export VIRTENVS=~/virtenvs
 
-## this is rather stupid, just export them
-cat > "$CONF" << EOL
-HOME=/home/imallona
-TASK="cg_context_bulk"
-WD="$HOME"/"$TASK"
-DATA="$HOME"/"$TASK"
-SOFT="$HOME"/soft
-MM9=/home/Shared/data/annotation/Mouse/mm9/mm9.fa
-VIRTENVS=~/virtenvs
+export NTHREADS=18
 
-NTHREADS=18
+export MAPQ_THRES=40
 
-MAPQ_THRES=40
+export FASTQC=/usr/local/software/FastQC/fastqc
+export SICKLE="$HOME"/soft/sickle/sickle-1.33/sickle
+export ##CUTADAPT=/usr/local/bin/cutadapt
+export CUTADAPT="$VIRTENVS"/cutadapt/bin/cutadapt
+export QUALIMAP="$SOFT"/qualimap/qualimap_v2.2.1/qualimap
+export METHYLDACKEL="$SOFT"/methyldackel/MethylDackel/MethylDackel
+export MARKDUPLICATES=/usr/local/software/picard-tools-1.96/MarkDuplicates.jar
+export BEDTOOLS="$SOFT"/bedtools/bin/bedtools
+export FASTQDUMP=/usr/local/software/sratoolkit.2.9.0-ubuntu64/bin/fastq-dump 
 
-FASTQC=/usr/local/software/FastQC/fastqc
-SICKLE="$HOME"/soft/sickle/sickle-1.33/sickle
-##CUTADAPT=/usr/local/bin/cutadapt
-CUTADAPT="$VIRTENVS"/cutadapt/bin/cutadapt
-QUALIMAP="$SOFT"/qualimap/qualimap_v2.2.1/qualimap
-METHYLDACKEL="$SOFT"/methyldackel/MethylDackel/MethylDackel
-MARKDUPLICATES=/usr/local/software/picard-tools-1.96/MarkDuplicates.jar
-BEDTOOLS="$SOFT"/bedtools/bin/bedtools
-FASTQDUMP=/usr/local/software/sratoolkit.2.9.0-ubuntu64/bin/fastq-dump 
-
-
-ILLUMINA_UNIVERSAL="AGATCGGAAGAG"
-ILLUMINA="CGGTTCAGCAGGAATGCCGAGATCGGAAGAGCGGTT"
-
-EOL
-
-set -a
-source conf.sh
-set +a
+export ILLUMINA_UNIVERSAL="AGATCGGAAGAG"
+export ILLUMINA="CGGTTCAGCAGGAATGCCGAGATCGGAAGAGCGGTT"
 
 mkdir -p $WD
 
@@ -57,12 +46,13 @@ mysql --user=genome \
 # https://trace.ncbi.nlm.nih.gov/Traces/study/?acc=SRP041760
 
 ## paired end stuff
-for sample in SRR2878513 SRR2878520 SRR1274742 SRR1274743 SRR1274744 SRR1274745 SRR1653162
+for sample in SRR2878520 SRR1274742 SRR1274743 SRR1274744 SRR1274745 SRR1653162 SRR2878513 
 do
 
     echo 'uncomment to download'
     # $FASTQDUMP -I --gzip --split-files $sample
     export sample="$sample"
+    echo $sample
     
     for r in 1 2
     do
@@ -72,25 +62,20 @@ do
         $FASTQC ${WD}/"$sample"_"$r".fastq.gz --outdir ${curr} \
                 -t $NTHREADS &> ${curr}/${sample}_fastqc.log
 
-        source $VIRTENVS/cutadapt/bin/activate
-        
-        HOME=/home/imallona
-        TASK="cg_context_bulk"
-        CONF="$HOME"/"$TASK"/conf.sh
-        source "$CONF"
-        
-        cutadapt \
-            -j $NTHREADS \
-            -b $ILLUMINA_UNIVERSAL -b $ILLUMINA \
-            -B $ILLUMINA_UNIVERSAL -B $ILLUMINA \
-            -o "$WD"/"${sample}"_1_cutadapt.fastq.gz \
-            -p "$WD"/"${sample}"_2_cutadapt.fastq.gz \
-            "$DATA"/"$sample"_1.fastq.gz "$DATA"/"$sample"_2.fastq.gz &> "$WD"/"$sample"_cutadapt.log
-
-        deactivate
-
-
     done
+
+    source $VIRTENVS/cutadapt/bin/activate
+    
+    cutadapt \
+        -j $NTHREADS \
+        -b $ILLUMINA_UNIVERSAL -b $ILLUMINA \
+        -B $ILLUMINA_UNIVERSAL -B $ILLUMINA \
+        -o "$WD"/"${sample}"_1_cutadapt.fastq.gz \
+        -p "$WD"/"${sample}"_2_cutadapt.fastq.gz \
+        "$DATA"/"$sample"_1.fastq.gz "$DATA"/"$sample"_2.fastq.gz &> "$WD"/"$sample"_cutadapt.log
+
+    deactivate
+
 
     "$SICKLE" pe \
               -f "$WD"/"$sample"_1_cutadapt.fastq.gz \
@@ -114,11 +99,7 @@ do
     done    
 
     source $VIRTENVS/bwa-meth/bin/activate
-    HOME=/home/imallona
-    TASK="cg_context_bulk"
-    CONF="$HOME"/"$TASK"/conf.sh
-    source "$CONF"
-    
+        
     fw="$sample"_1_cutadapt_sickle.fastq.gz
     rv="$sample"_2_cutadapt_sickle.fastq.gz
 
