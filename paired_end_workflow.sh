@@ -6,7 +6,11 @@
 # Mon  18 2018
 # GPL
 
-cat > conf.sh << EOL
+HOME=/home/imallona
+TASK="cg_context_bulk"
+CONF="$HOME"/"$TASK"/conf.sh
+
+cat > "$CONF" << EOL
 HOME=/home/imallona
 TASK="cg_context_bulk"
 WD="$HOME"/"$TASK"
@@ -15,7 +19,7 @@ SOFT="$HOME"/soft
 MM9=/home/Shared/data/annotation/Mouse/mm9/mm9.fa
 VIRTENVS=~/virtenvs
 
-NTHREADS=12
+NTHREADS=18
 
 MAPQ_THRES=40
 
@@ -53,7 +57,8 @@ mysql --user=genome \
 for sample in SRR2878513 SRR2878520 SRR1274742 SRR1274743 SRR1274744 SRR1274745 SRR1653162
 do
 
-    $FASTQDUMP -I --gzip --split-files $sample
+    echo 'uncomment to download'
+    # $FASTQDUMP -I --gzip --split-files $sample
 
     for r in 1 2
     do
@@ -64,7 +69,11 @@ do
                 -t $NTHREADS &> ${curr}/${sample}_fastqc.log
 
         source $VIRTENVS/cutadapt/bin/activate
-        source soft.sh
+        
+        HOME=/home/imallona
+        TASK="cg_context_bulk"
+        CONF="$HOME"/"$TASK"/conf.sh
+        source "$CONF"
         
         cutadapt \
             -j $NTHREADS \
@@ -93,15 +102,18 @@ do
     
     for r in 1 2
     do
-        curr="$sample"_"$read"_cutadapt_sickle
+        curr="$sample"_"$r"_cutadapt_sickle
         mkdir -p "$WD"/"$curr"
-        $FASTQC "$WD"/${sample}_"$read"_cutadapt_sickle.fastq.gz \
+        $FASTQC "$WD"/${sample}_"$r"_cutadapt_sickle.fastq.gz \
                 --outdir "$WD"/"$curr" \
-                -t $NTHREADS &> ${curr}/${sample}_"$read"_fastqc.log
+                -t $NTHREADS &> ${curr}/${sample}_"$r"_fastqc.log
     done    
 
     source $VIRTENVS/bwa-meth/bin/activate
-    source conf.sh
+    HOME=/home/imallona
+    TASK="cg_context_bulk"
+    CONF="$HOME"/"$TASK"/conf.sh
+    source "$CONF"
     
     fw="$sample"_1_cutadapt_sickle.fastq.gz
     rv="$sample"_2_cutadapt_sickle.fastq.gz
