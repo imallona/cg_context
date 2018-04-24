@@ -126,7 +126,6 @@ do
     ## bwameth doesn't like reads with different read names, treats them as single end
     zcat $fw | sed 's/\.1 /\ 1 /g' | gzip -c  > "$fw"_ed.gz
     zcat $rv | sed 's/\.2 /\ 2 /g'  | gzip -c > "$rv"_ed.gz
-
     mv "$fw"_ed.gz  "$fw"
     mv "$rv"_ed.gz "$rv"
     
@@ -151,6 +150,8 @@ do
     
     java -jar -XX:ParallelGCThreads=$NTHREADS \
          $MARKDUPLICATES INPUT=$WD/"$bam" \
+         REMOVE_DUPLICATES=TRUE \
+         REMOVE_SEQUENCING_DUPLICATES=TRUE \
          OUTPUT=$WD/"$(basename $bam .bam)""_dup_marked.bam" \
          METRICS_FILE=$WD/"$(basename $bam .bam)""_dup_marked.metrics"
 

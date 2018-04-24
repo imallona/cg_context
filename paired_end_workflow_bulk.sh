@@ -130,6 +130,8 @@ do
     
     java -jar -XX:ParallelGCThreads=$NTHREADS \
          $MARKDUPLICATES INPUT=$WD/"$bam" \
+         REMOVE_DUPLICATES=TRUE \
+         REMOVE_SEQUENCING_DUPLICATES=TRUE \
          OUTPUT=$WD/"$(basename $bam .bam)""_dup_marked.bam" \
          METRICS_FILE=$WD/"$(basename $bam .bam)""_dup_marked.metrics"
 
