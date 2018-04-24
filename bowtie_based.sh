@@ -24,6 +24,8 @@ NTHREADS=6
 BISMARK=/home/ubuntu/Soft/Bismark-0.19.0/bismark
 QUALIMAP="$SOFT"/qualimap/qualimap_v2.2.1/qualimap
 
+MAPQ=40
+
 cd $DATA
 
 echo 'rsync -a -v imallona@imlstaupo.uzh.ch:/home/imallona/cg_context/*cutadapt_sickle.fastq.gz'
@@ -50,10 +52,10 @@ do
                --se "$fastq" ) 2>&1 | tee "$WD"/"$sample"_bismark.log
 done
 
-# echo paired end
+# echo single end
 
 
-for sample in SRR2878513_ 20151223.B-MmES_TKOD3A1c1-3_R
+for sample in 20151223.B-MmES_TKOD3A1c1-3_R SRR2878513_
 do
     echo $sample
     r1="$DATA"/"$sample"1_cutadapt_sickle.fastq.gz
@@ -107,3 +109,116 @@ do
     
 done
 
+
+## broken at some point, let-s call the meth since de dedup worked
+bam=SRR1653150_1_cutadapt_sickle_bismark_bt2.bam
+"$(dirname $BISMARK)"/deduplicate_bismark -s \
+                     --output_dir $WD \
+                     --bam \
+                     "$bam"
+
+
+# for sample in 20151223.B-MmES_TKOD3A1c1-3 SRR2878513
+# do
+   
+#     echo meth extract
+
+#     "$(dirname $BISMARK)"/bismark_methylation_extractor \
+#                          --paired \
+#                          --parallel $NTHREADS \
+#                          --zero_based \
+#                          --cytosine_report \
+#                          --genome_folder $MM9 \
+#                          "$sample"*_cutadapt_sickle_bismark_bt2_*e.deduplicated.bam
+    
+# done
+
+
+# ## again, deduplicating 150
+
+# for se_sample in SRR1653150
+# do
+   
+#     echo meth extract
+#     echo "$se_sample"
+
+#     "$(dirname $BISMARK)"/bismark_methylation_extractor \
+#                          --single-end \
+#                          --parallel $NTHREADS \
+#                          --zero_based \
+#                          --cytosine_report \
+#                          --genome_folder $MM9 \
+#                          "$se_sample"*_cutadapt_sickle_bismark_bt2.deduplicated.bam
+    
+# done
+
+
+
+for sample in 20151223.B-MmES_TKOD3A1c1-3 SRR2878513
+do
+   
+    echo meth extract
+
+    "$(dirname $BISMARK)"/bismark_methylation_extractor \
+                         --paired \
+                         --parallel $NTHREADS \
+                         --zero_based \
+                         --cytosine_report \
+                         --genome_folder $MM9 \
+                         "$sample"*_cutadapt_sickle_bismark_bt2_*e.deduplicated.bam
+    
+done
+
+
+## again, calls after mapq filtering
+# cannot pipe this properly
+
+for se_sample in SRR1653150
+do
+   
+    echo meth extract
+    echo "$se_sample"
+
+    samtools view \
+             -q $MAPQ \
+             -@ $NTHREADS \
+             -b "$se_sample"*_cutadapt_sickle_bismark_bt2.deduplicated.bam > \
+             "$se_sample"*_cutadapt_sickle_bismark_bt2.deduplicated_mapq"$MAPQ".bam
+
+    "$(dirname $BISMARK)"/bismark_methylation_extractor \
+                         --single-end \
+                         --parallel $NTHREADS \
+                         --zero_based \
+                         --cytosine_report \
+                         --genome_folder $MM9 \
+                         --gzip \
+                         "$se_sample"*_cutadapt_sickle_bismark_bt2.deduplicated_mapq"$MAPQ".bam
+
+    rm  "$se_sample"*_cutadapt_sickle_bismark_bt2.deduplicated_mapq"$MAPQ".bam
+    
+done
+
+for sample in 20151223.B-MmES_TKOD3A1c1-3 SRR2878513
+do
+   
+    echo meth extract
+    echo $sample
+
+    samtools view \
+             -@ $NTHREADS \
+             -q $MAPQ \
+             -b  "$sample"*_cutadapt_sickle_bismark_bt2_*e.deduplicated.bam > \
+             "$sample"*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq"$MAPQ".bam
+
+    "$(dirname $BISMARK)"/bismark_methylation_extractor \
+                         --paired \
+                         --parallel $NTHREADS \
+                         --zero_based \
+                         --cytosine_report \
+                         --gzip \
+                         --genome_folder $MM9 \
+                         "$sample"*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq"$MAPQ".bam
+
+    rm "$sample"*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq"$MAPQ".bam
+    
+done
