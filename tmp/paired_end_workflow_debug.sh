@@ -64,39 +64,39 @@ do
 
     # done
 
-    # source $VIRTENVS/cutadapt/bin/activate
+    source $VIRTENVS/cutadapt/bin/activate
     
-    # cutadapt \
-    #     -j $NTHREADS \
-    #     -b $ILLUMINA_UNIVERSAL -b $ILLUMINA \
-    #     -B $ILLUMINA_UNIVERSAL -B $ILLUMINA \
-    #     -o "$WD"/"${sample}"_1_cutadapt.fastq.gz \
-    #     -p "$WD"/"${sample}"_2_cutadapt.fastq.gz \
-    #     "$DATA"/"$sample"_1.fastq.gz "$DATA"/"$sample"_2.fastq.gz &> "$WD"/"$sample"_cutadapt.log
+    cutadapt \
+        -j $NTHREADS \
+        -b $ILLUMINA_UNIVERSAL -b $ILLUMINA \
+        -B $ILLUMINA_UNIVERSAL -B $ILLUMINA \
+        -o "$WD"/"${sample}"_1_cutadapt.fastq.gz \
+        -p "$WD"/"${sample}"_2_cutadapt.fastq.gz \
+        "$DATA"/"$sample"_1.fastq.gz "$DATA"/"$sample"_2.fastq.gz &> "$WD"/"$sample"_cutadapt.log
 
-    # deactivate
-
-
-    # "$SICKLE" pe \
-    #           -f "$WD"/"$sample"_1_cutadapt.fastq.gz \
-    #           -r "$WD"/"$sample"_2_cutadapt.fastq.gz \
-    #           -o "$WD"/"$sample"_1_cutadapt_sickle.fastq.gz \
-    #           -p "$WD"/"$sample"_2_cutadapt_sickle.fastq.gz \
-    #           -t sanger \
-    #           -s "$WD"/"$sample"_cutadapt_sickle_singles.fastq.gz \
-    #           -g &> "$WD"/"$sample"_cutadapt_sickle.log
+    deactivate
 
 
-    # rm -f "$WD"/"${sample}"_1_cutadapt.fastq.gz "$WD"/"${sample}"_2_cutadapt.fastq.gz
+    "$SICKLE" pe \
+              -f "$WD"/"$sample"_1_cutadapt.fastq.gz \
+              -r "$WD"/"$sample"_2_cutadapt.fastq.gz \
+              -o "$WD"/"$sample"_1_cutadapt_sickle.fastq.gz \
+              -p "$WD"/"$sample"_2_cutadapt_sickle.fastq.gz \
+              -t sanger \
+              -s "$WD"/"$sample"_cutadapt_sickle_singles.fastq.gz \
+              -g &> "$WD"/"$sample"_cutadapt_sickle.log
+
+
+    rm -f "$WD"/"${sample}"_1_cutadapt.fastq.gz "$WD"/"${sample}"_2_cutadapt.fastq.gz
     
-    # for r in 1 2
-    # do
-    #     curr="$sample"_"$r"_cutadapt_sickle
-    #     mkdir -p "$WD"/"$curr"
-    #     $FASTQC "$WD"/${sample}_"$r"_cutadapt_sickle.fastq.gz \
-    #             --outdir "$WD"/"$curr" \
-    #             -t $NTHREADS &> ${curr}/${sample}_"$r"_fastqc.log
-    # done    
+    for r in 1 2
+    do
+        curr="$sample"_"$r"_cutadapt_sickle
+        mkdir -p "$WD"/"$curr"
+        $FASTQC "$WD"/${sample}_"$r"_cutadapt_sickle.fastq.gz \
+                --outdir "$WD"/"$curr" \
+                -t $NTHREADS &> ${curr}/${sample}_"$r"_fastqc.log
+    done    
 
     source $VIRTENVS/bwa-meth/bin/activate
     
