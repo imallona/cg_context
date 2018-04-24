@@ -54,52 +54,52 @@ do
     export sample="$sample"
     echo $sample
     
-    for r in 1 2
-    do
-        curr=${WD}/${sample}
-        mkdir -p $curr
+    # for r in 1 2
+    # do
+    #     curr=${WD}/${sample}
+    #     mkdir -p $curr
     
-        $FASTQC ${WD}/"$sample"_"$r".fastq.gz --outdir ${curr} \
-                -t $NTHREADS &> ${curr}/${sample}_fastqc.log
+    #     $FASTQC ${WD}/"$sample"_"$r".fastq.gz --outdir ${curr} \
+    #             -t $NTHREADS &> ${curr}/${sample}_fastqc.log
 
-    done
+    # done
 
-    source $VIRTENVS/cutadapt/bin/activate
+    # source $VIRTENVS/cutadapt/bin/activate
     
-    cutadapt \
-        -j $NTHREADS \
-        -b $ILLUMINA_UNIVERSAL -b $ILLUMINA \
-        -B $ILLUMINA_UNIVERSAL -B $ILLUMINA \
-        -o "$WD"/"${sample}"_1_cutadapt.fastq.gz \
-        -p "$WD"/"${sample}"_2_cutadapt.fastq.gz \
-        "$DATA"/"$sample"_1.fastq.gz "$DATA"/"$sample"_2.fastq.gz &> "$WD"/"$sample"_cutadapt.log
+    # cutadapt \
+    #     -j $NTHREADS \
+    #     -b $ILLUMINA_UNIVERSAL -b $ILLUMINA \
+    #     -B $ILLUMINA_UNIVERSAL -B $ILLUMINA \
+    #     -o "$WD"/"${sample}"_1_cutadapt.fastq.gz \
+    #     -p "$WD"/"${sample}"_2_cutadapt.fastq.gz \
+    #     "$DATA"/"$sample"_1.fastq.gz "$DATA"/"$sample"_2.fastq.gz &> "$WD"/"$sample"_cutadapt.log
 
-    deactivate
-
-
-    "$SICKLE" pe \
-              -f "$WD"/"$sample"_1_cutadapt.fastq.gz \
-              -r "$WD"/"$sample"_2_cutadapt.fastq.gz \
-              -o "$WD"/"$sample"_1_cutadapt_sickle.fastq.gz \
-              -p "$WD"/"$sample"_2_cutadapt_sickle.fastq.gz \
-              -t sanger \
-              -s "$WD"/"$sample"_cutadapt_sickle_singles.fastq.gz \
-              -g &> "$WD"/"$sample"_cutadapt_sickle.log
+    # deactivate
 
 
-    rm -f "$WD"/"${sample}"_1_cutadapt.fastq.gz "$WD"/"${sample}"_2_cutadapt.fastq.gz
+    # "$SICKLE" pe \
+    #           -f "$WD"/"$sample"_1_cutadapt.fastq.gz \
+    #           -r "$WD"/"$sample"_2_cutadapt.fastq.gz \
+    #           -o "$WD"/"$sample"_1_cutadapt_sickle.fastq.gz \
+    #           -p "$WD"/"$sample"_2_cutadapt_sickle.fastq.gz \
+    #           -t sanger \
+    #           -s "$WD"/"$sample"_cutadapt_sickle_singles.fastq.gz \
+    #           -g &> "$WD"/"$sample"_cutadapt_sickle.log
+
+
+    # rm -f "$WD"/"${sample}"_1_cutadapt.fastq.gz "$WD"/"${sample}"_2_cutadapt.fastq.gz
     
-    for r in 1 2
-    do
-        curr="$sample"_"$r"_cutadapt_sickle
-        mkdir -p "$WD"/"$curr"
-        $FASTQC "$WD"/${sample}_"$r"_cutadapt_sickle.fastq.gz \
-                --outdir "$WD"/"$curr" \
-                -t $NTHREADS &> ${curr}/${sample}_"$r"_fastqc.log
-    done    
+    # for r in 1 2
+    # do
+    #     curr="$sample"_"$r"_cutadapt_sickle
+    #     mkdir -p "$WD"/"$curr"
+    #     $FASTQC "$WD"/${sample}_"$r"_cutadapt_sickle.fastq.gz \
+    #             --outdir "$WD"/"$curr" \
+    #             -t $NTHREADS &> ${curr}/${sample}_"$r"_fastqc.log
+    # done    
 
     source $VIRTENVS/bwa-meth/bin/activate
-        
+    
     fw="$sample"_1_cutadapt_sickle.fastq.gz
     rv="$sample"_2_cutadapt_sickle.fastq.gz
 
@@ -108,9 +108,10 @@ do
     zcat $rv | sed 's/\.2 /\ 2 /g'  | gzip -c > "$rv"_ed.gz
     mv "$fw"_ed.gz  "$fw"
     mv "$rv"_ed.gz "$rv"
-
+        
     ( bwameth.py --reference "$MM9" \
-                 $fw $rv \
+                 "$fw" \
+                 "$rv" \
                  --threads $NTHREADS |  \
             samtools view -bS - | \
             samtools sort  - > \
@@ -166,6 +167,7 @@ do
     ## now get odd and even lines
     awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
     rm -f tmp
+    rm -f "$(basename $bam .bam)"_cytosine_report_slop.fa
     mv -f bar "$(basename $bam .bam)"_stranded.txt
 
 done

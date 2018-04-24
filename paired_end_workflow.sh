@@ -60,7 +60,7 @@ mysql --user=genome \
 for sample in SRR2878513 SRR2878520 SRR1274742 SRR1274743 SRR1274744 SRR1274745 SRR1653162
 do
 
-    echo 'uncomment to download'
+    echo 'uncomment to download and preprocess'
     # $FASTQDUMP -I --gzip --split-files $sample
     export sample="$sample"
     
@@ -122,6 +122,14 @@ do
     fw="$sample"_1_cutadapt_sickle.fastq.gz
     rv="$sample"_2_cutadapt_sickle.fastq.gz
 
+
+    ## bwameth doesn't like reads with different read names, treats them as single end
+    zcat $fw | sed 's/\.1 /\ 1 /g' | gzip -c  > "$fw"_ed.gz
+    zcat $rv | sed 's/\.2 /\ 2 /g'  | gzip -c > "$rv"_ed.gz
+
+    mv "$fw"_ed.gz  "$fw"
+    mv "$rv"_ed.gz "$rv"
+    
     ( bwameth.py --reference "$MM9" \
                  $fw $rv \
                  --threads $NTHREADS |  \
