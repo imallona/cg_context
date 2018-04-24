@@ -9,3 +9,5 @@
 
 
 # this is getting messy, let's clarify
+# bowtie_based.sh                         bismark stuff
+# paired_end_workflow_bulk.sh             bwa meth paired end stuff
