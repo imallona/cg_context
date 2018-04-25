@@ -44,6 +44,7 @@ mysql --user=genome \
 
 ## fetching paired end as well
 # https://trace.ncbi.nlm.nih.gov/Traces/study/?acc=SRP041760
+echo 'mind SRX535245 and SRX535247 are not ok, some runs were dropped at GEO'
 
 ## paired end stuff
 for sample in SRR2878520 SRR1274742 SRR1274743 SRR1274744 SRR1274745 SRR1653162 SRR2878513 
@@ -159,9 +160,6 @@ do
                     -fo "$(basename $bam .bam)"_cytosine_report_slop.fa \
                     -tab \
                     -s
-
-    # crashes due to the fact it goes outside the genome boundaries
-    
     paste "$(basename $bam .bam)".cytosine_report.txt \
           "$(basename $bam .bam)"_cytosine_report_slop.fa > tmp
 
