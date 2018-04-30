@@ -259,32 +259,33 @@ for fn in 20151223.B-MmES_TKOD3A1c1-3*_cutadapt_sickle_bismark_bt2_*e.deduplicat
 do
     echo "$fn"
 
-    echo 'filtering min 10 reads, either meth o unmeth'
+    ## this is stupid, get first, filter after, if not the merging does not work
+    
+   #  echo 'filtering min 10 reads, either meth o unmeth'
 
-     zcat "$fn" | awk '{OFS=FS="\t";printf "%s%s",$0,(NR%2?FS:RS)}' | \
-        awk '
-{ 
-  OFS=FS="\t";
-if (($4+$5>=5) && ($11+$12>=5)) 
-  print $1,$2,$2+1,$4,$5,$3"\n"$8,$9,$9+1,$11,$12,$10
-}' | "$BEDTOOLS" slop -i - \
-                -g mm9.genome \
-                -l 3 -r 4 -s | \
-        "$BEDTOOLS" getfasta -fi $MM9 \
-                    -bed - \
-                    -fo "$(basename "$fn")"_slop.fa \
-                    -tab \
-                    -s
+#      zcat "$fn" | awk '{OFS=FS="\t";printf "%s%s",$0,(NR%2?FS:RS)}' | \
+#         awk '
+# { 
+#   OFS=FS="\t";
+# if (($4+$5>=5) && ($11+$12>=5)) 
+#   print $1,$2,$2+1,$4,$5,$3"\n"$8,$9,$9+1,$11,$12,$10
+# }' | "$BEDTOOLS" slop -i - \
+#                 -g mm9.genome \
+#                 -l 3 -r 4 -s | \
+#         "$BEDTOOLS" getfasta -fi $MM9 \
+#                     -bed - \
+#                     -fo "$(basename "$fn")"_slop.fa \
+#                     -tab \
+#                     -s
 
-     ## till here
+#      ## till here
 
-     # now merging
+#      # now merging
 
-     rm -f "$(basename $fn)"_slop.fa
+#      # rm -f "$(basename $fn)"_slop.fa
 
-     paste "$(basename "$bam" .bam)".cytosine_report.txt \
-           "$(basename "$bam" .bam)"_cytosine_report_slop.fa > tmp
+#      zcat "$fn" | "$(basename $fn)"_slop.fa paste -  > tmp
 
-    ## now get odd and even lines
-    awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
+#     ## now get odd and even lines
+#     awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
 done
