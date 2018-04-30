@@ -7,6 +7,7 @@
 ## GPL
 
 echo 'meant to be run at taupo, after fetching the reports from baubec if necessary'
+echo 'this is largely duplicated at bowtie_based.sh, which is the latest edit'
 
 export HOME=/home/imallona
 export TASK="cytosine_report"
