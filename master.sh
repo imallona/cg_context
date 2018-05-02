@@ -13,3 +13,4 @@
 # paired_end_workflow_bulk.sh             bwa meth paired end stuff
 # deptools_comparison.sh                  test on deptools representations just in case there were
                                              # bwa and bowtie mapping differences
+# diagnostic_plots.R                      preliminar integration

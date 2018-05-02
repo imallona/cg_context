@@ -10,6 +10,7 @@
 
 export HOME=/home/imallona
 export TASK="cg_context_bulk"
+export WD="$HOME"/"$TASK"
 
 export MM9=/home/Shared/data/annotation/Mouse/mm9/mm9.fa
 export VIRTENVS=~/virtenvs
@@ -143,3 +144,18 @@ plotPCA -in test_readCounts.npz \
 
 
 deactivate
+
+
+# some stuff on just the counts
+
+# imallona@imlstaupo:~/cg_context_bulk$ wc -l 20*stranded.txt
+#   21722957 20151223.B-MmES_TKOD3A1c1-3*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq40_stranded.txt
+#   21722957 20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked_stranded.txt
+#   43445914 total
+
+# for fn in $(find 
+
+# https://github.com/Losepacific/Correlation/blob/master/Correlation.awk
+
+
+
