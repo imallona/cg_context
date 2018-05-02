@@ -68,4 +68,93 @@ plot(log10(fd[['3a1_bwa']]$meth_c[idx] + 1), log10(fd[['3a1_bt2']]$meth_c[idx] +
 plot(log10(fd[['3a1_bwa']]$unmeth_c[idx] + 1), log10(fd[['3a1_bt2']]$unmeth_c[idx] + 1), pch = 19)
 
 dev.off()
-## not high!
+
+## let's filter by numreads
+d <- list()
+for (thres in seq(from = 0, to = 50, by = 5)) {
+    thres <- as.character(thres)
+    d[[as.character(thres)]] <- list()
+    for (item in names (fd)) {
+        toy <- fd[[item]]
+        toy <- toy[((toy$meth_w + toy$unmeth_w) >= as.numeric(thres) &
+                        (toy$meth_c + toy$unmeth_c) >= as.numeric(thres)),]
+        d[[as.character(thres)]][[item]] <- toy
+        rm(toy)
+    }
+
+    
+    set.seed(1)
+    if (nrow(d[[thres]][[1]]) >= 10000)
+        idx <- sample(x = 1:nrow(d[[thres]][[1]]), size = 10000, replace = FALSE)
+    else
+        idx <- 1:nrow(d[[thres]][[1]])
+    
+    png(file.path(WD, sprintf('preliminar_mappers_thres%s.png', thres)), height = 750, width = 1400)
+    par(mfrow = c(2, 4))
+
+    par(cex.axis = 1.4,
+        cex.lab = 1.4,
+        cex.main = 1.4,
+        cex.sub = 1.4,
+        pty = "s",
+        mar=c(5.1,4.1,4.1,2.1),
+        oma = c(4, 4, 1, 1))
+    
+    plot(d[[thres]][['3a1_bwa']]$beta_w[idx], d[[thres]][['3a1_bt2']]$beta_w[idx], pch = 19)
+
+    title(sprintf('sample %s min depth %s', '3a1' , thres), outer = TRUE, cex.main = 2)
+    
+
+    plot(d[[thres]][['3a1_bwa']]$beta_c[idx], d[[thres]][['3a1_bt2']]$beta_c[idx], pch = 19)
+
+    plot(d[[thres]][['3a1_bwa']]$beta_w[idx], d[[thres]][['3a1_bwa']]$beta_c[idx], pch = 19)
+    plot(d[[thres]][['3a1_bt2']]$beta_w[idx], d[[thres]][['3a1_bt2']]$beta_c[idx], pch = 19)
+
+
+    plot(log10(d[[thres]][['3a1_bwa']]$meth_w[idx] + 1),
+         log10(d[[thres]][['3a1_bt2']]$meth_w[idx] + 1), pch = 19)
+    plot(log10(d[[thres]][['3a1_bwa']]$unmeth_w[idx] + 1),
+         log10(d[[thres]][['3a1_bt2']]$unmeth_w[idx] + 1), pch = 19)
+
+    plot(log10(d[[thres]][['3a1_bwa']]$meth_c[idx] + 1),
+         log10(d[[thres]][['3a1_bt2']]$meth_c[idx] + 1), pch = 19)
+    plot(log10(d[[thres]][['3a1_bwa']]$unmeth_c[idx] + 1),
+         log10(d[[thres]][['3a1_bt2']]$unmeth_c[idx] + 1), pch = 19)
+
+
+    dev.off()
+    
+}
+
+## density depths, meth and unmeth
+## plot(density(df[[]]))
+
+
+## sort by coverage rank and represent
+
+sorted <- fd
+
+for (item in names(fd)){
+    sorted[[item]] <- rank(fd[[item]]$meth_w + fd[[item]]$meth_c +
+                               fd[[item]]$unmeth_w + fd[[item]]$unmeth_w, ties.method = 'last')
+   
+}
+
+
+png(file.path(WD, 'rank_comparison.png'))
+set.seed(1)
+idx <- sample(x = 1:length(sorted[[1]]), size = 10000, replace = FALSE)
+
+plot(sorted[['3a1_bwa']][idx], sorted[['3a1_bt2']][idx])
+dev.off()
+
+
+foo <- data.frame(bwa = sorted[['3a1_bwa']],
+                  bt2 = sorted[['3a1_bt2']])
+
+foo <- foo[order(foo$bwa),]
+
+
+png(file.path(WD, 'rank_comparison_sc.png'))
+smoothScatter(foo)
+dev.off()
