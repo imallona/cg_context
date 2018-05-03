@@ -4,7 +4,10 @@
 ##
 ## 17th apr 2018
 ## Izaskun Mallona
-## GPL 
+## GPL
+
+library(kmer)
+library(PMCMR)
 
 TASK <- "cg_context_bulk"
 HOME <- '/home/imallona'
@@ -158,3 +161,37 @@ foo <- foo[order(foo$bwa),]
 png(file.path(WD, 'rank_comparison_sc.png'))
 smoothScatter(foo)
 dev.off()
+
+
+## overall meth stats
+
+sapply(fd, function(x) table(x$meth_w > 0))
+sapply(fd, function(x) table(x$unmeth_w > 0))
+sapply(fd, function(x) table(x$unmeth_w > 5))
+sapply(fd, function(x) table(x$meth_w > 5))
+
+
+## anyway, let's get the kmers just in case
+
+kruskal.test(fd[['3a1_bwa']]$beta_c~as.factor(tolower(as.character(fd[['3a1_bwa']]$seq_c))))
+
+
+## monont
+kruskal.test(fd[['3a1_bwa']]$beta_c,
+             as.factor(substr(tolower(as.character(fd[['3a1_bwa']]$seq_c)), 3, 6)))
+
+ph <- posthoc.kruskal.nemenyi.test(x = fd[['3a1_bwa']]$beta_c,
+                                   g = as.factor(substr(tolower(as.character(fd[['3a1_bwa']]$seq_c)),
+                                       3, 6)),
+                                   method = 'Tukey')
+
+means <- list()
+
+for (item in names(fd)) {
+    means[[item]] <- tapply(fd[[item]]$beta_c,
+                            as.factor(substr(tolower(as.character(fd[['3a1_bwa']]$seq_c)), 3, 6)),
+                            function(x) mean(x, na.rm = TRUE))
+}
+
+if (names((means[[1]])) ==  names((means[[1]])))
+    cor.test(na.omit(as.numeric(means[[1]])), na.omit(as.numeric(means[[2]])), method = 'spearman')
