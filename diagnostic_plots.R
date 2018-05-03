@@ -184,7 +184,7 @@ ph <- posthoc.kruskal.nemenyi.test(x = fd[['3a1_bwa']]$beta_c,
                                    g = as.factor(substr(tolower(as.character(fd[['3a1_bwa']]$seq_c)),
                                        3, 6)),
                                    method = 'Tukey')
-
+## mononuc
 means <- list()
 
 for (item in names(fd)) {
@@ -195,3 +195,51 @@ for (item in names(fd)) {
 
 if (names((means[[1]])) ==  names((means[[1]])))
     cor.test(na.omit(as.numeric(means[[1]])), na.omit(as.numeric(means[[2]])), method = 'spearman')
+
+
+## dinuc
+means <- list()
+
+for (item in names(fd)) {
+    means[[item]] <- tapply(fd[[item]]$beta_c,
+                            as.factor(substr(tolower(as.character(fd[['3a1_bwa']]$seq_c)), 2, 7)),
+                            function(x) mean(x, na.rm = TRUE))
+}
+
+if (names((means[[1]])) ==  names((means[[1]])))
+    cor.test(na.omit(as.numeric(means[[1]])), na.omit(as.numeric(means[[2]])), method = 'spearman')
+
+
+## is it the same for other KOs?
+
+further <- c('SRR2878513_bwameth_default_stranded.txt',
+             'SRR1274742_bwameth_default_stranded.txt', 'SRR1274743_bwameth_default_stranded.txt',
+             'SRR1274744_bwameth_default_stranded.txt', 'SRR1274745_bwameth_default_stranded.txt',
+             'SRR1653162_bwameth_default_stranded.txt', 'SRR2878513_bwameth_default_stranded.txt',
+             'SRR2878520_bwameth_default_stranded.txt')
+
+
+for (fn in further) {
+    toy <- read.table(pipe(sprintf('fgrep -w chr17 %s',
+                                        file.path(WD, fn))), header = FALSE)[,c(8,9,4,5,17,18,13,14)]
+    ## watson and crick
+    colnames(toy) <- c('loc_w', 'seq_w', 'meth_w', 'unmeth_w',
+                       'loc_c', 'seq_c', 'meth_c', 'unmeth_c')
+
+    toy$beta_w <- toy$meth_w/(toy$meth_w + toy$unmeth_w)
+    toy$beta_c <- toy$meth_c/(toy$meth_c + toy$unmeth_c)
+
+    fd[[fn]] <- toy
+}
+
+
+means <- list()
+
+for (item in names(fd)) {
+    means[[item]] <- tapply(fd[[item]]$beta_c,
+                            as.factor(substr(tolower(as.character(fd[[item]]$seq_c)), 3, 6)),
+                            function(x) mean(x, na.rm = TRUE))
+}
+
+
+## so let's stratify each element by genomic compartement and everything

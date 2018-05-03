@@ -14,3 +14,4 @@
 # deptools_comparison.sh                  test on deptools representations just in case there were
                                              # bwa and bowtie mapping differences
 # diagnostic_plots.R                      preliminar integration
+# new_tuncay_paired_data.sh               on dnmts data
