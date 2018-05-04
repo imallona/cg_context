@@ -13,7 +13,7 @@ export SOFT="$HOME"/soft
 export MM9=/home/Shared/data/annotation/Mouse/mm9/mm9.fa
 export VIRTENVS=~/virtenvs
 
-export NTHREADS=18
+export NTHREADS=24
 
 export MAPQ_THRES=40
 
@@ -70,6 +70,13 @@ do
         scp -i ~/.ssh/cloudServer.key ubuntu@172.23.28.228:/home/ubuntu/MOUNT2/tuncay/TEMP/WGBS_FMI/"$r1".fastq.gz .
         scp -i ~/.ssh/cloudServer.key ubuntu@172.23.28.228:/home/ubuntu/MOUNT2/tuncay/TEMP/WGBS_FMI/"$r2".fastq.gz .
 
+        # ## just for testing purposes
+        # for r in "$r1" "$r2"
+        # do
+        #     zcat "$r".fastq.gz | head -10000 | gzip -c > foo
+        #     mv foo "$r".fastq.gz 
+        # done
+        
         ## process
 
         for r in "$r1" "$r2"
@@ -77,7 +84,7 @@ do
             curr="$r"_raw
             mkdir -p $curr
             
-            $FASTQC "$WD"/"$r".fastq.gz --outdir "$curr" \
+            $FASTQC "$r".fastq.gz --outdir "$curr" \
                     -t $NTHREADS &> "$curr"/"$r"_fastqc.log
         done
 
@@ -89,9 +96,11 @@ do
             -B $ILLUMINA_UNIVERSAL -B $ILLUMINA \
             -o "$r1"_cutadapt.fastq.gz \
             -p "$r2"_cutadapt.fastq.gz \
-            "$r1".fastq.gz "$r2".fastq.gz &> "$sample"/"$sample"_cutadapt.log
+            "$r1".fastq.gz "$r2".fastq.gz &> "$sample"_cutadapt.log
 
         deactivate
+
+        rm -f "$r1".fastq.gz rm -f "$r2".fastq.gz
         
         "$SICKLE" pe \
                   -f "$r1"_cutadapt.fastq.gz \
@@ -120,18 +129,18 @@ do
         rv="$r2"_cutadapt_sickle.fastq.gz
 
         ## bwameth doesn't like reads with different read names, treats them as single end
-        zcat $fw | sed 's/\.1 /\ 1 /g' | gzip -c  > "$fw"_ed.gz
-        zcat $rv | sed 's/\.2 /\ 2 /g'  | gzip -c > "$rv"_ed.gz
-        mv -f "$fw"_ed.gz  "$fw"
-        mv -f "$rv"_ed.gz "$rv"
+        # zcat $fw | sed 's/\.1 /\ 1 /g' | gzip -c  > "$fw"_ed.gz
+        # zcat $rv | sed 's/\.2 /\ 2 /g'  | gzip -c > "$rv"_ed.gz
+        # mv -f "$fw"_ed.gz  "$fw"
+        # mv -f "$rv"_ed.gz "$rv"
 
         bam="$sample"_bwameth_default.bam
 
         ( bwameth.py --reference "$MM9" \
                      "$fw" "$rv" \
                      --threads $NTHREADS |  \
-                samtools view -bS - | \
-                samtools sort  - > \
+                samtools view --threads $NTHREADS -bS - | \
+                samtools sort --threads $NTHREADS - > \
                          "$bam" ) \
             3>&1 1>&2 2>&3 | tee "$sample"_bwameth_default.log
 
@@ -164,12 +173,11 @@ do
         awk '
 { 
   OFS=FS="\t";
-  if ($3=="+") print $1,$2-1,$2,$4,$5,$3,$7 ;
-  else  print $1,$2-1,$2,$4,$5,$3,$7 ;
+   print $1,$2-1,$2,$4,$5,$3,$7;
 }
 ' "$(basename $bam .bam)".cytosine_report.txt  |
             "$BEDTOOLS" slop -i - \
-                        -g mm9.genome \
+                        -g "$WD"/mm9.genome \
                         -l 3 -r 4 -s | \
             "$BEDTOOLS" getfasta -fi $MM9 \
                         -bed - \
@@ -179,13 +187,66 @@ do
         paste "$(basename $bam .bam)".cytosine_report.txt \
               "$(basename $bam .bam)"_cytosine_report_slop.fa > tmp
 
+        rm -rf "$(basename $bam .bam)"_cytosine_report_slop.fa
         ## now get odd and even lines
         awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
-        rm -f tmp
+        rm -f tmp 
         mv -f bar "$(basename $bam .bam)"_stranded.txt
+
+#         ## this crashes when pairing both strands, if one exceeds the genome size
+#         ## let's simplify taking a strand
         
-        rm -f "$r1".fastq.gz
-        rm -f "$r2".fastq.gz
+#         awk '
+# { 
+#   OFS=FS="\t"; 
+#    if ($3=="+") print $1,$2-1,$2,$4,$5,$3,$7;
+# }
+# ' "$(basename $bam .bam)".cytosine_report.txt  |
+#             "$BEDTOOLS" slop -i - \
+#                         -g "$WD"/mm9.genome \
+#                         -l 3 -r 4 -s > positive_ranges
+
+#         "$BEDTOOLS" getfasta -fi $MM9 \
+#                     -bed positive_ranges \
+#                     -fo "$(basename $bam .bam)"_cytosine_report_slop.fa \
+#                     -tab \
+#                     -s
+#         paste positive_ranges \
+#               "$(basename $bam .bam)"_cytosine_report_slop.fa > tmp
+
+#     #     rm -rf "$(basename $bam .bam)"_cytosine_report_slop.fa
+#     #     ## now get odd and even lines
+#     #     awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
+#     #     rm -f tmp 
+#     #     mv -f bar "$(basename $bam .bam)"_stranded.txt    
+
+
+# ## nop, the problem are duplicate entries
+#                 awk '
+# { 
+#   OFS=FS="\t";
+#    print $1,$2-1,$2,$4,$5,$3,$7;
+# }
+# ' "$(basename $bam .bam)".cytosine_report.txt  |
+#             "$BEDTOOLS" slop -i - \
+#                         -g "$WD"/mm9.genome \
+#                         -l 3 -r 4 -s | fgrep chr13 | fgrep 120284312 | head
+
+#                 Feature (chr13:120284312-125194607) beyond the length of chr13 size (120284312 bp).  Skipping.
+# Feature (chr13:120284312-125194634) beyond the length of chr13 size (120284312 bp).  Skipping.
+# Feature (chr13:120284312-125194634) beyond the length of chr13 size (120284312 bp).  Skipping.
+                
+
+## nop, the problem are duplicate entries
+fgrep chr19 "$(basename $bam .bam)".cytosine_report.txt | \
+    awk '
+{ 
+  OFS=FS="\t";
+   print $1,$2-1,$2,$4,$5,$3,$7;
+}
+' - | "$BEDTOOLS" slop -i - \
+                        -g "$WD"/mm9.genome \
+                        -l 3 -r 4 -s |  fgrep 61342430 | head
 
         echo "$(date) Processing sample $sample ended"
                 
@@ -194,3 +255,39 @@ do
     done < "$fn"
 done
 
+fgrep chr19 *report.txt | fgrep 6134238
+
+
+fgrep chr19 "$(basename $bam .bam)".cytosine_report.txt | \
+     awk '
+ {
+   OFS=FS="\t";
+    print $1,$2-1,$2,$4,$5,$3,$7;
+ }
+ '  | fgrep 6134238
+
+
+## this crashes
+fgrep chr19 "$(basename $bam .bam)".cytosine_report.txt | \
+     awk '
+ {
+   OFS=FS="\t";
+    print $1,$2-1,$2,$4,$5,$3,$7;
+ }
+ ' - | "$BEDTOOLS" slop -i - \
+                        -g "$WD"/mm9.genome \
+                        -l 3 -r 4 -s |  fgrep 61342430 | head
+
+
+## this crashes
+fgrep chr19 "$(basename $bam .bam)".cytosine_report.txt | \
+     awk '
+ {
+   OFS=FS="\t";
+    print $1,$2-1,$2,$4,$5,$3,$7;
+ }
+ ' > test
+
+"$BEDTOOLS" slop -i test \
+            -g "$WD"/mm9.genome \
+            -l 3 -r 4 -s |  fgrep 61342430 | head
