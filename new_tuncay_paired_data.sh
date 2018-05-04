@@ -170,6 +170,8 @@ do
                       $bam \
                       -o $(basename $bam .bam)
 
+        echo 'the bedtools slop migth be broken'
+        
         awk '
 { 
   OFS=FS="\t";
@@ -192,6 +194,13 @@ do
         awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
         rm -f tmp 
         mv -f bar "$(basename $bam .bam)"_stranded.txt
+
+                echo "$(date) Processing sample $sample ended"
+                
+        cd "$WD"
+        
+    done < "$fn"
+done
 
 #         ## this crashes when pairing both strands, if one exceeds the genome size
 #         ## let's simplify taking a strand
@@ -237,57 +246,66 @@ do
 # Feature (chr13:120284312-125194634) beyond the length of chr13 size (120284312 bp).  Skipping.
                 
 
-## nop, the problem are duplicate entries
-fgrep chr19 "$(basename $bam .bam)".cytosine_report.txt | \
-    awk '
-{ 
-  OFS=FS="\t";
-   print $1,$2-1,$2,$4,$5,$3,$7;
-}
-' - | "$BEDTOOLS" slop -i - \
-                        -g "$WD"/mm9.genome \
-                        -l 3 -r 4 -s |  fgrep 61342430 | head
+# ## nop, the problem are duplicate entries
+# fgrep chr19 "$(basename $bam .bam)".cytosine_report.txt | \
+#     awk '
+# { 
+#   OFS=FS="\t";
+#    print $1,$2-1,$2,$4,$5,$3,$7;
+# }
+# ' - | "$BEDTOOLS" slop -i - \
+#                         -g "$WD"/mm9.genome \
+#                         -l 3 -r 4 -s |  fgrep 61342430 | head
 
-        echo "$(date) Processing sample $sample ended"
+#         echo "$(date) Processing sample $sample ended"
                 
-        cd "$WD"
+#         cd "$WD"
         
-    done < "$fn"
-done
+#     done < "$fn"
+# done
 
-fgrep chr19 *report.txt | fgrep 6134238
-
-
-fgrep chr19 "$(basename $bam .bam)".cytosine_report.txt | \
-     awk '
- {
-   OFS=FS="\t";
-    print $1,$2-1,$2,$4,$5,$3,$7;
- }
- '  | fgrep 6134238
+# fgrep chr19 *report.txt | fgrep 6134238
 
 
-## this crashes
-fgrep chr19 "$(basename $bam .bam)".cytosine_report.txt | \
-     awk '
- {
-   OFS=FS="\t";
-    print $1,$2-1,$2,$4,$5,$3,$7;
- }
- ' - | "$BEDTOOLS" slop -i - \
-                        -g "$WD"/mm9.genome \
-                        -l 3 -r 4 -s |  fgrep 61342430 | head
+# fgrep chr19 "$(basename $bam .bam)".cytosine_report.txt | \
+#      awk '
+#  {
+#    OFS=FS="\t";
+#     print $1,$2-1,$2,$4,$5,$3,$7;
+#  }
+#  '  | fgrep 6134238
 
 
-## this crashes
-fgrep chr19 "$(basename $bam .bam)".cytosine_report.txt | \
-     awk '
- {
-   OFS=FS="\t";
-    print $1,$2-1,$2,$4,$5,$3,$7;
- }
- ' > test
+# ## this crashes
+# fgrep chr19 "$(basename $bam .bam)".cytosine_report.txt | \
+#      awk '
+#  {
+#    OFS=FS="\t";
+#     print $1,$2-1,$2,$4,$5,$3,$7;
+#  }
+#  ' - | "$BEDTOOLS" slop -i - \
+#                         -g "$WD"/mm9.genome \
+#                         -l 3 -r 4 -s |  fgrep 61342430 | head
 
-"$BEDTOOLS" slop -i test \
-            -g "$WD"/mm9.genome \
-            -l 3 -r 4 -s |  fgrep 61342430 | head
+
+# ## this crashes
+# fgrep chr19 "$(basename $bam .bam)".cytosine_report.txt | \
+#      awk '
+#  {
+#    OFS=FS="\t";
+#     print $1,$2-1,$2,$4,$5,$3,$7;
+#  }
+#  ' > test
+
+# "$BEDTOOLS" slop -i test \
+#             -g "$WD"/mm9.genome \
+#             -l 3 -r 4 -s |  fgrep 61342430 | head
+
+# ## last test
+# dos2unix test
+# "$BEDTOOLS" slop -i test \
+#             -g "$WD"/mm9.genome \
+#             -l 3 -r 4 -s |  fgrep 61342430 | head
+
+
+# # let's create a awk-based slopbed

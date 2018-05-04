@@ -15,3 +15,5 @@
                                              # bwa and bowtie mapping differences
 # diagnostic_plots.R                      preliminar integration
 # new_tuncay_paired_data.sh               on dnmts data
+# noticed on may the 4th that the slopbed stuff crashes (also does in beech) sometimes, randomly,
+# beware; need to write a homemade parser
