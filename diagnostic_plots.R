@@ -43,6 +43,8 @@ for (fn in fns) {
     ## plot(toy$beta_w, toy$beta_c)
     ## dev.off()
 
+    toy$beta <-  (toy$meth_c + toy$meth_w)/(toy$meth_c + toy$unmeth_c + toy$meth_w + toy$unmeth_w)
+
     fd[[fn]] <- toy
 }
 
@@ -238,6 +240,7 @@ for (fn in further) {
 
     toy$beta_w <- toy$meth_w/(toy$meth_w + toy$unmeth_w)
     toy$beta_c <- toy$meth_c/(toy$meth_c + toy$unmeth_c)
+    toy$beta <-  (toy$meth_c + toy$meth_w)/(toy$meth_c + toy$unmeth_c + toy$meth_w + toy$unmeth_w)
 
     fd[[fn]] <- toy
 }
