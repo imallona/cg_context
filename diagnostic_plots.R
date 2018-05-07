@@ -19,6 +19,9 @@ DATA <- file.path(HOME, 'data')
 
 MIN_DEPTH <- 10
 
+
+setwd(WD)
+
 fns <- c(file.path(WD, c('20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked_stranded.txt',
          '20151223.B-MmES_TKOD3A1c1-3*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq40_stranded.txt')))
 
@@ -212,26 +215,33 @@ for (item in names(fd)) {
                             function(x) mean(x, na.rm = TRUE))
 }
 
-if (names((means[[1]])) ==  names((means[[1]])))
-    cor.test(na.omit(as.numeric(means[[1]])), na.omit(as.numeric(means[[2]])), method = 'spearman')
+## if (names((means[[1]])) ==  names((means[[1]])))
+##     cor.test(na.omit(as.numeric(means[[1]])), na.omit(as.numeric(means[[2]])), method = 'spearman')
 
 
 ## is it the same for other KOs?
 
 
-further <- c(file.path(WD, c('20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked_stranded.txt',
-         '20151223.B-MmES_TKOD3A1c1-3*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq40_stranded.txt',
-         'SRR2878513_bwameth_default_stranded.txt',
-         'SRR1274742_bwameth_default_stranded.txt', 'SRR1274743_bwameth_default_stranded.txt',
-         'SRR1274744_bwameth_default_stranded.txt', 'SRR1274745_bwameth_default_stranded.txt',
-         'SRR1653162_bwameth_default_stranded.txt', 'SRR2878513_bwameth_default_stranded.txt',
-                         'SRR2878520_bwameth_default_stranded.txt')),
-         file.path(HOME, 'cg_context_new_tuncay', list.files(file.path(HOME, 'cg_context_new_tuncay'),
-                                                             "*stranded.txt", recursive = TRUE)))
+## further <- c(file.path(WD, c(
+##     'SRR2878513_bwameth_default_stranded.txt',
+##     'SRR1274742_bwameth_default_stranded.txt', 'SRR1274743_bwameth_default_stranded.txt',
+##     'SRR1274744_bwameth_default_stranded.txt', 'SRR1274745_bwameth_default_stranded.txt',
+##     'SRR1653162_bwameth_default_stranded.txt',
+##     'SRR2878520_bwameth_default_stranded.txt')),
+##              file.path(HOME, 'cg_context_new_tuncay', list.files(file.path(HOME, 'cg_context_new_tuncay'),
+##                                                                  "*stranded.txt", recursive = TRUE)))
 
 
+further <- c(file.path(WD, c(
+    'SRR2878513_bwameth_default_stranded.txt',
+    'SRR1274742_bwameth_default_stranded.txt', 'SRR1274743_bwameth_default_stranded.txt',
+    'SRR1274744_bwameth_default_stranded.txt', 'SRR1274745_bwameth_default_stranded.txt',
+    'SRR1653162_bwameth_default_stranded.txt')),
+             file.path(HOME, 'cg_context_new_tuncay', list.files(file.path(HOME, 'cg_context_new_tuncay'),
+                                                                 "*stranded.txt", recursive = TRUE)))
 
 for (fn in further) {
+    print(fn)
     toy <- read.table(pipe(sprintf('fgrep -w chr17 %s',
                                         file.path(fn))), header = FALSE)[,c(8,9,4,5,17,18,13,14)]
     ## watson and crick
@@ -242,10 +252,13 @@ for (fn in further) {
     toy$beta_c <- toy$meth_c/(toy$meth_c + toy$unmeth_c)
     toy$beta <-  (toy$meth_c + toy$meth_w)/(toy$meth_c + toy$unmeth_c + toy$meth_w + toy$unmeth_w)
 
-    fd[[fn]] <- toy
+    fd[[basename(fn)]] <- toy
+    print('ended')
 }
 
-names(fd) <- basename(names(fd))
+names(fd) <- gsub('_bwameth_default_stranded.txt', '', basename(names(fd)))
+
+
 
 means <- list()
 
@@ -257,6 +270,9 @@ for (item in names(fd)) {
     cnames <- names(means[[item]]) ## this does not change
     means[[item]] <- as.numeric(means[[item]])    
 }
+
+
+
 
 
 ## so let's stratify each element by genomic compartement and everything
@@ -307,4 +323,59 @@ bwplot(value ~ variable | as.factor(seq), data = norm_melted, autokey = TRUE,
        scales=list(x=list(rot=90, labels=strtrim(levels(norm_melted$variable), 75))))
 ## bwplot(value ~ variable | as.factor(seq), data = norm_melted, autokey = TRUE,
 ##        scales=list(x=list(rot=90)))
+dev.off()
+
+
+## the upper normalization makes no sense, but let's use the raw data
+
+
+set.seed(1)
+idx <- sample(1:nrow(fd[[1]]), size = 5000)
+
+## foo <- do.call(function(x) rbind.data.frame(x[idx,]), fd)
+foo <- fd[[1]][1,]
+foo$sample <-''
+foo <- foo[0,]
+for (item in names(fd)) {
+    curr <- fd[[item]][idx,]
+    curr$sample <- item
+    foo <- rbind(foo, curr)
+}
+
+save(foo, file = 'foo.RData')
+
+
+## png('test.png')
+## densityplot(beta_w ~ as.factor(sample), groups = as.factor(seq_w), data = foo,
+##             plot.points = FALSE, auto.key = FALSE)
+## dev.off()
+
+
+
+## let's try to get some stats
+foo <- foo[(foo$meth_w + foo$unmeth_w + foo$meth_c + foo$unmeth_c) > 5,]
+## bwplot(beta_w ~ as.factor(sample), groups = as.factor(seq_w), data = foo[idx,],
+##        plot.points = FALSE, auto.key = TRUE)
+
+## mononuc
+mono.lm <- lm(foo$beta_c~ as.factor(substr(tolower(as.character(foo$seq_c)), 3, 6))+foo$sample)
+
+di.lm <- lm(foo$beta_c~ as.factor(substr(tolower(as.character(foo$seq_c)), 2, 7))+foo$sample)
+
+anova(mono.lm, di.lm)
+
+
+foo$dinuc_c <- as.factor(substr(tolower(as.character(foo$seq_c)), 6, 7))
+
+    
+png('test_%3d.png', width = 1000, height = 1000)
+## xyplot(beta_c~ as.factor(substr(tolower(as.character(foo$seq_c)), 2, 7))| sample,
+##        data = foo,
+##        scales=list(x=list(rot=90)))
+
+bwplot(beta_c~  sample| dinuc_c,
+            data = na.omit(foo),
+            scales=list(x=list(rot=90)))
+
+
 dev.off()
