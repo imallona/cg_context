@@ -16,13 +16,14 @@ DATA <- file.path(HOME, 'data')
 
 MIN_DEPTH <- 10
 
-fns <- c('20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked_stranded.txt',
-         '20151223.B-MmES_TKOD3A1c1-3*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq40_stranded.txt')
+fns <- c(file.path(WD, c('20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked_stranded.txt',
+         '20151223.B-MmES_TKOD3A1c1-3*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq40_stranded.txt')))
+
 
 fd <- list()
 for (fn in fns) {
     toy <- read.table(pipe(sprintf('fgrep -w chr17 %s',
-                                        file.path(WD, fn))), header = FALSE)[,c(8,9,4,5,17,18,13,14)]
+                                         fn)), header = FALSE)[,c(8,9,4,5,17,18,13,14)]
     ## watson and crick
     colnames(toy) <- c('loc_w', 'seq_w', 'meth_w', 'unmeth_w',
                        'loc_c', 'seq_c', 'meth_c', 'unmeth_c')
@@ -212,11 +213,17 @@ if (names((means[[1]])) ==  names((means[[1]])))
 
 ## is it the same for other KOs?
 
-further <- c('SRR2878513_bwameth_default_stranded.txt',
-             'SRR1274742_bwameth_default_stranded.txt', 'SRR1274743_bwameth_default_stranded.txt',
-             'SRR1274744_bwameth_default_stranded.txt', 'SRR1274745_bwameth_default_stranded.txt',
-             'SRR1653162_bwameth_default_stranded.txt', 'SRR2878513_bwameth_default_stranded.txt',
-             'SRR2878520_bwameth_default_stranded.txt')
+
+further <- c(file.path(WD, c('20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked_stranded.txt',
+         '20151223.B-MmES_TKOD3A1c1-3*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq40_stranded.txt',
+         'SRR2878513_bwameth_default_stranded.txt',
+         'SRR1274742_bwameth_default_stranded.txt', 'SRR1274743_bwameth_default_stranded.txt',
+         'SRR1274744_bwameth_default_stranded.txt', 'SRR1274745_bwameth_default_stranded.txt',
+         'SRR1653162_bwameth_default_stranded.txt', 'SRR2878513_bwameth_default_stranded.txt',
+                         'SRR2878520_bwameth_default_stranded.txt')),
+         file.path(HOME, 'cg_context_new_tuncay', list.files(file.path(HOME, 'cg_context_new_tuncay'),
+                                                             "*stranded.txt", recursive = TRUE)))
+
 
 
 for (fn in further) {
