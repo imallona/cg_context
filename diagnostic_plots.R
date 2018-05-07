@@ -379,3 +379,33 @@ bwplot(beta_c~  sample| dinuc_c,
 
 
 dev.off()
+
+
+## this is rather stupid, let-s focus: count motif appearance and represented and not
+
+motifs <- list()
+    ## data.frame(item = NULL,
+    ##            motif = NULL,
+    ##            meth = 0,
+    ##            unmeth = 0)
+
+for (item in names(fd)) {
+    for (motif in unique(substr(tolower(as.character(fd[[1]]$seq_c)), 2, 7))) {
+        curr <- fd[[item]][substr(tolower(as.character(fd[[item]]$seq_c)), 2, 7) == motif,]
+
+        curr_covered <- curr[((curr$meth_w + curr$unmeth_w) >= 5),]
+        curr_uncovered <- nrow(curr) - nrow(curr_covered)
+        curr_meth <- nrow(curr_covered[curr_covered$meth_w > 0,])
+        curr_unmeth <-  nrow(curr_covered) - curr_meth
+
+        stopifnot(curr_uncovered + curr_unmeth + curr_meth == nrow(curr))
+        motifs[[paste(item, motif)]] <- c(item, motif, curr_uncovered, curr_meth, curr_unmeth)
+    }
+}
+
+motifs <- as.data.frame(do.call(rbind.data.frame, motifs))
+colnames(motifs) <- c('sample', 'motif', 'uncovered', 'meth', 'unmeth')
+
+for (item in c('uncovered', 'meth', 'unmeth')) {
+    motifs[,item] <- as.numeric(as.character(motifs[,item]))
+}
