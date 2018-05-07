@@ -9,6 +9,9 @@
 library(kmer)
 library(PMCMR)
 
+library(reshape2)
+library(lattice)
+
 TASK <- "cg_context_bulk"
 HOME <- '/home/imallona'
 WD <-  file.path(HOME, TASK)
@@ -228,7 +231,7 @@ further <- c(file.path(WD, c('20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_
 
 for (fn in further) {
     toy <- read.table(pipe(sprintf('fgrep -w chr17 %s',
-                                        file.path(WD, fn))), header = FALSE)[,c(8,9,4,5,17,18,13,14)]
+                                        file.path(fn))), header = FALSE)[,c(8,9,4,5,17,18,13,14)]
     ## watson and crick
     colnames(toy) <- c('loc_w', 'seq_w', 'meth_w', 'unmeth_w',
                        'loc_c', 'seq_c', 'meth_c', 'unmeth_c')
@@ -239,14 +242,66 @@ for (fn in further) {
     fd[[fn]] <- toy
 }
 
+names(fd) <- basename(names(fd))
 
 means <- list()
+
 
 for (item in names(fd)) {
     means[[item]] <- tapply(fd[[item]]$beta_c,
                             as.factor(substr(tolower(as.character(fd[[item]]$seq_c)), 3, 6)),
-                            function(x) mean(x, na.rm = TRUE))
+                                       function(x) mean(x, na.rm = TRUE))
+    cnames <- names(means[[item]]) ## this does not change
+    means[[item]] <- as.numeric(means[[item]])    
 }
 
 
 ## so let's stratify each element by genomic compartement and everything
+
+means <- do.call(cbind.data.frame, means)
+means$seq <- cnames
+
+setwd('/home/imallona/cg_context_new_tuncay/')
+## png()
+## plot(means)
+## dev.off()
+
+save(means, file = 'means.RData')
+
+## boxplot(means)
+
+
+## for (i in 1:ncol(means)){
+##     means[,i] <- as.vector(means[,i])
+## }
+    
+melted <- melt(means, id.vars = c("seq"))
+xyplot(value ~ as.factor(seq) | variable, data = melted)
+xyplot(value ~ variable | as.factor(seq), data = melted, autokey = TRUE)
+
+bwplot(value ~ variable | as.factor(seq), data = melted, autokey = TRUE)
+
+# what if normalizing against the avg meth value?
+
+normalizer <- apply(means[,1:14],2, function(x) sum(na.omit(x))/length(na.omit(x)))
+
+## check
+mean(means[,1]/normalizer[1], na.rm = TRUE)
+
+normalized_means <- means
+for (i in 1:(ncol(means)-1)) {
+     normalized_means[,i] <- means[,i]/normalizer[i]
+ }
+
+
+norm_melted <- melt(normalized_means, id.vars = c("seq"))
+
+norm_melted$variable <- as.factor(gsub('_bwameth_default_stranded.txt', '',
+                                       as.character(norm_melted$variable)))
+
+png('normalized.png', width = 600, height = 1200)
+bwplot(value ~ variable | as.factor(seq), data = norm_melted, autokey = TRUE,
+       scales=list(x=list(rot=90, labels=strtrim(levels(norm_melted$variable), 75))))
+## bwplot(value ~ variable | as.factor(seq), data = norm_melted, autokey = TRUE,
+##        scales=list(x=list(rot=90)))
+dev.off()
