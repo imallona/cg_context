@@ -6,8 +6,8 @@
 ## Izaskun Mallona
 ## GPL
 
-library(kmer)
-library(PMCMR)
+## library(kmer)
+## library(PMCMR)
 
 library(reshape2)
 library(lattice)
@@ -233,9 +233,12 @@ names(fd) <- c('3a1_bwa', '3a1_bt2')
 
 
 further <- c(file.path(WD, c(
+    'SRR2878520_bwameth_default_stranded.txt',
     'SRR2878513_bwameth_default_stranded.txt',
-    'SRR1274742_bwameth_default_stranded.txt', 'SRR1274743_bwameth_default_stranded.txt',
-    'SRR1274744_bwameth_default_stranded.txt', 'SRR1274745_bwameth_default_stranded.txt',
+    'SRR1274742_bwameth_default_stranded.txt',
+    'SRR1274743_bwameth_default_stranded.txt',
+    'SRR1274744_bwameth_default_stranded.txt',
+    'SRR1274745_bwameth_default_stranded.txt',
     'SRR1653162_bwameth_default_stranded.txt')),
              file.path(HOME, 'cg_context_new_tuncay', list.files(file.path(HOME, 'cg_context_new_tuncay'),
                                                                  "*stranded.txt", recursive = TRUE)))

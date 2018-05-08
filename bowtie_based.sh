@@ -277,5 +277,6 @@ do
         paste - "$(basename "$fn")"_slop.fa | \
         awk '{printf "%s%s",$0,(NR%2?FS:RS)}' > \
             "$(basename $fn .CpG_report.txt.CpG_report.txt.gz)"_stranded.txt
-
+    
+    gzip "$(basename $fn .CpG_report.txt.CpG_report.txt.gz)"_stranded.txt
 done
