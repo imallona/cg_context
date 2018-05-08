@@ -129,11 +129,13 @@ for (item in names(fd)) {
 
 motifs <- as.data.frame(do.call(rbind.data.frame, motifs))
 colnames(motifs) <- c('sample', 'motif', 'uncovered', 'meth', 'unmeth')
+motifs$sample <- basename(as.character(motifs$sample))
 
 for (item in c('uncovered', 'meth', 'unmeth')) {
     motifs[,item] <- as.numeric(as.character(motifs[,item]))
 }
 
+save(motifs, file = 'motifs.RData')
 
 tests <- list()
 for (sample in unique(motifs$sample)) {
