@@ -170,8 +170,48 @@ dotplot(ratio_m_represented ~ as.factor(short) | as.factor(sample),
        autokey = TRUE,
         scales=list(x=list(rot=90)))
 
+## let's try to set up this
+## samples_annot <- read.table(text ='sample','genotype','seq'
+## '20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked_stranded.txt.gz','tko+d3a1','bwa_hiseq2k'
+## '20151223.B-MmES_TKOD3A1c1-3*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq40_stranded.txt.gz','tko+d3a1','bt2_hiseq2k'
+## 'BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_6_ACAGTGA_L006_001','tko+d3a2','bwa_hiseq2k'
+## 'BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_001','tko+d3a2','bwa_hiseq2k'
+## 'BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_002','tko+d3a2','bwa_hiseq2k'
+## 'BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_003','tko+d3a2','bwa_hiseq2k'
+## 'BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001','tko+d3b1','bwa_hiseq2k'
+## 'BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001','tko+d3b1','bwa_hiseq2k'
+## 'BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002','tko+d3b1','bwa_hiseq2k'
+## 'BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003','tko+d3b1','bwa_hiseq2k'
+## 'SRR1274742','bwa_hiseq2k','tko+3a2'
+## 'SRR1274743','bwa_miseq','tko+3a2'
+## 'SRR1274744','bwa_miseq','tko+3b1'
+## 'SRR1274745','bwa_hiseq2k','tko+3b1'
+## 'SRR1653162','bwa_miseq','qko+3b1'
+##                             'SRR2878513','bwa_hiseq1k','oocyte', header = TRUE, sep = ',')
+
+samples_annot <- read.table(text ='sample,genotype,seq
+20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked_stranded.txt.gz,tko+d3a1,bwa_hiseq2k
+20151223.B-MmES_TKOD3A1c1-3*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq40_stranded.txt.gz,tko+d3a1,bt2_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_6_ACAGTGA_L006_001,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_001,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_002,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_003,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001,tko+d3b1,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001,tko+d3b1,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002,tko+d3b1,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003,tko+d3b1,bwa_hiseq2k
+SRR1274742,tko+d3a2,bwa_hiseq2k
+SRR1274743,tko+d3a2,bwa_miseq
+SRR1274744,tko+d3b1,bwa_miseq
+SRR1274745,tko+d3b1,bwa_hiseq2k
+SRR1653162,qko+d3b1,bwa_miseq
+SRR2878513,oocyte,bwa_hiseq1k', header = TRUE, sep = ',')
+
+rownames(samples_annot) <- samples_annot$sample
 
 motifs$color <- c('a', 'b')
+
+## https://www.stat.ubc.ca/~jenny/STAT545A/block16_colorsLatticeQualitative.html
 
 xyplot(ratio_m_represented ~ as.factor(short) | as.factor(sample),
        data = motifs,
@@ -184,3 +224,32 @@ xyplot(ratio_m_represented ~ as.factor(short) | as.factor(sample),
 
 
 
+for (annot in colnames(samples_annot)) {
+    png(sprintf('test_%s.png', annot), width = 1000, height = 2000)
+
+    print(xyplot(ratio_m_represented ~ as.factor(sample) | as.factor(short),
+                 data = motifs,
+                 auto.key = list(columns = 4),
+                 jitter.y=TRUE,
+                 group = samples_annot[motifs$sample, annot],
+                 pch = 19,
+                 cex = 0.5,
+                 scales=list(x=list(rot=90)),
+                 layout=c(5,4)))
+
+    dev.off()
+}
+
+png(sprintf('test_superposed.png'), width = 1000, height = 2000)
+
+print(xyplot(ratio_m_represented ~ as.factor(sample) | as.factor(short),
+             data = motifs,
+             auto.key = list(columns = 4),
+             jitter.y=TRUE,
+             group = samples_annot[motifs$sample, 'genotype'],
+             pch =  as.numeric(samples_annot[motifs$sample, 'seq']),
+             cex = 0.5,
+             scales=list(x=list(rot=90)),
+             layout=c(5,4)))
+
+dev.off()
