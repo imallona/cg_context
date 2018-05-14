@@ -100,9 +100,9 @@ for (item in names(fd)) {
 
     curr_meth <-  with(fd[[item]], tapply(meth_w , factor, function(x) x > 0))
 
-    stopifnot(names(curr) == names(curr_meth))
+    stopifnot(names(curr_covered) == names(curr_meth))
 
-    for (motif in names(curr)) {
+    for (motif in names(curr_covered)) {
         ## vector of
         ## sample
         ## motif
@@ -145,3 +145,42 @@ for (sample in unique(motifs$sample)) {
     tests[[sample]][['meth_vs_unmeth']] <- chisq.test(curr$meth, curr$unmeth)
     tests[[sample]][['meth_vs_covered']] <- chisq.test(curr$meth, (curr$uncovered + curr$unmeth))
 }
+
+motifs$ratio_m_represented <- motifs$meth  / (motifs$meth + motifs$unmeth)
+
+
+motifs$motif <- tolower(as.character(motifs$motif))
+
+motifs$short <- substr(motifs$motif, 3,6)
+
+motifs$sample <- gsub('_bwameth_default_stranded.txt.gz', '', motifs$sample)
+
+bwplot(ratio_m_represented ~ sample | as.factor(short),
+       data = motifs,
+       autokey = TRUE)
+
+
+bwplot(ratio_m_represented ~ as.factor(short) | as.factor(sample),
+       data = motifs,
+       autokey = TRUE,
+       scales=list(x=list(rot=90)))
+
+dotplot(ratio_m_represented ~ as.factor(short) | as.factor(sample),
+       data = motifs,
+       autokey = TRUE,
+        scales=list(x=list(rot=90)))
+
+
+motifs$color <- c('a', 'b')
+
+xyplot(ratio_m_represented ~ as.factor(short) | as.factor(sample),
+       data = motifs,
+       autokey = TRUE,
+       jitter.y=TRUE,
+       group = motifs$color,
+       pch = 19,
+       cex = 0.5,
+       scales=list(x=list(rot=90)))
+
+
+

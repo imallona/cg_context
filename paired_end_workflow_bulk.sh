@@ -167,6 +167,7 @@ do
     awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
     rm -f tmp
     mv -f bar "$(basename $bam .bam)"_stranded.txt
+    gzip "$(basename $bam .bam)"_stranded.txt
 
 done
 
