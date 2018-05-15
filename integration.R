@@ -253,3 +253,77 @@ print(xyplot(ratio_m_represented ~ as.factor(sample) | as.factor(short),
              layout=c(5,4)))
 
 dev.off()
+
+## getting the motifs for both strands, and to integrate them
+
+smotifs <- list()
+for (item in names(fd)) {
+    ## for (motif in unique(substr(tolower(as.character(fd[[1]]$seq_c)), 2, 7))) {
+
+
+    
+    fd[[item]]$factor_w <- substr(tolower(as.character(fd[[item]]$seq_w)), 2, 7)
+    fd[[item]]$factor_c <- substr(tolower(as.character(fd[[item]]$seq_c)), 2, 7)
+    
+    curr_covered_w <- with(fd[[item]], tapply(meth_w + unmeth_w, factor_w, function(x) x >= 5))
+    curr_meth_w <-  with(fd[[item]], tapply(meth_w , factor_w, function(x) x > 0))
+
+    curr_covered_c <- with(fd[[item]], tapply(meth_c + unmeth_c, factor_c, function(x) x >= 5))
+    curr_meth_c <-  with(fd[[item]], tapply(meth_c , factor_c, function(x) x > 0))
+
+    stopifnot(names(curr_covered_w) == names(curr_meth_w))
+    stopifnot(names(curr_covered_c) == names(curr_meth_c))
+
+    for (motif in names(curr_covered_w)) {
+        ## vector of
+        ## sample
+        ## motif
+        ## cgs uncovered
+        ## cgs covered and methylated
+        ## cgs covered and unmethylated
+        smotifs[[paste(item, motif, 'watson')]] <- c(
+            item,
+            'watson',
+            motif,
+            nrow(fd[[item]][fd[[item]]$factor_w == motif,]) -
+                sum(curr_covered_w[[motif]]),
+            sum(curr_covered_w[[motif]] & curr_meth_w[[motif]]),
+            sum(curr_covered_w[[motif]] & ! curr_meth_w[[motif]]))
+        
+        stopifnot(as.numeric(smotifs[[paste(item, motif)]][3]) +
+                      as.numeric(smotifs[[paste(item, motif)]][4]) +
+                          as.numeric(smotifs[[paste(item, motif)]][5]) ==
+                              nrow(fd[[item]][fd[[item]]$factor_w == motif,]))
+
+    }
+    ## this might sound stupid because watson and crick are simetrical and not independent
+    ## but anyway, they might end being like that
+    for (motif in names(curr_covered_c)) {
+        ## vector of
+        ## sample
+        ## motif
+        ## cgs uncovered
+        ## cgs covered and methylated
+        ## cgs covered and unmethylated
+        smotifs[[paste(item, motif, 'watson')]] <- c(
+            item,
+            'crick',
+            motif,
+            nrow(fd[[item]][fd[[item]]$factor_c == motif,]) -
+                sum(curr_covered_c[[motif]]),
+            sum(curr_covered_c[[motif]] & curr_meth_c[[motif]]),
+            sum(curr_covered_c[[motif]] & ! curr_meth_c[[motif]]))
+        
+        stopifnot(as.numeric(smotifs[[paste(item, motif)]][3]) +
+                      as.numeric(smotifs[[paste(item, motif)]][4]) +
+                          as.numeric(smotifs[[paste(item, motif)]][5]) ==
+                              nrow(fd[[item]][fd[[item]]$factor_c == motif,]))
+
+    }
+    
+                 
+    ## }
+}
+
+
+save(smotifs, file = 'smotifs.RData')
