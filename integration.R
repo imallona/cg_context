@@ -19,6 +19,18 @@ DATA <- file.path(HOME, 'data')
 
 MIN_DEPTH <- 10
 
+beta2m <- function(beta) {
+    m <- log2(beta/(1 - beta))
+    return(m)
+}
+
+m2beta <- function(m) {
+    beta <- 2^m/(2^m + 1)
+    return(beta)
+}
+
+
+
 
 setwd(WD)
 
@@ -411,3 +423,140 @@ for (annot in colnames(samples_annot)) {
 }
 
 dev.off()
+
+
+## some representations on beta values
+
+gz_path <- '/home/imallona/mnt/baubec/imallona2mmanzo/'
+fns <- file.path(gz_path, list.files(gz_path, "*stranded.txt.gz"))
+
+MIN_DEPTH <- 5
+
+betas <- list()
+for (fn in fns) {
+    print(fn)
+    toy <- read.table(pipe(sprintf('zcat %s | fgrep -w chr17',
+                                   fn)), header = FALSE,
+                      stringsAsFactors = FALSE)[,c(8,9,4,5,17,18,13,14)]
+    ## watson and crick
+    colnames(toy) <- c('loc_w', 'seq_w', 'meth_w', 'unmeth_w',
+                       'loc_c', 'seq_c', 'meth_c', 'unmeth_c')
+    str(toy)
+
+    
+
+    toy <- toy[((toy$meth_w + toy$unmeth_w) >= MIN_DEPTH | (toy$meth_c + toy$unmeth_c) >= MIN_DEPTH),]
+    toy$beta_w <- toy$meth_w/(toy$meth_w + toy$unmeth_w)
+    toy$beta_c <- toy$meth_c/(toy$meth_c + toy$unmeth_c)
+
+    toy$beta <-  (toy$meth_c + toy$meth_w)/(toy$meth_c + toy$unmeth_c + toy$meth_w + toy$unmeth_w)
+
+    
+    betas[[fn]] <- toy
+    betas[[fn]]$sample <- gsub('_bwameth_default_stranded.txt', '', basename(fn))
+    print(dim(toy))
+}
+
+
+betas_df <- do.call(rbind.data.frame, betas)
+
+save(betas_df, file = sprintf('stranded_betas_%s.RData', format(Sys.time(), "%d_%b_%Y")))
+
+
+
+
+rownames(betas_df) <- 1:nrow(betas_df)
+
+for (item in c('meth_w', 'unmeth_w', 'meth_c', 'unmeth_c'))  {
+    betas_df[,item] <- as.numeric(as.character(betas_df[,item]))
+}
+
+for (item in c('seq_w', 'seq_c')) {
+    
+    betas_df[,item] <- tolower(as.character(betas_df[,item]))
+
+    betas_df[,sprintf('%s_short', item)] <- substr(betas_df[,item], 3,6)
+}
+
+betas_df <- betas_df[grep('n', betas_df$seq_w_short, invert = TRUE),]
+betas_df <- betas_df[grep('n', betas_df$seq_c_short, invert = TRUE),]
+
+save(betas_df, file = sprintf('stranded_betas_df_%s.RData', format(Sys.time(), "%d_%b_%Y")))
+
+
+
+## get some short motifs for the betas
+
+pal <- RColorBrewer::brewer.pal(6, "Set3")
+
+png('violins_betas_%003d.png', width = 1000, height = 2000)
+
+print(bwplot(beta_w ~ as.factor(sample) | as.factor(seq_w_short) ,
+       data = betas_df,
+       auto.key = list(columns = 4),
+       group = samples_annot[betas_df$sample, annot],
+             scales=list(x=list(rot=90)),
+       panel = function(..., box.ratio) {
+           panel.violin(..., col = "transparent",
+                        varwidth = FALSE, box.ratio = box.ratio)
+           panel.bwplot(..., fill = NULL, box.ratio = .1)
+       } ))
+
+print(bwplot(beta_w ~ as.factor(sample) | as.factor(seq_w_short) ,
+       data = betas_df,
+       auto.key = list(columns = 4),
+       group = samples_annot[betas_df$sample, annot],
+             scales=list(x=list(rot=90)),
+       panel = function(..., box.ratio) {
+           panel.violin(..., col = pal,
+                        varwidth = FALSE, box.ratio = box.ratio)
+           panel.bwplot(..., fill = NULL, box.ratio = .1)
+       } ))
+
+
+print(bwplot(beta_w ~ as.factor(sample) | as.factor(seq_w_short) ,
+             data = betas_df,             
+             group = samples_annot[betas_df$sample, annot],
+             panel = panel.superpose,
+             panel.groups = panel.violin),
+      col = pal,
+      scales=list(x=list(rot=90)))
+
+dev.off()
+
+
+png('violins_m_%003d.png', width = 1000, height = 2000)
+
+print(bwplot(beta2m(beta_w) ~ as.factor(sample) | as.factor(seq_w_short) ,
+       data = betas_df,
+       auto.key = list(columns = 4),
+       group = samples_annot[betas_df$sample, annot],
+             scales=list(x=list(rot=90)),
+       panel = function(..., box.ratio) {
+           panel.violin(..., col = "transparent",
+                        varwidth = FALSE, box.ratio = box.ratio)
+           panel.bwplot(..., fill = NULL, box.ratio = .1)
+       } ))
+
+print(bwplot(beta2m(beta_w) ~ as.factor(sample) | as.factor(seq_w_short) ,
+       data = betas_df,
+       auto.key = list(columns = 4),
+       group = samples_annot[betas_df$sample, annot],
+             scales=list(x=list(rot=90)),
+       panel = function(..., box.ratio) {
+           panel.violin(..., col = pal,
+                        varwidth = FALSE, box.ratio = box.ratio)
+           panel.bwplot(..., fill = NULL, box.ratio = .1)
+       } ))
+
+
+print(bwplot(beta2m(beta_w) ~ as.factor(sample) | as.factor(seq_w_short) ,
+             data = betas_df,             
+             group = samples_annot[betas_df$sample, annot],
+             panel = panel.superpose,
+             panel.groups = panel.violin),
+      col = pal,
+      scales=list(x=list(rot=90)))
+
+dev.off()
+
