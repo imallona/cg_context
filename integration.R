@@ -558,5 +558,15 @@ print(bwplot(beta2m(beta_w) ~ as.factor(sample) | as.factor(seq_w_short) ,
       col = pal,
       scales=list(x=list(rot=90)))
 
+print(densityplot(beta2m(beta_w) ~ as.factor(sample) | as.factor(seq_w_short) ,
+                  data = betas_df,             
+                  group = samples_annot[betas_df$sample, annot],
+                  panel=function(x,...){
+                      panel.densityplot(x,...)
+                      panel.abline(v=quantile(x,.5), col.line="red") 
+                  }))
+
+
+
 dev.off()
 
