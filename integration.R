@@ -352,37 +352,62 @@ save(smotifs, file = sprintf('stranded_smotifs_%s.RData', format(Sys.time(), "%d
 
 ## plotting
 
-png('with_strand_%03d.png', width = 1000, height = 2000)
+## getting rid of ns
+smotifs <- smotifs[grep('n', smotifs$short, invert = TRUE),]
+
+png('with_strand_%03d.png', width = 1500, height = 1500)
 
 xyplot(meth_vs_represented_ratio ~ as.factor(short) | as.factor(sample),
        data = smotifs,
-       autokey = TRUE,
+       auto.key = list(columns = 1),
        jitter.y=TRUE,       
        group = samples_annot[smotifs$sample, annot],
        pch = 19,
        cex = 0.5,
        scales=list(x=list(rot=90)),
-       layout = c(6,5))
+       layout = c(4,4))
 
 xyplot(meth_vs_represented_ratio ~ as.factor(strand) | as.factor(sample),
        data = smotifs,
-       autokey = TRUE,
+       auto.key = list(columns = 1),
        jitter.y=TRUE,       
        group = samples_annot[smotifs$sample, annot],
        pch = 19,
        cex = 0.5,
        scales=list(x=list(rot=90)),
-       layout = c(6,5))
+       layout = c(4,4))
 
-xyplot(meth_vs_represented_ratio ~ as.factor(sample) | as.factor(short)*as.factor(strand),
-       data = smotifs,
-       autokey = TRUE,
-       jitter.y=TRUE,       
-       group = samples_annot[smotifs$sample, annot],
-       pch = 19,
-       cex = 0.5,
-       scales=list(x=list(rot=90)),
-       layout = c(6,5))
 
+
+
+dev.off()
+
+png('with_strand_next_no_jitter_%03d.png', width = 1000, height = 2000)
+for (annot in colnames(samples_annot)) {
+    print(xyplot(meth_vs_represented_ratio ~ as.factor(sample) | as.factor(strand)*as.factor(short),
+           data = smotifs,
+           auto.key = list(columns = 1),
+           jitter.y=TRUE,       
+           group = samples_annot[smotifs$sample, annot],
+           pch = 19,
+           cex = 0.5,
+           scales=list(x=list(rot=90)),
+           layout = c(6,6)))
+}
+
+dev.off()
+
+png('with_strand_next_jitter_%03d.png', width = 1000, height = 2000)
+for (annot in colnames(samples_annot)) {
+    print(xyplot(meth_vs_represented_ratio ~ as.factor(sample) | as.factor(strand)*as.factor(short),
+           data = smotifs,
+           auto.key = list(columns = 1),
+           jitter.y=FALSE,       
+           group = samples_annot[smotifs$sample, annot],
+           pch = 19,
+           cex = 0.5,
+           scales=list(x=list(rot=90)),
+           layout = c(6,6)))
+}
 
 dev.off()
