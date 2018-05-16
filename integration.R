@@ -589,22 +589,23 @@ print(bwplot(beta2m(beta_w) ~ as.factor(sample) | as.factor(seq_w_short) ,
 dev.off()
 
 
-## tests 
-png('bpplot_m_%003d.png', width = 1000, height = 2000)
+## ## tests
+# does not work, takes huge time to compute
+## png('bpplot_m_%003d.png', width = 1000, height = 2000)
 
-# same as previous but add a spike to give 0.95 interval
-## bwplot(g ~ x, panel=panel.bpplot, probs=c(.025,seq(.25,.49,by=.01)))
-## print(bwplot(beta2m(beta_w) ~ as.numeric(sample),
+## # same as previous but add a spike to give 0.95 interval
+## ## bwplot(g ~ x, panel=panel.bpplot, probs=c(.025,seq(.25,.49,by=.01)))
+## ## print(bwplot(beta2m(beta_w) ~ as.numeric(sample),
+## ##              data = betas_df,
+## ##              auto.key = list(columns = 4),
+## ##              group = samples_annot[betas_df$sample, annot],
+## ##              scales=list(x=list(rot=90)),
+## ##              panel=panel.bpplot, probs=c(.025,seq(.25,.49,by=.01))))
+
+## print(bwplot(beta2m(beta_w) ~ as.numeric(sample) | as.factor(seq_w_short),
 ##              data = betas_df,
 ##              auto.key = list(columns = 4),
 ##              group = samples_annot[betas_df$sample, annot],
 ##              scales=list(x=list(rot=90)),
 ##              panel=panel.bpplot, probs=c(.025,seq(.25,.49,by=.01))))
-
-print(bwplot(beta2m(beta_w) ~ as.numeric(sample) | as.factor(seq_w_short),
-             data = betas_df,
-             auto.key = list(columns = 4),
-             group = samples_annot[betas_df$sample, annot],
-             scales=list(x=list(rot=90)),
-             panel=panel.bpplot, probs=c(.025,seq(.25,.49,by=.01))))
-dev.off()
+## dev.off()
