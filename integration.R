@@ -305,7 +305,7 @@ for (item in names(fd)) {
         ## cgs uncovered
         ## cgs covered and methylated
         ## cgs covered and unmethylated
-        smotifs[[paste(item, motif, 'watson')]] <- c(
+        smotifs[[paste(item, motif, 'crick')]] <- c(
             item,
             'crick',
             motif,
@@ -326,4 +326,63 @@ for (item in names(fd)) {
 }
 
 
-save(smotifs, file = 'smotifs.RData')
+save(smotifs, file = sprintf('stranded_motifs_list_%s.RData', format(Sys.time(), "%d_%b_%Y")))
+
+
+smotifs <- as.data.frame(do.call(rbind.data.frame, smotifs))
+colnames(smotifs) <- c('sample', 'strand', 'motif', 'uncovered', 'meth', 'unmeth')
+smotifs$sample <- basename(as.character(smotifs$sample))
+
+for (item in c('uncovered', 'meth', 'unmeth')) {
+    smotifs[,item] <- as.numeric(as.character(smotifs[,item]))
+}
+
+
+smotifs$meth_vs_represented_ratio <- smotifs$meth  / (smotifs$meth + smotifs$unmeth)
+
+
+smotifs$motif <- tolower(as.character(smotifs$motif))
+
+smotifs$short <- substr(smotifs$motif, 2,5)
+
+smotifs$sample <- gsub('_bwameth_default_stranded.txt.gz', '', smotifs$sample)
+
+save(smotifs, file = sprintf('stranded_smotifs_%s.RData', format(Sys.time(), "%d_%b_%Y")))
+
+
+## plotting
+
+png('with_strand_%03d.png', width = 1000, height = 2000)
+
+xyplot(meth_vs_represented_ratio ~ as.factor(short) | as.factor(sample),
+       data = smotifs,
+       autokey = TRUE,
+       jitter.y=TRUE,       
+       group = samples_annot[smotifs$sample, annot],
+       pch = 19,
+       cex = 0.5,
+       scales=list(x=list(rot=90)),
+       layout = c(6,5))
+
+xyplot(meth_vs_represented_ratio ~ as.factor(strand) | as.factor(sample),
+       data = smotifs,
+       autokey = TRUE,
+       jitter.y=TRUE,       
+       group = samples_annot[smotifs$sample, annot],
+       pch = 19,
+       cex = 0.5,
+       scales=list(x=list(rot=90)),
+       layout = c(6,5))
+
+xyplot(meth_vs_represented_ratio ~ as.factor(sample) | as.factor(short)*as.factor(strand),
+       data = smotifs,
+       autokey = TRUE,
+       jitter.y=TRUE,       
+       group = samples_annot[smotifs$sample, annot],
+       pch = 19,
+       cex = 0.5,
+       scales=list(x=list(rot=90)),
+       layout = c(6,5))
+
+
+dev.off()
