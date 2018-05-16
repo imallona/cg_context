@@ -11,6 +11,7 @@
 
 library(reshape2)
 library(lattice)
+library(Hmisc)
 
 TASK <- "cg_context_bulk"
 HOME <- '/home/imallona'
@@ -458,12 +459,13 @@ for (fn in fns) {
 }
 
 
+
 betas_df <- do.call(rbind.data.frame, betas)
 
 save(betas_df, file = sprintf('stranded_betas_%s.RData', format(Sys.time(), "%d_%b_%Y")))
 
 
-
+betas_df$sample <- gsub('_bwameth_default_stranded.txt.gz', '', basename(betas_df$sample))
 
 rownames(betas_df) <- 1:nrow(betas_df)
 
@@ -528,15 +530,15 @@ dev.off()
 png('violins_m_%003d.png', width = 1000, height = 2000)
 
 print(bwplot(beta2m(beta_w) ~ as.factor(sample) | as.factor(seq_w_short) ,
-       data = betas_df,
-       auto.key = list(columns = 4),
-       group = samples_annot[betas_df$sample, annot],
+             data = betas_df,
+             auto.key = list(columns = 4),
+             group = samples_annot[betas_df$sample, annot],
              scales=list(x=list(rot=90)),
-       panel = function(..., box.ratio) {
-           panel.violin(..., col = "transparent",
-                        varwidth = FALSE, box.ratio = box.ratio)
-           panel.bwplot(..., fill = NULL, box.ratio = .1)
-       } ))
+             panel = function(..., box.ratio) {
+                 panel.violin(..., col = "transparent",
+                              varwidth = FALSE, box.ratio = box.ratio)
+                 panel.bwplot(..., fill = NULL, box.ratio = .1)
+             } ))
 
 print(bwplot(beta2m(beta_w) ~ as.factor(sample) | as.factor(seq_w_short) ,
        data = betas_df,
@@ -558,15 +560,51 @@ print(bwplot(beta2m(beta_w) ~ as.factor(sample) | as.factor(seq_w_short) ,
       col = pal,
       scales=list(x=list(rot=90)))
 
-print(densityplot(beta2m(beta_w) ~ as.factor(sample) | as.factor(seq_w_short) ,
-                  data = betas_df,             
-                  group = samples_annot[betas_df$sample, annot],
-                  panel=function(x,...){
-                      panel.densityplot(x,...)
-                      panel.abline(v=quantile(x,.5), col.line="red") 
-                  }))
+
+print(bwplot(beta2m(beta_w) ~ as.factor(sample) | as.factor(seq_w_short) ,
+             data = betas_df,
+             auto.key = list(columns = 4),
+             group = samples_annot[betas_df$sample, annot],
+             scales=list(x=list(rot=90)),
+             panel = function(..., box.ratio) {
+                 panel.violin(..., col = "transparent",
+                              varwidth = FALSE, box.ratio = box.ratio)
+                 panel.bwplot(..., fill = NULL, box.ratio = .1)
+                 panel.abline(v=quantile(beta2m(na.omit(betas_df$beta_w)),.5), col.line="red") 
+             } ))
+
+
+
+
+## print(densityplot(beta2m(beta_w) ~ as.factor(sample) | as.factor(seq_w_short) ,
+##                   data = betas_df,             
+##                   group = samples_annot[betas_df$sample, annot],
+##                   panel=function(x,...){
+##                       panel.densityplot(x,...)
+##                       panel.abline(v=quantile(x,.5), col.line="red") 
+##                   }))
 
 
 
 dev.off()
 
+
+## tests 
+png('bpplot_m_%003d.png', width = 1000, height = 2000)
+
+# same as previous but add a spike to give 0.95 interval
+## bwplot(g ~ x, panel=panel.bpplot, probs=c(.025,seq(.25,.49,by=.01)))
+## print(bwplot(beta2m(beta_w) ~ as.numeric(sample),
+##              data = betas_df,
+##              auto.key = list(columns = 4),
+##              group = samples_annot[betas_df$sample, annot],
+##              scales=list(x=list(rot=90)),
+##              panel=panel.bpplot, probs=c(.025,seq(.25,.49,by=.01))))
+
+print(bwplot(beta2m(beta_w) ~ as.numeric(sample) | as.factor(seq_w_short),
+             data = betas_df,
+             auto.key = list(columns = 4),
+             group = samples_annot[betas_df$sample, annot],
+             scales=list(x=list(rot=90)),
+             panel=panel.bpplot, probs=c(.025,seq(.25,.49,by=.01))))
+dev.off()
