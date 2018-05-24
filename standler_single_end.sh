@@ -14,7 +14,7 @@ export SOFT="$HOME"/soft
 export MM9=/home/Shared/data/annotation/Mouse/mm9/mm9.fa
 export VIRTENVS=~/virtenvs
 
-export NTHREADS=24
+export NTHREADS=16
 
 export MAPQ_THRES=40
 
@@ -55,7 +55,7 @@ do
 
 	mkdir "$sample"
 	cd "$sample"
-	r="$sample"
+	r="$sample"_1
 	
 	$FASTQDUMP -I --gzip --split-files $sample
 
