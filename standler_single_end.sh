@@ -6,7 +6,6 @@
 # may 24th 2018
 # GPL
 
-echo 'todo transform for se samples'
 
 export HOME=/home/imallona
 export TASK="cg_context"
@@ -38,16 +37,16 @@ mysql --user=genome \
       --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from mm9.chromInfo" > mm9.genome
 
 cat << EOF >> stadler_es.conf
-GSM748786	MouseES_BisSeq_HiSeq	single	SRR299053,SRR299054,SRR299055	
-GSM748787	MouseES_BisSeq_GAIIx	single	SRR299056,SRR299057,SRR299058,SRR299059,SRR299060,SRR299061,SRR299062	
+GSM748786;MouseES_BisSeq_HiSeq;single;SRR299053,SRR299054,SRR299055	
+GSM748787;MouseES_BisSeq_GAIIx;single;SRR299056,SRR299057,SRR299058,SRR299059,SRR299060,SRR299061,SRR299062	
 EOF
 
-while IFS='' read -r line || [[ -n "$line" ]]; do
+while IFS='' read -r line || [[ -n "$line" ]]
 do
 
     cd "$WD"
 
-    samples=$(echo $line | cut -f4)
+    samples=$(echo $line | cut -f4 -d ';')
     for sample in  $(echo $samples | tr "," "\n")
     do
 	
