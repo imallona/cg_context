@@ -21,3 +21,6 @@
 # apparently not, it works now (??)
 
 # integration.R                           as if diagnostic_plots.R
+
+# stadler
+# stadler_single_end.sh                  stadlers'
