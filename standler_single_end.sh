@@ -57,48 +57,52 @@ do
 	cd "$sample"
         
 	r="$sample"_1
+        fw="$r"_cutadapt_sickle.fastq.gz
+        bam="$sample"_bwameth_default.bam
+        
 
-	$FASTQDUMP -I --gzip --split-files $sample
-
-	curr="$r"_raw
-	mkdir -p $curr
-	
-	$FASTQC "$r".fastq.gz --outdir "$curr" \
-		-t $NTHREADS &> "$curr"/"$r"_fastqc.log
-
-	source $VIRTENVS/cutadapt/bin/activate
-	
-	cutadapt \
-	    -j $NTHREADS \
-	    -b $ILLUMINA_UNIVERSAL -b $ILLUMINA \
-	    -o "$r"_cutadapt.fastq.gz \
-	    "$r".fastq.gz &> "$sample"_cutadapt.log
-
-	deactivate
-
-	rm -f "$r".fastq.gz 
-	
-	"$SICKLE" se \
-		  -f "$r"_cutadapt.fastq.gz \
-		  -o "$r"_cutadapt_sickle.fastq.gz \
-		  -t sanger \
-		  -g &> "$sample"_cutadapt_sickle.log
+        if [ ! -f "$fw" ]
+        then
 
 
-	rm -f "$r"_cutadapt.fastq.gz
-	
-	curr="$r"_cutadapt_sickle
-	mkdir -p "$curr"
-	$FASTQC "$r"_cutadapt_sickle.fastq.gz \
-		--outdir "$curr" \
-		-t $NTHREADS &> "$curr"/"$r"_fastqc.log
+	    $FASTQDUMP -I --gzip --split-files $sample
+
+	    curr="$r"_raw
+	    mkdir -p $curr
+	    
+	    $FASTQC "$r".fastq.gz --outdir "$curr" \
+		    -t $NTHREADS &> "$curr"/"$r"_fastqc.log
+
+	    source $VIRTENVS/cutadapt/bin/activate
+	    
+	    cutadapt \
+	        -j $NTHREADS \
+	        -b $ILLUMINA_UNIVERSAL -b $ILLUMINA \
+	        -o "$r"_cutadapt.fastq.gz \
+	        "$r".fastq.gz &> "$sample"_cutadapt.log
+
+	    deactivate
+
+	    rm -f "$r".fastq.gz 
+	    
+	    "$SICKLE" se \
+		      -f "$r"_cutadapt.fastq.gz \
+		      -o "$r"_cutadapt_sickle.fastq.gz \
+		      -t sanger \
+		      -g &> "$sample"_cutadapt_sickle.log
+
+
+	    rm -f "$r"_cutadapt.fastq.gz
+	    
+	    curr="$r"_cutadapt_sickle
+	    mkdir -p "$curr"
+	    $FASTQC "$r"_cutadapt_sickle.fastq.gz \
+		    --outdir "$curr" \
+		    -t $NTHREADS &> "$curr"/"$r"_fastqc.log
+        fi
 
 	source $VIRTENVS/bwa-meth/bin/activate
 	
-	fw="$r"_cutadapt_sickle.fastq.gz
-
-	bam="$sample"_bwameth_default.bam
-
 	( bwameth.py --reference "$MM9" \
 		     "$fw" \
 		     --threads $NTHREADS | \
