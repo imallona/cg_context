@@ -53,25 +53,26 @@ do
 	echo "$(date) Processing sample $sample"
 	## scp to imlstaupo
 
-	mkdir "$sample"
+	mkdir - "$sample"
 	cd "$sample"
+        
 	r="$sample"_1
-	
+
 	$FASTQDUMP -I --gzip --split-files $sample
 
 	curr="$r"_raw
-        mkdir -p $curr
-        
-        $FASTQC "$r".fastq.gz --outdir "$curr" \
-                -t $NTHREADS &> "$curr"/"$r"_fastqc.log
+	mkdir -p $curr
+	
+	$FASTQC "$r".fastq.gz --outdir "$curr" \
+		-t $NTHREADS &> "$curr"/"$r"_fastqc.log
 
 	source $VIRTENVS/cutadapt/bin/activate
 	
 	cutadapt \
-            -j $NTHREADS \
-            -b $ILLUMINA_UNIVERSAL -b $ILLUMINA \
-            -o "$r"_cutadapt.fastq.gz \
-            "$r".fastq.gz &> "$sample"_cutadapt.log
+	    -j $NTHREADS \
+	    -b $ILLUMINA_UNIVERSAL -b $ILLUMINA \
+	    -o "$r"_cutadapt.fastq.gz \
+	    "$r".fastq.gz &> "$sample"_cutadapt.log
 
 	deactivate
 
@@ -86,11 +87,11 @@ do
 
 	rm -f "$r"_cutadapt.fastq.gz
 	
-        curr="$r"_cutadapt_sickle
-        mkdir -p "$curr"
-        $FASTQC "$r"_cutadapt_sickle.fastq.gz \
-                --outdir "$curr" \
-                -t $NTHREADS &> "$curr"/"$r"_fastqc.log
+	curr="$r"_cutadapt_sickle
+	mkdir -p "$curr"
+	$FASTQC "$r"_cutadapt_sickle.fastq.gz \
+		--outdir "$curr" \
+		-t $NTHREADS &> "$curr"/"$r"_fastqc.log
 
 	source $VIRTENVS/bwa-meth/bin/activate
 	
@@ -99,38 +100,38 @@ do
 	bam="$sample"_bwameth_default.bam
 
 	( bwameth.py --reference "$MM9" \
-                     "$fw" \
-                     --thrxeads $NTHREADS |  \
+		     "$fw" \
+		     --threads $NTHREADS | \
 		samtools view --threads $NTHREADS -bS - | \
 		samtools sort --threads $NTHREADS - > \
 			 "$bam" ) \
-            3>&1 1>&2 2>&3 | tee "$sample"_bwameth_default.log
+	    3>&1 1>&2 2>&3 | tee "$sample"_bwameth_default.log
 
 	deactivate
 
 
 	"$QUALIMAP"  bamqc \
-                     -bam "$bam" \
-                     -gd mm9 \
-                     -outdir "$(basename $bam .bam)"_qualimap \
-                     --java-mem-size=10G \
-                     -nt $NTHREADS
+		     -bam "$bam" \
+		     -gd mm9 \
+		     -outdir "$(basename $bam .bam)"_qualimap \
+		     --java-mem-size=10G \
+		     -nt $NTHREADS
 	
 	java -jar -XX:ParallelGCThreads=$NTHREADS \
-             $MARKDUPLICATES INPUT=$WD/"$bam" \
-             REMOVE_DUPLICATES=TRUE \
-             REMOVE_SEQUENCING_DUPLICATES=TRUE \
-             OUTPUT=$WD/"$(basename $bam .bam)""_dup_marked.bam" \
-             METRICS_FILE=$WD/"$(basename $bam .bam)""_dup_marked.metrics"
+	     $MARKDUPLICATES INPUT=$WD/"$bam" \
+	     REMOVE_DUPLICATES=TRUE \
+	     REMOVE_SEQUENCING_DUPLICATES=TRUE \
+	     OUTPUT=$WD/"$(basename $bam .bam)""_dup_marked.bam" \
+	     METRICS_FILE=$WD/"$(basename $bam .bam)""_dup_marked.metrics"
 
 
 	$METHYLDACKEL extract \
-                      -q $MAPQ_THRES \
-                      -@ $NTHREADS \
-                      --cytosine_report \
-                      $MM9 \
-                      $bam \
-                      -o $(basename $bam .bam)
+		      -q $MAPQ_THRES \
+		      -@ $NTHREADS \
+		      --cytosine_report \
+		      $MM9 \
+		      $bam \
+		      -o $(basename $bam .bam)
 
 	echo 'the bedtools slop migth be broken'
 	
@@ -140,18 +141,18 @@ do
    print $1,$2-1,$2,$4,$5,$3,$7;
 }
 ' "$(basename $bam .bam)".cytosine_report.txt  |
-            "$BEDTOOLS" slop -i - \
+	    "$BEDTOOLS" slop -i - \
 			-g "$WD"/mm9.genome \
 			-l 3 -r 4 -s | \
-            "$BEDTOOLS" getfasta -fi $MM9 \
+	    "$BEDTOOLS" getfasta -fi $MM9 \
 			-bed - \
 			-fo "$(basename $bam .bam)"_cytosine_report_slop.fa \
 			-tab \
 			-s
 	paste "$(basename $bam .bam)".cytosine_report.txt \
-              "$(basename $bam .bam)"_cytosine_report_slop.fa > tmp
+	      "$(basename $bam .bam)"_cytosine_report_slop.fa > tmp
 
-	rm -rf "$(basename $bam .bam)"_cytosine_report_slop.fa
+        rm -rf "$(basename $bam .bam)"_cytosine_report_slop.fa
 	## now get odd and even lines
 	awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
 	rm -f tmp 
