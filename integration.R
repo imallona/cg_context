@@ -46,13 +46,10 @@ fns <- c(file.path(WD, c('20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_mark
              'SRR1274745_bwameth_default_stranded.txt.gz',
              'SRR1653162_bwameth_default_stranded.txt.gz')),
          file.path(HOME, 'cg_context_new_tuncay', list.files(file.path(HOME, 'cg_context_new_tuncay'),
-                                                             "*stranded.txt.gz", recursive = TRUE)))
+                                                             "*stranded.txt.gz", recursive = TRUE)),
+         file.path(HOME, 'cg_context', list.files(file.path(HOME, 'cg_context'),
+                                                  "*stranded.txt.gz", recursive = TRUE)))
 
-
-## fns_annot <- list(
-##     'foo' = 'tko',
-    
-##     )
 
 fd <- list()
 for (fn in fns) {
@@ -71,117 +68,6 @@ for (fn in fns) {
 
     fd[[fn]] <- toy
 }
-
-## getting the meth tables, just contingency
-
-## motifs <- list()
-    ## data.frame(item = NULL,
-    ##            motif = NULL,
-    ##            meth = 0,
-    ##            unmeth = 0)
-
-##@todo speedup!
-print('beware this is only watson')
-
-## for (item in names(fd)) {
-##     for (motif in unique(substr(tolower(as.character(fd[[1]]$seq_c)), 2, 7))) {
-##         curr <- fd[[item]][substr(tolower(as.character(fd[[item]]$seq_c)), 2, 7) == motif,]
-
-##         curr_covered <- curr[((curr$meth_w + curr$unmeth_w) >= 5),]
-##         curr_uncovered <- nrow(curr) - nrow(curr_covered)
-##         curr_meth <- nrow(curr_covered[curr_covered$meth_w > 0,])
-##         curr_unmeth <-  nrow(curr_covered) - curr_meth
-
-##         stopifnot(curr_uncovered + curr_unmeth + curr_meth == nrow(curr))
-##         motifs[[paste(item, motif)]] <- c(item, motif, curr_uncovered, curr_meth, curr_unmeth)
-##     }
-## }
-
-
-
-## dat <-data.frame(factor=sample(c("a","b","c"), 10, T), value=rnorm(10))
-## r1<-with(dat, tapply(value, factor, mean))
-## r1
-## r1[["a"]]
-
-
-motifs <- list()
-for (item in names(fd)) {
-    ## for (motif in unique(substr(tolower(as.character(fd[[1]]$seq_c)), 2, 7))) {
-    fd[[item]]$factor <- substr(tolower(as.character(fd[[item]]$seq_c)), 2, 7)
-    curr_covered <- with(fd[[item]], tapply(meth_w + unmeth_w, factor, function(x) x >= 5))
-
-    curr_meth <-  with(fd[[item]], tapply(meth_w , factor, function(x) x > 0))
-
-    stopifnot(names(curr_covered) == names(curr_meth))
-
-    for (motif in names(curr_covered)) {
-        ## vector of
-        ## sample
-        ## motif
-        ## cgs uncovered
-        ## cgs covered and methylated
-        ## cgs covered and unmethylated
-        motifs[[paste(item, motif)]] <- c(item,
-                                          motif,
-                                          nrow(fd[[item]][fd[[item]]$factor == motif,]) -
-                                              sum(curr_covered[[motif]]),
-                                          sum(curr_covered[[motif]] & curr_meth[[motif]]),
-                                          sum(curr_covered[[motif]] & ! curr_meth[[motif]]))
-
-        stopifnot(as.numeric(motifs[[paste(item, motif)]][3]) +
-                      as.numeric(motifs[[paste(item, motif)]][4]) +
-                          as.numeric(motifs[[paste(item, motif)]][5]) ==
-                              nrow(fd[[item]][fd[[item]]$factor == motif,]))
-
-    }
-                 
-    ## }
-}
-
-
-motifs <- as.data.frame(do.call(rbind.data.frame, motifs))
-colnames(motifs) <- c('sample', 'motif', 'uncovered', 'meth', 'unmeth')
-motifs$sample <- basename(as.character(motifs$sample))
-
-for (item in c('uncovered', 'meth', 'unmeth')) {
-    motifs[,item] <- as.numeric(as.character(motifs[,item]))
-}
-
-save(motifs, file = 'motifs.RData')
-
-tests <- list()
-for (sample in unique(motifs$sample)) {
-    tests[[sample]] <- list()
-    curr <- motifs[motifs$sample == sample,]
-    
-    tests[[sample]][['meth_vs_unmeth']] <- chisq.test(curr$meth, curr$unmeth)
-    tests[[sample]][['meth_vs_covered']] <- chisq.test(curr$meth, (curr$uncovered + curr$unmeth))
-}
-
-motifs$ratio_m_represented <- motifs$meth  / (motifs$meth + motifs$unmeth)
-
-
-motifs$motif <- tolower(as.character(motifs$motif))
-
-motifs$short <- substr(motifs$motif, 3,6)
-
-motifs$sample <- gsub('_bwameth_default_stranded.txt.gz', '', motifs$sample)
-
-bwplot(ratio_m_represented ~ sample | as.factor(short),
-       data = motifs,
-       autokey = TRUE)
-
-
-bwplot(ratio_m_represented ~ as.factor(short) | as.factor(sample),
-       data = motifs,
-       autokey = TRUE,
-       scales=list(x=list(rot=90)))
-
-dotplot(ratio_m_represented ~ as.factor(short) | as.factor(sample),
-       data = motifs,
-       autokey = TRUE,
-        scales=list(x=list(rot=90)))
 
 ## let's try to set up this
 ## samples_annot <- read.table(text ='sample','genotype','seq'

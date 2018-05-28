@@ -163,7 +163,9 @@ do
 	mv -f bar "$(basename $bam .bam)"_stranded.txt
 
 	echo "$(date) Processing sample $sample ended"
-	
+
+	gzip "$(basename $bam .bam)"_stranded.txt
+        
 	cd "$WD"
     done    
 done < stadler_es.conf

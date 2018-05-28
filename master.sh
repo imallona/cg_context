@@ -24,3 +24,41 @@
 
 # stadler
 # stadler_single_end.sh                  stadlers'
+
+# set up an NFS, let's sync the data there
+for fn in $(find ~/cg_context -name "*stranded.txt.gz")
+do
+    rsync -avt $fn ~/mnt/nfs/cg_context/ &
+done
+
+for fn in $(find ~/cg_context_bulk -name "*stranded.txt.gz")
+do
+    rsync -avt $fn ~/mnt/nfs/cg_context/ &
+done
+
+for fn in $(find ~/cg_context_new_tuncay/ -name "*stranded.txt.gz")
+do
+    rsync -avt $fn ~/mnt/nfs/cg_context/ &
+done
+
+## even DMMD NAS and S3IT NFS sync (not needed)
+for fn in $(find ~/mnt/baubec/imallona2mmanzo/ -name "*stranded.txt.gz")
+do
+    #echo $fn
+     rsync -avt $fn ~/mnt/nfs/cg_context/ &
+done
+
+ chmod 644 ~/mnt/nfs/cg_context/*gz
+
+# consistency checks to count lines
+
+ for fn in $(find ~/mnt/nfs/cg_context -name "*strand**txt.gz")
+ do
+     nlines=$(zcat $fn | wc -l | cut -f1 -d" ")
+           
+     if [[ ! $nlines -eq 21722957 ]] 
+     then 
+         echo 'consistency check failed for ' "$fn"
+         echo $nlines
+     fi
+ done
