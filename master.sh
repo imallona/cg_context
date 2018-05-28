@@ -62,3 +62,9 @@ done
          echo $nlines
      fi
  done
+
+ # crashes for two
+# ^[[Aconsistency check failed for  /home/imallona/mnt/nfs/cg_context/SRR299053_bwameth_default_stranded.txt.gz
+# 23729652
+# ^[[Bconsistency check failed for  /home/imallona/mnt/nfs/cg_context/SRR299054_bwameth_default_stranded.txt.gz
+# 23733897
