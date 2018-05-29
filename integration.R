@@ -19,6 +19,8 @@ WD <-  file.path(HOME, TASK)
 DATA <- file.path(HOME, 'data')
 
 MIN_DEPTH <- 10
+NFS <- file.path(HOME, 'mnt', 'nfs')
+
 
 beta2m <- function(beta) {
     m <- log2(beta/(1 - beta))
@@ -30,25 +32,9 @@ m2beta <- function(m) {
     return(beta)
 }
 
-
-
-
 setwd(WD)
 
-fns <- c(file.path(WD, c('20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked_stranded.txt.gz',
-                         '20151223.B-MmES_TKOD3A1c1-3*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq40_stranded.txt.gz')),
-         file.path(WD, c(
-             ## 'SRR2878520_bwameth_default_stranded.txt.gz',
-             'SRR2878513_bwameth_default_stranded.txt.gz',
-             'SRR1274742_bwameth_default_stranded.txt.gz',
-             'SRR1274743_bwameth_default_stranded.txt.gz',
-             'SRR1274744_bwameth_default_stranded.txt.gz',
-             'SRR1274745_bwameth_default_stranded.txt.gz',
-             'SRR1653162_bwameth_default_stranded.txt.gz')),
-         file.path(HOME, 'cg_context_new_tuncay', list.files(file.path(HOME, 'cg_context_new_tuncay'),
-                                                             "*stranded.txt.gz", recursive = TRUE)),
-         file.path(HOME, 'cg_context', list.files(file.path(HOME, 'cg_context'),
-                                                  "*stranded.txt.gz", recursive = TRUE)))
+fns <- file.path(NFS, list.files(NFS, "*stranded.txt.gz", recursive = TRUE))
 
 
 fd <- list()
@@ -69,25 +55,6 @@ for (fn in fns) {
     fd[[fn]] <- toy
 }
 
-## let's try to set up this
-## samples_annot <- read.table(text ='sample','genotype','seq'
-## '20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked_stranded.txt.gz','tko+d3a1','bwa_hiseq2k'
-## '20151223.B-MmES_TKOD3A1c1-3*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq40_stranded.txt.gz','tko+d3a1','bt2_hiseq2k'
-## 'BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_6_ACAGTGA_L006_001','tko+d3a2','bwa_hiseq2k'
-## 'BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_001','tko+d3a2','bwa_hiseq2k'
-## 'BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_002','tko+d3a2','bwa_hiseq2k'
-## 'BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_003','tko+d3a2','bwa_hiseq2k'
-## 'BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001','tko+d3b1','bwa_hiseq2k'
-## 'BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001','tko+d3b1','bwa_hiseq2k'
-## 'BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002','tko+d3b1','bwa_hiseq2k'
-## 'BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003','tko+d3b1','bwa_hiseq2k'
-## 'SRR1274742','bwa_hiseq2k','tko+3a2'
-## 'SRR1274743','bwa_miseq','tko+3a2'
-## 'SRR1274744','bwa_miseq','tko+3b1'
-## 'SRR1274745','bwa_hiseq2k','tko+3b1'
-## 'SRR1653162','bwa_miseq','qko+3b1'
-##                             'SRR2878513','bwa_hiseq1k','oocyte', header = TRUE, sep = ',')
-
 samples_annot <- read.table(text ='sample,genotype,seq
 20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked_stranded.txt.gz,tko+d3a1,bwa_hiseq2k
 20151223.B-MmES_TKOD3A1c1-3*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq40_stranded.txt.gz,tko+d3a1,bt2_hiseq2k
@@ -104,54 +71,21 @@ SRR1274743,tko+d3a2,bwa_miseq
 SRR1274744,tko+d3b1,bwa_miseq
 SRR1274745,tko+d3b1,bwa_hiseq2k
 SRR1653162,qko+d3b1,bwa_miseq
-SRR2878513,oocyte,bwa_hiseq1k', header = TRUE, sep = ',')
+SRR2878513,oocyte,bwa_hiseq1k
+SRR299053,stadler_es,bwa_hiseq_single
+SRR299054,stadler_es,bwa_hiseq_single
+SRR299055,stadler_es,bwa_hiseq_single
+SRR299056,stadler_es,bwa_gaiix_single
+SRR299057,stadler_es,bwa_gaiix_single
+SRR299058,stadler_es,bwa_gaiix_single
+SRR299059,stadler_es,bwa_gaiix_single
+SRR299060,stadler_es,bwa_gaiix_single
+SRR299061,stadler_es,bwa_gaiix_single
+SRR299062,stadler_es,bwa_gaiix_single', header = TRUE, sep = ',')
+
 
 rownames(samples_annot) <- samples_annot$sample
 
-motifs$color <- c('a', 'b')
-
-## https://www.stat.ubc.ca/~jenny/STAT545A/block16_colorsLatticeQualitative.html
-
-xyplot(ratio_m_represented ~ as.factor(short) | as.factor(sample),
-       data = motifs,
-       autokey = TRUE,
-       jitter.y=TRUE,
-       group = motifs$color,
-       pch = 19,
-       cex = 0.5,
-       scales=list(x=list(rot=90)))
-
-
-
-for (annot in colnames(samples_annot)) {
-    png(sprintf('test_%s.png', annot), width = 1000, height = 2000)
-
-    print(xyplot(ratio_m_represented ~ as.factor(sample) | as.factor(short),
-                 data = motifs,
-                 auto.key = list(columns = 4),
-                 jitter.y=TRUE,
-                 group = samples_annot[motifs$sample, annot],
-                 pch = 19,
-                 cex = 0.5,
-                 scales=list(x=list(rot=90)),
-                 layout=c(5,4)))
-
-    dev.off()
-}
-
-png(sprintf('test_superposed.png'), width = 1000, height = 2000)
-
-print(xyplot(ratio_m_represented ~ as.factor(sample) | as.factor(short),
-             data = motifs,
-             auto.key = list(columns = 4),
-             jitter.y=TRUE,
-             group = samples_annot[motifs$sample, 'genotype'],
-             pch =  as.numeric(samples_annot[motifs$sample, 'seq']),
-             cex = 0.5,
-             scales=list(x=list(rot=90)),
-             layout=c(5,4)))
-
-dev.off()
 
 ## getting the motifs for both strands, and to integrate them
 
@@ -228,6 +162,8 @@ for (item in names(fd)) {
 save(smotifs, file = sprintf('stranded_motifs_list_%s.RData', format(Sys.time(), "%d_%b_%Y")))
 
 
+## till here
+
 smotifs <- as.data.frame(do.call(rbind.data.frame, smotifs))
 colnames(smotifs) <- c('sample', 'strand', 'motif', 'uncovered', 'meth', 'unmeth')
 smotifs$sample <- basename(as.character(smotifs$sample))
@@ -245,6 +181,7 @@ smotifs$motif <- tolower(as.character(smotifs$motif))
 smotifs$short <- substr(smotifs$motif, 2,5)
 
 smotifs$sample <- gsub('_bwameth_default_stranded.txt.gz', '', smotifs$sample)
+smotifs$sample <- gsub('_bwameth_default_dup_marked_stranded.txt.gz', '', smotifs$sample)
 
 save(smotifs, file = sprintf('stranded_smotifs_%s.RData', format(Sys.time(), "%d_%b_%Y")))
 
@@ -254,34 +191,37 @@ save(smotifs, file = sprintf('stranded_smotifs_%s.RData', format(Sys.time(), "%d
 ## getting rid of ns
 smotifs <- smotifs[grep('n', smotifs$short, invert = TRUE),]
 
-png('with_strand_%03d.png', width = 1500, height = 1500)
+png('new_with_strand_%03d.png', width = 1500, height = 1500)
+for (annot in colnames(samples_annot)) {
 
-xyplot(meth_vs_represented_ratio ~ as.factor(short) | as.factor(sample),
-       data = smotifs,
-       auto.key = list(columns = 1),
-       jitter.y=TRUE,       
-       group = samples_annot[smotifs$sample, annot],
-       pch = 19,
-       cex = 0.5,
-       scales=list(x=list(rot=90)),
-       layout = c(4,4))
+    print(xyplot(meth_vs_represented_ratio ~ as.factor(paste(short, strand)) | as.factor(sample),
+           data = smotifs,
+           auto.key = list(columns = 1),
+           jitter.y=TRUE,       
+           group = samples_annot[smotifs$sample, annot],
+           pch = 19,
+           cex = 0.5,
+           scales=list(x=list(rot=90)),
+           layout = c(5,5)))
 
-xyplot(meth_vs_represented_ratio ~ as.factor(strand) | as.factor(sample),
-       data = smotifs,
-       auto.key = list(columns = 1),
-       jitter.y=TRUE,       
-       group = samples_annot[smotifs$sample, annot],
-       pch = 19,
-       cex = 0.5,
-       scales=list(x=list(rot=90)),
-       layout = c(4,4))
-
-
-
+    ## xyplot(meth_vs_represented_ratio ~ as.factor(strand) | as.factor(sample),
+    ##        data = smotifs,
+    ##        auto.key = list(columns = 1),
+    ##        jitter.y=TRUE,       
+    ##        group = samples_annot[smotifs$sample, annot],
+    ##        pch = 19,
+    ##        cex = 0.5,
+    ##        scales=list(x=list(rot=90)),
+    ##        layout = c(5,5))
+}
 
 dev.off()
 
-png('with_strand_next_no_jitter_%03d.png', width = 1000, height = 2000)
+
+
+
+
+png('new_with_strand_next_no_jitter_%03d.png', width = 1000, height = 2000)
 for (annot in colnames(samples_annot)) {
     print(xyplot(meth_vs_represented_ratio ~ as.factor(sample) | as.factor(strand)*as.factor(short),
            data = smotifs,
@@ -296,7 +236,7 @@ for (annot in colnames(samples_annot)) {
 
 dev.off()
 
-png('with_strand_next_jitter_%03d.png', width = 1000, height = 2000)
+png('new_with_strand_next_jitter_%03d.png', width = 1000, height = 2000)
 for (annot in colnames(samples_annot)) {
     print(xyplot(meth_vs_represented_ratio ~ as.factor(sample) | as.factor(strand)*as.factor(short),
            data = smotifs,
@@ -312,10 +252,14 @@ for (annot in colnames(samples_annot)) {
 dev.off()
 
 
+## anyway, needed to be normalized by the methylation level
+
+
+
+
 ## some representations on beta values
 
-gz_path <- '/home/imallona/mnt/baubec/imallona2mmanzo/'
-fns <- file.path(gz_path, list.files(gz_path, "*stranded.txt.gz"))
+fns <- file.path(gz_path, list.files(NFS, "*stranded.txt.gz"))
 
 MIN_DEPTH <- 5
 
