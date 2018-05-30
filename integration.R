@@ -66,7 +66,7 @@ BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001,tko+d3b1,bwa_hise
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001,tko+d3b1,bwa_hiseq2k
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002,tko+d3b1,bwa_hiseq2k
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003,tko+d3b1,bwa_hiseq2k
-SRR2878520,oocytes,bwa_hiseq1k
+SRR2878520,oocyte,bwa_hiseq1k
 SRR1274742,tko+d3a2,bwa_hiseq2k
 SRR1274743,tko+d3a2,bwa_miseq
 SRR1274744,tko+d3b1,bwa_miseq
@@ -490,3 +490,31 @@ for (annot in colnames(samples_annot)) {
 }
 
 dev.off()
+
+
+## what if scaling to mean 0 variance 1?
+
+## mmm, this are already normalized to mean 0 variance 1
+mean(betas_strand[betas_strand$sample == sample, 'norm_beta'], na.rm = TRUE)
+sd(betas_strand[betas_strand$sample == sample, 'norm_beta'], na.rm = TRUE)
+
+
+
+
+png('boxplot_other_jitter_norm_beta_values_%03d.png', width = 1000, height = 2000)
+for (annot in colnames(samples_annot)) {
+
+    print(bwplot(norm_beta~ as.factor(sample) | as.factor(strand)*as.factor(short),
+           data = betas_strand,
+           auto.key = list(columns = 1),
+           jitter.x=TRUE,       
+           group = samples_annot[betas_strand$sample, annot],
+           pch = 19,
+           cex = 0.5,
+           scales=list(x=list(rot=90)),
+           layout = c(6,6)))
+
+}
+
+dev.off()
+
