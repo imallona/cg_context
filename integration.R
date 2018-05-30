@@ -56,8 +56,8 @@ for (fn in fns) {
 }
 
 samples_annot <- read.table(text ='sample,genotype,seq
-20151223.B-MmES_TKOD3A1c1-3_R_bwameth_default_dup_marked_stranded.txt.gz,tko+d3a1,bwa_hiseq2k
-20151223.B-MmES_TKOD3A1c1-3*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq40_stranded.txt.gz,tko+d3a1,bt2_hiseq2k
+20151223.B-MmES_TKOD3A1c1-3_R,tko+d3a1,bwa_hiseq2k
+20151223.B-MmES_TKOD3A1c1-3*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq40_stranded.txt,tko+d3a1,bt2_hiseq2k
 BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_6_ACAGTGA_L006_001,tko+d3a2,bwa_hiseq2k
 BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_001,tko+d3a2,bwa_hiseq2k
 BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_002,tko+d3a2,bwa_hiseq2k
@@ -66,6 +66,7 @@ BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001,tko+d3b1,bwa_hise
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001,tko+d3b1,bwa_hiseq2k
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002,tko+d3b1,bwa_hiseq2k
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003,tko+d3b1,bwa_hiseq2k
+SRR2878520,oocytes,bwa_hiseq1k
 SRR1274742,tko+d3a2,bwa_hiseq2k
 SRR1274743,tko+d3a2,bwa_miseq
 SRR1274744,tko+d3b1,bwa_miseq
@@ -296,6 +297,8 @@ save(betas_df, file = sprintf('stranded_betas_%s.RData', format(Sys.time(), "%d_
 
 
 betas_df$sample <- gsub('_bwameth_default_stranded.txt.gz', '', basename(betas_df$sample))
+betas_df$sample <- gsub('_bwameth_default_dup_marked_stranded.txt.gz', '', betas_df$sample)
+
 
 rownames(betas_df) <- 1:nrow(betas_df)
 
@@ -316,45 +319,10 @@ betas_df <- betas_df[grep('n', betas_df$seq_c_short, invert = TRUE),]
 save(betas_df, file = sprintf('stranded_betas_df_%s.RData', format(Sys.time(), "%d_%b_%Y")))
 
 
-
-## get some short motifs for the betas
-
-pal <- RColorBrewer::brewer.pal(6, "Set3")
-
-png('violins_betas_%003d.png', width = 1000, height = 2000)
-
-print(bwplot(beta_w ~ as.factor(sample) | as.factor(seq_w_short) ,
-       data = betas_df,
-       auto.key = list(columns = 4),
-       group = samples_annot[betas_df$sample, annot],
-             scales=list(x=list(rot=90)),
-       panel = function(..., box.ratio) {
-           panel.violin(..., col = "transparent",
-                        varwidth = FALSE, box.ratio = box.ratio)
-           panel.bwplot(..., fill = NULL, box.ratio = .1)
-       } ))
-
-print(bwplot(beta_w ~ as.factor(sample) | as.factor(seq_w_short) ,
-       data = betas_df,
-       auto.key = list(columns = 4),
-       group = samples_annot[betas_df$sample, annot],
-             scales=list(x=list(rot=90)),
-       panel = function(..., box.ratio) {
-           panel.violin(..., col = pal,
-                        varwidth = FALSE, box.ratio = box.ratio)
-           panel.bwplot(..., fill = NULL, box.ratio = .1)
-       } ))
+## transform to mvalue and normalize to the average betavalue
 
 
-print(bwplot(beta_w ~ as.factor(sample) | as.factor(seq_w_short) ,
-             data = betas_df,             
-             group = samples_annot[betas_df$sample, annot],
-             panel = panel.superpose,
-             panel.groups = panel.violin),
-      col = pal,
-      scales=list(x=list(rot=90)))
-
-dev.off()
+## normalizer <- apply(means[,1:14],2, function(x) sum(na.omit(x))/length(na.omit(x)))
 
 
 png('violins_m_%003d.png', width = 1000, height = 2000)
@@ -403,39 +371,111 @@ print(bwplot(beta2m(beta_w) ~ as.factor(sample) | as.factor(seq_w_short) ,
                  panel.abline(v=quantile(beta2m(na.omit(betas_df$beta_w)),.5), col.line="red") 
              } ))
 
+dev.off()
+
+## let's print the m values with dots as usuall
 
 
+betas_strand <- betas_df
+betas_strand <- betas_strand[,c('loc_w', 'seq_w', 'meth_w', 'unmeth_w', 'beta_w', 'sample')]
+betas_strand$strand <- 'watson'
 
-## print(densityplot(beta2m(beta_w) ~ as.factor(sample) | as.factor(seq_w_short) ,
-##                   data = betas_df,             
-##                   group = samples_annot[betas_df$sample, annot],
-##                   panel=function(x,...){
-##                       panel.densityplot(x,...)
-##                       panel.abline(v=quantile(x,.5), col.line="red") 
-##                   }))
+tmp <- data.frame(betas_df[,c('loc_c', 'seq_c', 'meth_c', 'unmeth_c', 'beta_c', 'sample')],
+                  strand = 'crick')
+
+colnames(tmp) <- colnames(betas_strand) <- c('loc', 'seq', 'meth', 'unmeth', 'beta', 'sample', 'strand')
+betas_strand <- rbind(betas_strand, tmp)
+table(betas_strand$strand)
+
+betas_strand$short <- substr(betas_strand$seq, 2, 5)
 
 
+betas_df$sample <- gsub('.gz', '', betas_df$sample)
+table(betas_df$sample %in% rownames(samples_annot))
+unique(betas_df$sample)[!unique(betas_df$sample) %in% rownames(samples_annot)]
+
+
+png('jitter_m_values_%03d.png', width = 1500, height = 1500)
+for (annot in colnames(samples_annot)) {
+
+    print(xyplot(beta2m(beta) ~ as.factor(paste(short, strand)) | as.factor(sample),
+           data = betas_strand,
+           auto.key = list(columns = 1),
+           jitter.x=TRUE,       
+           group = samples_annot[betas_df$sample, annot],
+           pch = 19,
+           cex = 0.5,
+           scales=list(x=list(rot=90)),
+           layout = c(6,6)))
+
+
+}
+
+dev.off()
+
+png('other_jitter_m_values_%03d.png', width = 1000, height = 2000)
+for (annot in colnames(samples_annot)) {
+
+    print(xyplot(beta2m(beta) ~ as.factor(sample) | as.factor(strand)*as.factor(short),
+           data = betas_strand,
+           auto.key = list(columns = 1),
+           jitter.x=TRUE,       
+           group = samples_annot[betas_strand$sample, annot],
+           pch = 19,
+           cex = 0.5,
+           scales=list(x=list(rot=90)),
+           layout = c(6,6)))
+
+}
 
 dev.off()
 
 
-## ## tests
-# does not work, takes huge time to compute
-## png('bpplot_m_%003d.png', width = 1000, height = 2000)
+## and now normalize the m value deviation over the avg m value for each sample
 
-## # same as previous but add a spike to give 0.95 interval
-## ## bwplot(g ~ x, panel=panel.bpplot, probs=c(.025,seq(.25,.49,by=.01)))
-## ## print(bwplot(beta2m(beta_w) ~ as.numeric(sample),
-## ##              data = betas_df,
-## ##              auto.key = list(columns = 4),
-## ##              group = samples_annot[betas_df$sample, annot],
-## ##              scales=list(x=list(rot=90)),
-## ##              panel=panel.bpplot, probs=c(.025,seq(.25,.49,by=.01))))
+## normalizer <- aggregate(x = beta2m(betas_strand$beta),  as.list(betas_strand$sample),  FUN = mean)
+## normalizer <- beta2m(dcast(betas_strand, . ~ sample, mean, value.var = 'beta'))
+## with(betas_strand, tapply(beta, as.factor(sample), function(x) mean(beta2m(x), na.rm = TRUE)))
+normalizer <- with(betas_strand, tapply(beta, as.factor(sample), function(x) beta2m(mean(x, na.rm = TRUE))))
 
-## print(bwplot(beta2m(beta_w) ~ as.numeric(sample) | as.factor(seq_w_short),
-##              data = betas_df,
-##              auto.key = list(columns = 4),
-##              group = samples_annot[betas_df$sample, annot],
-##              scales=list(x=list(rot=90)),
-##              panel=panel.bpplot, probs=c(.025,seq(.25,.49,by=.01))))
-## dev.off()
+betas_strand$norm_m <-  NULL
+for (sample in unique(betas_strand$sample)) {
+    betas_strand[betas_strand$sample == sample, 'norm_m'] <-  beta2m(betas_strand[betas_strand$sample == sample, 'beta']) -
+                                                                     normalizer[sample]
+}
+
+
+png('jitter_norm_m_values_%03d.png', width = 1500, height = 1500)
+for (annot in colnames(samples_annot)) {
+
+    print(xyplot(norm_m ~ as.factor(paste(short, strand)) | as.factor(sample),
+           data = betas_strand,
+           auto.key = list(columns = 1),
+           jitter.x=TRUE,       
+           group = samples_annot[betas_df$sample, annot],
+           pch = 19,
+           cex = 0.5,
+           scales=list(x=list(rot=90)),
+           layout = c(6,6)))
+
+
+}
+
+dev.off()
+
+png('other_jitter_norm_m_values_%03d.png', width = 1000, height = 2000)
+for (annot in colnames(samples_annot)) {
+
+    print(xyplot(norm_m~ as.factor(sample) | as.factor(strand)*as.factor(short),
+           data = betas_strand,
+           auto.key = list(columns = 1),
+           jitter.x=TRUE,       
+           group = samples_annot[betas_strand$sample, annot],
+           pch = 19,
+           cex = 0.5,
+           scales=list(x=list(rot=90)),
+           layout = c(6,6)))
+
+}
+
+dev.off()
