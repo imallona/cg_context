@@ -394,6 +394,7 @@ betas_df$sample <- gsub('.gz', '', betas_df$sample)
 table(betas_df$sample %in% rownames(samples_annot))
 unique(betas_df$sample)[!unique(betas_df$sample) %in% rownames(samples_annot)]
 
+betas_strand$sample <- gsub('.gz', '', betas_strand$sample)
 
 png('jitter_m_values_%03d.png', width = 1500, height = 1500)
 for (annot in colnames(samples_annot)) {
@@ -436,19 +437,29 @@ dev.off()
 ## normalizer <- aggregate(x = beta2m(betas_strand$beta),  as.list(betas_strand$sample),  FUN = mean)
 ## normalizer <- beta2m(dcast(betas_strand, . ~ sample, mean, value.var = 'beta'))
 ## with(betas_strand, tapply(beta, as.factor(sample), function(x) mean(beta2m(x), na.rm = TRUE)))
-normalizer <- with(betas_strand, tapply(beta, as.factor(sample), function(x) beta2m(mean(x, na.rm = TRUE))))
+## normalizer <- with(betas_strand, tapply(beta, as.factor(sample), function(x) beta2m(mean(x, na.rm = TRUE))))
+normalizer <- with(betas_strand, tapply(beta, as.factor(sample), function(x) mean(x, na.rm = TRUE)))
 
-betas_strand$norm_m <-  NULL
+normalizer.min <-with(betas_strand, tapply(beta, as.factor(sample), function(x) min(x, na.rm = TRUE)))
+normalizer.max <-with(betas_strand, tapply(beta, as.factor(sample), function(x) max(x, na.rm = TRUE)))
+
+
+
+betas_strand$norm_beta <-  NULL
 for (sample in unique(betas_strand$sample)) {
-    betas_strand[betas_strand$sample == sample, 'norm_m'] <-  beta2m(betas_strand[betas_strand$sample == sample, 'beta']) -
-                                                                     normalizer[sample]
+    ## betas_strand[betas_strand$sample == sample, 'norm_beta'] <-  (betas_strand[betas_strand$sample == sample, 'beta'] -
+    ##                                                                  normalizer[sample])/normalizer[sample]
+
+    betas_strand[betas_strand$sample == sample, 'norm_beta'] <-  scale(betas_strand[betas_strand$sample == sample, 'beta'])
+
+ 
 }
 
 
-png('jitter_norm_m_values_%03d.png', width = 1500, height = 1500)
+png('jitter_norm_beta_values_%03d.png', width = 1500, height = 1500)
 for (annot in colnames(samples_annot)) {
 
-    print(xyplot(norm_m ~ as.factor(paste(short, strand)) | as.factor(sample),
+    print(xyplot(norm_beta ~ as.factor(paste(short, strand)) | as.factor(sample),
            data = betas_strand,
            auto.key = list(columns = 1),
            jitter.x=TRUE,       
@@ -463,10 +474,10 @@ for (annot in colnames(samples_annot)) {
 
 dev.off()
 
-png('other_jitter_norm_m_values_%03d.png', width = 1000, height = 2000)
+png('other_jitter_norm_beta_values_%03d.png', width = 1000, height = 2000)
 for (annot in colnames(samples_annot)) {
 
-    print(xyplot(norm_m~ as.factor(sample) | as.factor(strand)*as.factor(short),
+    print(xyplot(norm_beta~ as.factor(sample) | as.factor(strand)*as.factor(short),
            data = betas_strand,
            auto.key = list(columns = 1),
            jitter.x=TRUE,       
