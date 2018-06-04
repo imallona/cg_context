@@ -228,22 +228,99 @@ tot_norm_meth <- with(smotifs, tapply(meth,
                             list("sample" = sample),
                             function(x) sum(x, na.rm = TRUE)))
 
-norm2_meth <- norm_meth/as.vector(tot_norm_meth)
+## norm2_meth <- norm_meth/as.vector(tot_norm_meth)
 
 
 tot_norm_unmeth <- with(smotifs, tapply(unmeth,
                             list("sample" = sample),
                             function(x) sum(x, na.rm = TRUE)))
 
-norm2_unmeth <- norm_unmeth/as.vector(tot_norm_unmeth)
-
-norm2 <- norm2_meth / (norm2_meth + norm2_unmeth)
+norm_sample <- tot_norm_meth/(tot_norm_meth + tot_norm_unmeth)
 
 
-colSums(norm/norm2, na.rm = TRUE)
+## norm2_unmeth <- norm_unmeth/as.vector(tot_norm_unmeth)
+
+## norm2 <- norm2_meth / (norm2_meth + norm2_unmeth)
+
+normalized <- apply(norm, 1, function(x) return(x/norm_sample))
+
+write.csv(normalized, file = 'normalized.csv')
 
 
-colSums(norm*norm2, na.rm = TRUE)
+## plot start
+## transform from wide to long for lattice 
+normalized_melted <- melt(normalized)
+
+
+png('normalized_%03d.png', width = 1500, height = 1500)
+for (annot in colnames(samples_annot)) {
+
+    print(xyplot(value ~ as.factor(motif) | as.factor(sample),
+           data = normalized_melted,
+           auto.key = list(columns = 1),
+           jitter.x=TRUE,       
+           group = samples_annot[normalized_melted$sample, annot],
+           pch = 19,
+           cex = 0.5,
+           scales=list(x=list(rot=90)),
+           layout = c(6,6)))
+
+
+}
+
+dev.off()
+
+## png('normalized_variant_%03d.png', width = 2000, height = 2000)
+## for (annot in colnames(samples_annot)) {
+
+
+##     print(xyplot(value ~ as.factor(sample) | as.factor(motif),
+##            data = normalized_melted,
+##            auto.key = list(columns = 1, corner = c(1,0)),
+##            par.settings = list(layout.widths = list(right.padding = 25)),
+##            jitter.x=TRUE,       
+##            group = samples_annot[normalized_melted$sample, annot],
+##            pch = 19,
+##            cex = 0.5,
+##            scales=list(x=list(rot=90)),
+##            layout = c(6,6)))
+
+
+## }
+
+## dev.off()
+
+
+
+
+png('normalized_variant_%03d.png', width = 1500, height = 2000)
+for (annot in colnames(samples_annot)) {
+
+
+    print(xyplot(value ~ as.factor(sample) | as.factor(motif),
+           data = normalized_melted,
+           auto.key = list(columns = 1, corner = c(0.3,1)),
+           par.settings = list(layout.widths = list(right.padding = 10)),
+           jitter.x=TRUE,       
+           group = samples_annot[normalized_melted$sample, annot],
+           pch = 19,
+           cex = 0.5,
+           scales=list(x=list(rot=90)),
+           layout = c(6,6)))
+
+
+}
+
+dev.off()
+
+
+## plot end
+
+
+## colSums(norm/norm2, na.rm = TRUE)
+
+
+## colSums(norm*norm2, na.rm = TRUE)
 
 ## this is not what intended, just extract those items that are methylated and compare to the ones represented
 
