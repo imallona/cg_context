@@ -12,6 +12,7 @@
 library(reshape2)
 library(lattice)
 library(Hmisc)
+library(qwraps2)
 
 TASK <- "cg_context_bulk"
 HOME <- '/home/imallona'
@@ -87,6 +88,8 @@ SRR299062,stadler_es,bwa_gaiix_single', header = TRUE, sep = ',')
 
 rownames(samples_annot) <- samples_annot$sample
 
+stopifnot(length(fd) == nrow(samples_annot))
+names(fd)
 
 ## getting the motifs for both strands, and to integrate them
 
@@ -185,6 +188,69 @@ smotifs$sample <- gsub('_bwameth_default_stranded.txt.gz', '', smotifs$sample)
 smotifs$sample <- gsub('_bwameth_default_dup_marked_stranded.txt.gz', '', smotifs$sample)
 
 save(smotifs, file = sprintf('stranded_smotifs_%s.RData', format(Sys.time(), "%d_%b_%Y")))
+
+
+## tabular representation
+
+## normalize by overall enrichment
+
+
+
+## norm_meth <- with(smotifs, tapply(meth,
+##                             list("sample" = sample, "motif" = short),
+##                             function(x) sum(x, na.rm = TRUE)))
+
+
+## norm_unmeth <- with(smotifs, tapply(unmeth,
+##                                     list("sample" = sample, "motif" = short),
+##                                     function(x) sum(x, na.rm = TRUE)))
+
+
+## norm <- norm_meth/(norm_meth + norm_unmeth)
+
+## traspose this
+
+norm_meth <- with(smotifs, tapply(meth,
+                            list("motif" = short, "sample" = sample),
+                            function(x) sum(x, na.rm = TRUE)))
+
+
+norm_unmeth <- with(smotifs, tapply(unmeth,
+                            list("motif" = short, "sample" = sample),
+                            function(x) sum(x, na.rm = TRUE)))
+
+norm <- norm_meth/(norm_meth + norm_unmeth)
+colSums(norm, na.rm = TRUE)
+## this still is not normalized by sample
+## second round normalization, by meth/unmeth marginals
+
+tot_norm_meth <- with(smotifs, tapply(meth,
+                            list("sample" = sample),
+                            function(x) sum(x, na.rm = TRUE)))
+
+norm2_meth <- norm_meth/as.vector(tot_norm_meth)
+
+
+tot_norm_unmeth <- with(smotifs, tapply(unmeth,
+                            list("sample" = sample),
+                            function(x) sum(x, na.rm = TRUE)))
+
+norm2_unmeth <- norm_unmeth/as.vector(tot_norm_unmeth)
+
+norm2 <- norm2_meth / (norm2_meth + norm2_unmeth)
+
+
+colSums(norm/norm2, na.rm = TRUE)
+
+
+colSums(norm*norm2, na.rm = TRUE)
+
+## this is not what intended, just extract those items that are methylated and compare to the ones represented
+
+'
+for sample in fd
+   filter those 
+'
 
 
 ## plotting
@@ -518,3 +584,31 @@ for (annot in colnames(samples_annot)) {
 
 dev.off()
 
+
+
+## what about the context of meth cpgs?
+
+
+
+## sumtable <-
+##   list("meth_vs_represented_ratio" =
+##        list("min" = ~ min(meth_vs_represented_ratio),
+##             "max" = ~ max(meth_vs_represented_ratio),
+##             "mean (sd)" = ~ qwraps2::mean_sd(meth_vs_represented_ratio)),
+##        "uncovered" =
+##        list("min" = ~ min(uncovered),
+##             "max" = ~ max(uncovered),
+##             "mean (sd)" = ~ qwraps2::mean_sd(uncovered)),
+##        "meth" =
+##        list("min" = ~ min(meth),
+##             "max" = ~ max(meth),
+##             "mean (sd)" = ~ qwraps2::mean_sd(meth))
+##        )
+
+## ### Overall
+
+## summary_table(dplyr::group_by(smotifs, short), sumtable)
+
+
+with(smotifs, tapply(meth_vs_represented_ratio,
+                     list("sample" = sample, "motif" = short), mean))
