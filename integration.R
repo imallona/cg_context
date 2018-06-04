@@ -337,6 +337,35 @@ pheatmap(as.matrix(normalized),
 dev.off()
 
 
+## let's test whether purine/pyrimidine are as explicative as the actual nucleotide
+
+## R are purines and Y pyrimidines
+
+normalized_melted$coded <- NA
+
+for (item in unique(normalized_melted$motif)) {
+    print(item)
+    if (substr(item, 1,1) %in% c('a', 'g') & substr(item, 4,4) %in% c('a', 'g'))
+        normalized_melted[normalized_melted$motif == item, 'coded'] <- 'RR'
+    else if (substr(item, 1,1) %in% c('a', 'g') & substr(item, 4,4) %in% c('c', 't'))
+        normalized_melted[normalized_melted$motif == item, 'coded'] <- 'RY'
+    else if (substr(item, 1,1) %in% c('c', 't') & substr(item, 4,4) %in% c('c', 't'))
+        normalized_melted[normalized_melted$motif == item, 'coded'] <- 'YY'    
+    else if (substr(item, 1,1) %in% c('c', 't') & substr(item, 4,4) %in% c('a', 'g'))
+        normalized_melted[normalized_melted$motif == item, 'coded'] <- 'YR'
+        
+}
+
+melted <- merge(normalized_melted, samples_annot, by = 'sample')
+
+m1 <- lm(value ~ motif * genotype, data = melted)
+summary(m1)
+m2 <- lm(value ~ coded * genotype, data = melted)
+summary(m2)
+
+
+anova(m1,m2)
+
 ## plot end
 
 
