@@ -12,7 +12,9 @@
 library(reshape2)
 library(lattice)
 library(Hmisc)
-library(qwraps2)
+## library(qwraps2)
+library(pheatmap)
+
 
 TASK <- "cg_context_bulk"
 HOME <- '/home/imallona'
@@ -190,6 +192,10 @@ smotifs$sample <- gsub('_bwameth_default_dup_marked_stranded.txt.gz', '', smotif
 save(smotifs, file = sprintf('stranded_smotifs_%s.RData', format(Sys.time(), "%d_%b_%Y")))
 
 
+## getting rid of ns
+smotifs <- smotifs[grep('n', smotifs$short, invert = TRUE),]
+
+
 ## tabular representation
 
 ## normalize by overall enrichment
@@ -314,6 +320,23 @@ for (annot in colnames(samples_annot)) {
 dev.off()
 
 
+
+## some pheatmaps then
+
+png(file.path(WD, 'normalized_pheatmap.png'),
+    width = 1000, height = 1000)
+
+pheatmap(as.matrix(normalized),
+         ## col = colorRampPalette(c("blue", "white", "red"))( 100 ), ## (n),
+         margin=c(10, 10),
+         ## cluster_rows = hc[['t']]$probes.hc,
+         ## cluster_cols = hc[['t']]$people.hc,
+         annotation_row =  samples_annot[,c('genotype', 'seq')],         
+         main = 'normalized motif enrichment')
+
+dev.off()
+
+
 ## plot end
 
 
@@ -331,9 +354,6 @@ for sample in fd
 
 
 ## plotting
-
-## getting rid of ns
-smotifs <- smotifs[grep('n', smotifs$short, invert = TRUE),]
 
 png('new_with_strand_%03d.png', width = 1500, height = 1500)
 for (annot in colnames(samples_annot)) {
