@@ -25,6 +25,15 @@ DATA <- file.path(HOME, 'data')
 MIN_DEPTH <- 10
 NFS <- file.path(HOME, 'mnt', 'nfs')
 
+beta2m <- function(beta) {
+    m <- log2(beta/(1 - beta))
+    return(m)
+}
+
+m2beta <- function(m) {
+    beta <- 2^m/(2^m + 1)
+    return(beta)
+}
 
 opts_chunk$set(fig.width = 12, fig.height = 4, fig.path = file.path(WD, TASK, 'RmdFigs'),
                output.dir = file.path(WD, TASK),
@@ -34,9 +43,267 @@ dir.create(file.path(WD, TASK))
 ## setwd(file.path(NFS, TASK))
 
 ```
-
+        
 # Data import
+```{r data_import, include = TRUE, echo = TRUE, cache = TRUE}
 
+
+fns <- file.path(NFS, list.files(NFS, "*stranded.txt.gz", recursive = TRUE))
+
+
+fd <- list()
+for (fn in fns) {
+    toy <- read.table(pipe(sprintf('zcat %s | fgrep -w chr17',
+                                         fn)), header = FALSE)[,c(8,9,4,5,17,18,13,14)]
+    ## watson and crick
+    colnames(toy) <- c('loc_w', 'seq_w', 'meth_w', 'unmeth_w',
+                       'loc_c', 'seq_c', 'meth_c', 'unmeth_c')
+    str(toy)
+
+    ## toy <- toy[((toy$meth_w + toy$unmeth_w) >= MIN_DEPTH & (toy$meth_c + toy$unmeth_c) >= MIN_DEPTH),]
+    toy$beta_w <- toy$meth_w/(toy$meth_w + toy$unmeth_w)
+    toy$beta_c <- toy$meth_c/(toy$meth_c + toy$unmeth_c)
+
+    toy$beta <-  (toy$meth_c + toy$meth_w)/(toy$meth_c + toy$unmeth_c + toy$meth_w + toy$unmeth_w)
+
+    fd[[fn]] <- toy
+}
+
+samples_annot <- read.table(text ='sample,genotype,seq
+20151223.B-MmES_TKOD3A1c1-3_R,tko+d3a1,bwa_hiseq2k
+20151223.B-MmES_TKOD3A1c1-3*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq40_stranded.txt,tko+d3a1,bt2_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_6_ACAGTGA_L006_001,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_001,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_002,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_003,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001,tko+d3b1,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001,tko+d3b1,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002,tko+d3b1,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003,tko+d3b1,bwa_hiseq2k
+SRR2878520,oocyte,bwa_hiseq1k
+SRR1274742,tko+d3a2,bwa_hiseq2k
+SRR1274743,tko+d3a2,bwa_miseq
+SRR1274744,tko+d3b1,bwa_miseq
+SRR1274745,tko+d3b1,bwa_hiseq2k
+SRR1653162,qko+d3b1,bwa_miseq
+SRR2878513,oocyte,bwa_hiseq1k
+SRR299053,stadler_es,bwa_hiseq_single
+SRR299054,stadler_es,bwa_hiseq_single
+SRR299055,stadler_es,bwa_hiseq_single
+SRR299056,stadler_es,bwa_gaiix_single
+SRR299057,stadler_es,bwa_gaiix_single
+SRR299058,stadler_es,bwa_gaiix_single
+SRR299059,stadler_es,bwa_gaiix_single
+SRR299060,stadler_es,bwa_gaiix_single
+SRR299061,stadler_es,bwa_gaiix_single
+SRR299062,stadler_es,bwa_gaiix_single', header = TRUE, sep = ',')
+
+
+rownames(samples_annot) <- samples_annot$sample
+
+stopifnot(length(fd) == nrow(samples_annot))
+names(fd)
+
+## getting the motifs for both strands, and to integrate them
+
+smotifs <- list()
+for (item in names(fd)) {
+
+    fd[[item]]$factor_w <- substr(tolower(as.character(fd[[item]]$seq_w)), 2, 7)
+    fd[[item]]$factor_c <- substr(tolower(as.character(fd[[item]]$seq_c)), 2, 7)
+    
+    curr_covered_w <- with(fd[[item]], tapply(meth_w + unmeth_w, factor_w, function(x) x >= 5))
+    curr_meth_w <-  with(fd[[item]], tapply(meth_w , factor_w, function(x) x > 0))
+
+    curr_covered_c <- with(fd[[item]], tapply(meth_c + unmeth_c, factor_c, function(x) x >= 5))
+    curr_meth_c <-  with(fd[[item]], tapply(meth_c , factor_c, function(x) x > 0))
+
+    stopifnot(names(curr_covered_w) == names(curr_meth_w))
+    stopifnot(names(curr_covered_c) == names(curr_meth_c))
+
+    for (motif in names(curr_covered_w)) {
+        ## vector of
+        ## sample
+        ## motif
+        ## cgs uncovered
+        ## cgs covered and methylated
+        ## cgs covered and unmethylated
+        smotifs[[paste(item, motif, 'watson')]] <- c(
+            item,
+            'watson',
+            motif,
+            nrow(fd[[item]][fd[[item]]$factor_w == motif,]) -
+                sum(curr_covered_w[[motif]]),
+            sum(curr_covered_w[[motif]] & curr_meth_w[[motif]]),
+            sum(curr_covered_w[[motif]] & ! curr_meth_w[[motif]]))
+        
+        stopifnot(as.numeric(smotifs[[paste(item, motif)]][3]) +
+                      as.numeric(smotifs[[paste(item, motif)]][4]) +
+                          as.numeric(smotifs[[paste(item, motif)]][5]) ==
+                              nrow(fd[[item]][fd[[item]]$factor_w == motif,]))
+
+    }
+    ## this might sound stupid because watson and crick are simetrical and not independent
+    ## but anyway, they might end being like that
+    for (motif in names(curr_covered_c)) {
+        ## vector of
+        ## sample
+        ## motif
+        ## cgs uncovered
+        ## cgs covered and methylated
+        ## cgs covered and unmethylated
+        smotifs[[paste(item, motif, 'crick')]] <- c(
+            item,
+            'crick',
+            motif,
+            nrow(fd[[item]][fd[[item]]$factor_c == motif,]) -
+                sum(curr_covered_c[[motif]]),
+            sum(curr_covered_c[[motif]] & curr_meth_c[[motif]]),
+            sum(curr_covered_c[[motif]] & ! curr_meth_c[[motif]]))
+        
+        stopifnot(as.numeric(smotifs[[paste(item, motif)]][3]) +
+                      as.numeric(smotifs[[paste(item, motif)]][4]) +
+                          as.numeric(smotifs[[paste(item, motif)]][5]) ==
+                              nrow(fd[[item]][fd[[item]]$factor_c == motif,]))
+
+    }
+    
+                 
+    ## }
+}
+
+```     
+
+Plotting some normalized data for 4-mers
+
+```{r normalization, include = TRUE, echo = TRUE, cache = TRUE}
+
+
+smotifs <- as.data.frame(do.call(rbind.data.frame, smotifs))
+colnames(smotifs) <- c('sample', 'strand', 'motif', 'uncovered', 'meth', 'unmeth')
+smotifs$sample <- basename(as.character(smotifs$sample))
+
+for (item in c('uncovered', 'meth', 'unmeth')) {
+    smotifs[,item] <- as.numeric(as.character(smotifs[,item]))
+}
+
+
+smotifs$meth_vs_represented_ratio <- smotifs$meth  / (smotifs$meth + smotifs$unmeth)
+
+
+smotifs$motif <- tolower(as.character(smotifs$motif))
+
+smotifs$short <- substr(smotifs$motif, 2,5)
+
+smotifs$sample <- gsub('_bwameth_default_stranded.txt.gz', '', smotifs$sample)
+smotifs$sample <- gsub('_bwameth_default_dup_marked_stranded.txt.gz', '', smotifs$sample)
+
+save(smotifs, file = sprintf('stranded_smotifs_%s.RData', format(Sys.time(), "%d_%b_%Y")))
+
+
+## getting rid of ns
+smotifs <- smotifs[grep('n', smotifs$short, invert = TRUE),]
+
+norm_meth <- with(smotifs, tapply(meth,
+                            list("motif" = short, "sample" = sample),
+                            function(x) sum(x, na.rm = TRUE)))
+
+
+norm_unmeth <- with(smotifs, tapply(unmeth,
+                            list("motif" = short, "sample" = sample),
+                            function(x) sum(x, na.rm = TRUE)))
+
+norm <- norm_meth/(norm_meth + norm_unmeth)
+colSums(norm, na.rm = TRUE)
+## this still is not normalized by sample
+## second round normalization, by meth/unmeth marginals
+
+tot_norm_meth <- with(smotifs, tapply(meth,
+                            list("sample" = sample),
+                            function(x) sum(x, na.rm = TRUE)))
+
+tot_norm_unmeth <- with(smotifs, tapply(unmeth,
+                            list("sample" = sample),
+                            function(x) sum(x, na.rm = TRUE)))
+
+norm_sample <- tot_norm_meth/(tot_norm_meth + tot_norm_unmeth)
+
+normalized <- apply(norm, 1, function(x) return(x/norm_sample))
+
+write.csv(normalized, file = 'normalized.csv')
+
+normalized_melted <- melt(normalized)
+
+for (annot in colnames(samples_annot)) {
+
+    print(xyplot(value ~ as.factor(motif) | as.factor(sample),
+           data = normalized_melted,
+           auto.key = list(columns = 1),
+           jitter.x=TRUE,       
+           group = samples_annot[normalized_melted$sample, annot],
+           pch = 19,
+           cex = 0.5,
+           scales=list(x=list(rot=90)),
+           layout = c(6,6)))
+
+
+}
+
+for (annot in colnames(samples_annot)) {
+    print(xyplot(value ~ as.factor(sample) | as.factor(motif),
+           data = normalized_melted,
+           auto.key = list(columns = 1, corner = c(0.3,1)),
+           par.settings = list(layout.widths = list(right.padding = 10)),
+           jitter.x=TRUE,       
+           group = samples_annot[normalized_melted$sample, annot],
+           pch = 19,
+           cex = 0.5,
+           scales=list(x=list(rot=90)),
+           layout = c(6,6)))
+
+
+}
+
+pheatmap(as.matrix(normalized),
+         margin=c(10, 10),
+         annotation_row =  samples_annot[,c('genotype', 'seq')],         
+         main = 'normalized motif enrichment')
+
+```
+
+Let's focus on purine vs pyrimidine enrichment
+
+
+```{r purine_pyrimidine, include=TRUE, echo=TRUE, results='markup'}
+
+normalized_melted$coded <- NA
+
+for (item in unique(normalized_melted$motif)) {
+    print(item)
+    if (substr(item, 1,1) %in% c('a', 'g') & substr(item, 4,4) %in% c('a', 'g'))
+        normalized_melted[normalized_melted$motif == item, 'coded'] <- 'RR'
+    else if (substr(item, 1,1) %in% c('a', 'g') & substr(item, 4,4) %in% c('c', 't'))
+        normalized_melted[normalized_melted$motif == item, 'coded'] <- 'RY'
+    else if (substr(item, 1,1) %in% c('c', 't') & substr(item, 4,4) %in% c('c', 't'))
+        normalized_melted[normalized_melted$motif == item, 'coded'] <- 'YY'    
+    else if (substr(item, 1,1) %in% c('c', 't') & substr(item, 4,4) %in% c('a', 'g'))
+        normalized_melted[normalized_melted$motif == item, 'coded'] <- 'YR'
+        
+}
+
+melted <- merge(normalized_melted, samples_annot, by = 'sample')
+
+m1 <- lm(value ~ motif * genotype, data = melted)
+print(summary(m1))
+m2 <- lm(value ~ coded * genotype, data = melted)
+print(summary(m2))
+
+print(anova(m1,m2))
+
+
+```
+
+        
 ## Session
 
 ```{r sessionInfo, include=TRUE, echo=TRUE, results='markup'}
