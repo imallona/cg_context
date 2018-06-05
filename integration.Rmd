@@ -376,7 +376,7 @@ print(anova(m6, m7))
 seqlogo test
 
 
-```{r sessionInfo, include=TRUE, echo=TRUE, results='markup', cache = TRUE, cache.lazy = FALSE}
+```{r pwms, include=TRUE, echo=TRUE, results='markup', cache = TRUE, cache.lazy = FALSE}
 
 ## png(file.path(WD, 'logos_%03d.png'))
 
