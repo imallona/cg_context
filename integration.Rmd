@@ -198,7 +198,8 @@ smotifs$short <- substr(smotifs$motif, 2,5)
 smotifs$sample <- gsub('_bwameth_default_stranded.txt.gz', '', smotifs$sample)
 smotifs$sample <- gsub('_bwameth_default_dup_marked_stranded.txt.gz', '', smotifs$sample)
 
-save(smotifs, file = sprintf('stranded_smotifs_%s.RData', format(Sys.time(), "%d_%b_%Y")))
+save(smotifs,
+     file = file.path(WD, sprintf('stranded_smotifs_%s.RData', format(Sys.time(), "%d_%b_%Y"))))
 
 
 ## getting rid of ns
@@ -230,7 +231,7 @@ norm_sample <- tot_norm_meth/(tot_norm_meth + tot_norm_unmeth)
 
 normalized <- apply(norm, 1, function(x) return(x/norm_sample))
 
-write.csv(normalized, file = 'normalized.csv')
+write.csv(normalized, file = file.path(WD, 'normalized.csv'))
 
 normalized_melted <- melt(normalized)
 
@@ -294,15 +295,73 @@ for (item in unique(normalized_melted$motif)) {
 melted <- merge(normalized_melted, samples_annot, by = 'sample')
 
 m1 <- lm(value ~ motif * genotype, data = melted)
+print(plot(m1))
 print(summary(m1))
+
 m2 <- lm(value ~ coded * genotype, data = melted)
 print(summary(m2))
+print(plot(m2))
 
 print(anova(m1,m2))
 
+m3 <- lm(value ~ coded, data = melted)
+print(plot(m3))
+print(summary(m3))
+
+m4 <- lm(value ~ genotype, data = melted)
+print(plot(m4))
+print(summary(m4))
 
 ```
+So the Rsq is much greater when using the motif and not the pu/py stuff, let's extract the pattern
+   then (still with 4nt)
+   
+Hervouet paper says: Indeed, our work indicates that Dnmt3a and Dnmt3b have consensus sequences to methylate DNA (T/A/C)(A/T)(T/G/A)CG(T/G/C)G(G/C/A) and (A/C)(C/G/A)(A/G)CGT(C/G)(A/G). Thus, the low specificity of these sequences (consensual for 162 and 48 possibilities, respectively) does not support the idea of targeted DNA methylation.
 
+
+
+```{r purine_pyrimidine, include=TRUE, echo=TRUE, results='markup', cache = TRUE}
+
+## let's take the full motif again
+
+
+smotifs$meth_vs_represented_ratio <- smotifs$meth  / (smotifs$meth + smotifs$unmeth)
+
+norm_meth_six <- with(smotifs, tapply(meth,
+                            list("motif" = motif, "sample" = sample),
+                            function(x) sum(x, na.rm = TRUE)))
+
+
+norm_unmeth_six <- with(smotifs, tapply(unmeth,
+                            list("motif" = motif, "sample" = sample),
+                            function(x) sum(x, na.rm = TRUE)))
+
+norm_six <- norm_meth_six/(norm_meth_six + norm_unmeth_six)
+
+normalized_six <- apply(norm_six, 1, function(x) return(x/norm_sample))
+
+write.csv(normalized_six, file = file.path(WD, 'normalized_sixmers.csv'))
+
+normalized_melted_six <- melt(normalized_six)
+melted_six <- merge(normalized_melted_six, samples_annot, by = 'sample')
+
+for (idx in 1:6) {
+    melted_six[,sprintf('idx%s', idx)] <- substr(melted_six$motif, idx, idx)
+}
+
+m5 <- lm(value ~ motif*genotype, data = melted_six)
+print(summary(m5))
+## plot(m5)
+print(anova(m1,m5))
+
+m6 <- lm(value ~ genotype*idx1*idx2*idx5*idx6, data = melted_six)
+print(summary(m6))
+## plot(m5)
+
+
+
+
+```
         
 ## Session
 
