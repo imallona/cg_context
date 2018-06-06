@@ -353,7 +353,7 @@ for (idx in 1:6) {
 m5 <- lm(value ~ motif*genotype, data = melted_six)
 print(summary(m5))
 ## plot(m5)
-print(anova(m1,m5))
+## print(anova(m1,m5))
 
 m6 <- lm(value ~ genotype*idx1*idx2*idx5*idx6, data = melted_six)
 print(summary(m6))
