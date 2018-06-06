@@ -441,11 +441,16 @@ for (ssample in unique(melted_six$sample)) {
 Sequence logos
          
 
-```{r pdf_include, include = TRUE, cache = TRUE, echo=TRUE}      
+```{r pdf_include, include = TRUE, cache = TRUE, echo=TRUE, fig.cap = names(pwms)}      
 for (ssample in names(pwms)) {
-  knitr::include_graphics(file.path(WD,
-            sprintf('logo_%s_%s.pdf', ssample,
-                    as.character(samples_annot[samples_annot$sample == ssample, 'genotype']))))
+  fn <- sprintf('logo_%s_%s', ssample,
+                as.character(samples_annot[samples_annot$sample == ssample, 'genotype']))
+  
+  system(sprintf('convert %s %s'), file.path(WD, paste0(fn, '.pdf')),
+         file.path(WD, paste0(fn, '.png')))
+
+  knitr::include_graphics(file.path(WD, file.path(WD, paste0(fn, '.png'))))
+
 }
 
 ```
