@@ -382,25 +382,6 @@ pwms <- list()
 for (ssample in unique(melted_six$sample)) {
     ## beware, this nt order is important!
     pwms[[ssample]] <- list(a = NULL, c = NULL, g = NULL, t = NULL)
-    
-    ## a <- c(.1,.08,.07,.08,.06,.06,.04,.08,.08,.07,.06,.19,.02,1,0,.21,.19)
-    ## c <- c(.41,.42,.41,.4,.38,.43,.42,.46,.49,.54,.45,.38,.82,0,0,.13,.21)
-    ## g <- c(.15,.14,.14,.13,.13,.12,.13,.14,.1,.08,.08,.26,0,0,1,.58,.29)
-    ## t <- c(.34,.36,.38,.39,.43,.39,.41,.32,.33,.31,.41,.17,.16,0,0,.08,.31)
-
-    ## df1 <- data.frame(a,c,g,t)
-
-    ## labels <- as.character(1:6)
-
-    ## z1 = as.matrix(df1[,c("a","c","g","t")])
-    ## z1 = t(z1)
-
-    ## pwm1 <- makePWM(z1)
-    ## seqLogo(pwm1,ic.scale=FALSE, xfontsize=8, yfontsize=8, annotate=labels)
-
-    head(melted_six[
-                melted_six$sample == ssample &
-                melted_six[sprintf('idx%s', idx)] == nt, 'value'])
 
     for (nt in names(pwms[[ssample]])) {
         for (idx in 1:6) {
