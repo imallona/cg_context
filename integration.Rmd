@@ -179,7 +179,7 @@ for (item in names(fd)) {
 
 # Design
 
-```{r}
+```{r design, include = TRUE, cache = TRUE, fig.width = 14}
 knitr::include_graphics("/home/imallona/src/cg_context/stranded_dnameth.png")
 ```
         
@@ -440,8 +440,8 @@ for (ssample in unique(melted_six$sample)) {
         
 Sequence logos
          
-```{r pdf_include, include = TRUE, cache = TRUE, echo=FALSE, fig.cap = names(pwms)}
 
+```{r pdf_include, include = TRUE, cache = TRUE, echo=TRUE}      
 for (ssample in names(pwms)) {
   knitr::include_graphics(file.path(WD,
             sprintf('logo_%s_%s.pdf', ssample,
