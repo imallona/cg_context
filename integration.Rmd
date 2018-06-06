@@ -176,8 +176,7 @@ for (item in names(fd)) {
 
 Plotting some normalized data for 4-mers
 
-```{r normalization, include = TRUE, echo = TRUE, cache = TRUE, cache.lazy = FALSE,
-fig.width = 12, fig.height = 12}         
+```{r normalization, include = TRUE, echo = TRUE, cache = TRUE, cache.lazy = FALSE, fig.width = 12, fig.height = 12}         
 
 
 
@@ -254,8 +253,7 @@ for (annot in colnames(samples_annot)) {
 
 ```
         
-```{r xyplots, include = TRUE, echo = TRUE, cache = TRUE, cache.lazy = FALSE,
-fig.width = 12, fig.height = 18}         
+```{r xyplots, include = TRUE, echo = TRUE, cache = TRUE, cache.lazy = FALSE, fig.width = 12, fig.height = 18}         
 
 
 for (annot in colnames(samples_annot)) {
@@ -313,9 +311,10 @@ print(summary(m1))
 
 ## exploring the interactions
 m1.margins <- margins(m1)
+summary(m1.margins)
 plot(m1.margins)
-cplot(m1.margins, 'motif') 
-cplot(m1.margins, 'genotype') 
+cplot(m1, 'motif') 
+cplot(m1, 'genotype') 
 
 m2 <- lm(value ~ coded * genotype, data = melted)
 print(summary(m2))
