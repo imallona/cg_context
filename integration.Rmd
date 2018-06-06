@@ -48,7 +48,7 @@ dir.create(file.path(WD, TASK))
 ```
         
 # Data import
-```{r data_import, include = TRUE, echo = TRUE, cache = TRUE, cache.lazy = FALSE}
+```{r data_import, include = TRUE, echo = FALSE, cache = TRUE, cache.lazy = FALSE}
 
 
 fns <- file.path(NFS, list.files(NFS, "*stranded.txt.gz", recursive = TRUE))
@@ -253,7 +253,7 @@ for (annot in colnames(samples_annot)) {
 
 ```
         
-```{r xyplots, include = TRUE, echo = TRUE, cache = TRUE, cache.lazy = FALSE, fig.width = 12, fig.height = 18}         
+```{r xyplots, include = TRUE, echo = TRUE, cache = TRUE, cache.lazy = FALSE, fig.width = 12, fig.height = 24}         
 
 
 for (annot in colnames(samples_annot)) {
@@ -270,12 +270,11 @@ for (annot in colnames(samples_annot)) {
 
 
 }
-
 ```
+        
 Normalized representations clustering
                    
-```{r pheatmap, include = TRUE, echo = TRUE, cache = TRUE, cache.lazy = FALSE,
-fig.width = 12, fig.height = 12}         
+```{r pheatmap, include = TRUE, echo = TRUE, cache = TRUE, cache.lazy = FALSE, fig.width = 12, fig.height = 12}         
 
 pheatmap(as.matrix(normalized),
          margin=c(10, 10),
@@ -420,9 +419,9 @@ for (ssample in unique(melted_six$sample)) {
     ## shitty export, @todo replace the package used
     file.rename(
         file.path(WD, 'Rplots.pdf'),
-        file.path(
+        file.path(WD,
             sprintf('logo_%s_%s.pdf', ssample,
-                    as.character(samples_annot[samples_annot$sample == ssample, 'genotype'])), WD))
+                    as.character(samples_annot[samples_annot$sample == ssample, 'genotype']))))
 }
 
 
