@@ -7,8 +7,6 @@ params:
 ---
 
 
-# Design
-[design](/home/imallona/src/cg_context/stranded_dnameth.svg)
           
 ## Set up
     
@@ -178,6 +176,16 @@ for (item in names(fd)) {
 
 ```     
 
+
+# Design
+
+```{r}
+knitr::include_graphics("/home/imallona/src/cg_context/stranded_dnameth.png")
+```
+        
+
+
+        
 Plotting some normalized data for 4-mers
 
 ```{r normalization, include = TRUE, echo = TRUE, cache = TRUE, cache.lazy = FALSE, fig.width = 12, fig.height = 12}         
@@ -432,7 +440,7 @@ for (ssample in unique(melted_six$sample)) {
         
 Sequence logos
          
-```{r pdf_include, echo=FALSE, out.width = '100%', fig.cap = names(pwms)}
+```{r pdf_include, include = TRUE, cache = TRUE, echo=FALSE, fig.cap = names(pwms)}
 
 for (ssample in names(pwms)) {
   knitr::include_graphics(file.path(WD,
