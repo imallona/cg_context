@@ -4,11 +4,8 @@ title: "CG contexts"
 output: html_document
 params:
   seed: 11
+fig_caption: yes
 ---
-
-
-          
-## Set up
     
 ```{r settings, include=FALSE}
 
@@ -49,7 +46,6 @@ dir.create(file.path(WD, TASK))
 
 ```
         
-# Data import
 ```{r data_import, include = TRUE, echo = FALSE, cache = TRUE, cache.lazy = FALSE}
 
 
@@ -177,9 +173,7 @@ for (item in names(fd)) {
 ```     
 
 
-# Design
-
-```{r design, include = TRUE, cache = TRUE, fig.width = 14}
+```{r design, include = TRUE, cache = TRUE, fig.width = '100%'}
 knitr::include_graphics("/home/imallona/src/cg_context/stranded_dnameth.png")
 ```
         
@@ -445,13 +439,43 @@ Sequence logos
 for (ssample in names(pwms)) {
   fn <- sprintf('logo_%s_%s', ssample,
                 as.character(samples_annot[samples_annot$sample == ssample, 'genotype']))
-  
-  system(sprintf('convert %s %s'), file.path(WD, paste0(fn, '.pdf')),
-         file.path(WD, paste0(fn, '.png')))
 
-  knitr::include_graphics(file.path(WD, file.path(WD, paste0(fn, '.png'))))
+  system(sprintf('convert %s %s', file.path(WD, paste0(fn, '.pdf')),
+         file.path(WD, paste0(fn, '.png'))), intern = FALSE, ignore.stdout = FALSE,
+         ignore.stderr = FALSE,
+         wait = TRUE, input = NULL, show.output.on.console = TRUE,
+         minimized = FALSE, invisible = TRUE)
+  
+  print(file.path(WD, paste0(fn, '.png')))
+
+  knitr::include_graphics(file.path(WD, paste0(fn, '.png')))
 
 }
+
+```
+
+         
+
+```{r iterate_logos, include = TRUE, cache = TRUE, fig.width = 14, fig.height = 14}
+for (ssample in names(pwms)) {
+  fn <- sprintf('logo_%s_%s', ssample,
+                as.character(samples_annot[samples_annot$sample == ssample, 'genotype']))
+  
+  ## system(sprintf('convert %s %s', file.path(WD, paste0(fn, '.pdf')),
+  ##        file.path(WD, paste0(fn, '.png'))), intern = FALSE, ignore.stdout = FALSE,
+  ##        ignore.stderr = FALSE,
+  ##        wait = TRUE, input = NULL)
+  ## print(file.path(WD, paste0(fn, '.png')))
+         
+  knitr::include_graphics(file.path(WD, paste0(fn, '.png')))
+
+}
+
+
+```{r test, include = TRUE, cache = TRUE, fig.width = 14, fig.height = 14}         
+  knitr::include_graphics(file.path(WD, paste0(fn, '.png')))
+
+
 
 ```
        
