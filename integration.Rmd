@@ -36,9 +36,10 @@ m2beta <- function(m) {
     return(beta)
 }
 
-opts_chunk$set(fig.width = 12, fig.height = 4, fig.path = file.path(WD, TASK, 'RmdFigs'),
-               output.dir = file.path(WD, TASK),
-               warning = TRUE, message = FALSE)
+opts_chunk$set(fig.width = 12, fig.height = 12, fig.path = file.path(WD, TASK, 'RmdFigs'),
+               output.dir = WD,
+               root.dir = WD,
+               warning = TRUE, message = TRUE)
 
 dir.create(file.path(WD, TASK))
 ## setwd(file.path(NFS, TASK))
@@ -59,9 +60,7 @@ for (fn in fns) {
     ## watson and crick
     colnames(toy) <- c('loc_w', 'seq_w', 'meth_w', 'unmeth_w',
                        'loc_c', 'seq_c', 'meth_c', 'unmeth_c')
-    str(toy)
 
-    ## toy <- toy[((toy$meth_w + toy$unmeth_w) >= MIN_DEPTH & (toy$meth_c + toy$unmeth_c) >= MIN_DEPTH),]
     toy$beta_w <- toy$meth_w/(toy$meth_w + toy$unmeth_w)
     toy$beta_c <- toy$meth_c/(toy$meth_c + toy$unmeth_c)
 
@@ -103,7 +102,6 @@ SRR299062,stadler_es,bwa_gaiix_single', header = TRUE, sep = ',')
 rownames(samples_annot) <- samples_annot$sample
 
 stopifnot(length(fd) == nrow(samples_annot))
-names(fd)
 
 ## getting the motifs for both strands, and to integrate them
 
@@ -177,7 +175,9 @@ for (item in names(fd)) {
 
 Plotting some normalized data for 4-mers
 
-```{r normalization, include = TRUE, echo = TRUE, cache = TRUE, cache.lazy = FALSE}
+```{r normalization, include = TRUE, echo = TRUE, cache = TRUE, cache.lazy = FALSE,
+fig.width = 12, fig.height = 12}         
+
 
 
 smotifs <- as.data.frame(do.call(rbind.data.frame, smotifs))
@@ -251,6 +251,12 @@ for (annot in colnames(samples_annot)) {
 
 }
 
+```
+        
+```{r xyplots, include = TRUE, echo = TRUE, cache = TRUE, cache.lazy = FALSE,
+fig.width = 12, fig.height = 16}         
+
+
 for (annot in colnames(samples_annot)) {
     print(xyplot(value ~ as.factor(sample) | as.factor(motif),
            data = normalized_melted,
@@ -265,6 +271,12 @@ for (annot in colnames(samples_annot)) {
 
 
 }
+
+```
+Normalized representations clustering
+                   
+```{r pheatmap, include = TRUE, echo = TRUE, cache = TRUE, cache.lazy = FALSE,
+fig.width = 12, fig.height = 12}         
 
 pheatmap(as.matrix(normalized),
          margin=c(10, 10),
@@ -281,7 +293,6 @@ Let's focus on purine vs pyrimidine enrichment
 normalized_melted$coded <- NA
 
 for (item in unique(normalized_melted$motif)) {
-    print(item)
     if (substr(item, 1,1) %in% c('a', 'g') & substr(item, 4,4) %in% c('a', 'g'))
         normalized_melted[normalized_melted$motif == item, 'coded'] <- 'RR'
     else if (substr(item, 1,1) %in% c('a', 'g') & substr(item, 4,4) %in% c('c', 't'))
@@ -296,7 +307,7 @@ for (item in unique(normalized_melted$motif)) {
 melted <- merge(normalized_melted, samples_annot, by = 'sample')
 
 m1 <- lm(value ~ motif * genotype, data = melted)
-print(plot(m1))
+plot(m1)
 print(summary(m1))
 
 m2 <- lm(value ~ coded * genotype, data = melted)
@@ -306,11 +317,11 @@ print(plot(m2))
 print(anova(m1,m2))
 
 m3 <- lm(value ~ coded, data = melted)
-print(plot(m3))
+plot(m3)
 print(summary(m3))
 
 m4 <- lm(value ~ genotype, data = melted)
-print(plot(m4))
+plot(m4)
 print(summary(m4))
 
 ```
@@ -401,9 +412,11 @@ for (ssample in unique(melted_six$sample)) {
 
     dev.off()
     ## shitty export, @todo replace the package used
-    file.rename('Rplots.pdf',
-                sprintf('logo_%s_%s.pdf', ssample,
-                        as.character(samples_annot[samples_annot$sample == ssample, 'genotype'])))
+    file.rename(
+        file.path(WD, 'Rplots.pdf'),
+        file.path(
+            sprintf('logo_%s_%s.pdf', ssample,
+                    as.character(samples_annot[samples_annot$sample == ssample, 'genotype'])), WD))
 }
 
 
