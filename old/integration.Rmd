@@ -4,9 +4,9 @@ title: "CG contexts"
 output: html_document
 params:
   seed: 11
-fig_caption: yes
 ---
-    
+
+              
 ```{r settings, include=FALSE}
 
 library(knitr)
@@ -173,7 +173,9 @@ for (item in names(fd)) {
 ```     
 
 
-```{r design, include = TRUE, cache = TRUE, fig.width = 20}
+# Design
+
+```{r design, include = FALSE, cache = TRUE, fig.width = '100%'}
 knitr::include_graphics("/home/imallona/src/cg_context/stranded_dnameth.png")
 ```
         
@@ -222,7 +224,7 @@ norm_unmeth <- with(smotifs, tapply(unmeth,
                             function(x) sum(x, na.rm = TRUE)))
 
 norm <- norm_meth/(norm_meth + norm_unmeth)
-## colSums(norm, na.rm = TRUE)
+colSums(norm, na.rm = TRUE)
 ## this still is not normalized by sample
 ## second round normalization, by meth/unmeth marginals
 
@@ -236,16 +238,13 @@ tot_norm_unmeth <- with(smotifs, tapply(unmeth,
 
 norm_sample <- tot_norm_meth/(tot_norm_meth + tot_norm_unmeth)
 
-print(head(smotifs))
-print(norm_sample)
-
 normalized <- apply(norm, 1, function(x) return(x/norm_sample))
 
 write.csv(normalized, file = file.path(WD, 'normalized.csv'))
 
 normalized_melted <- melt(normalized)
 
-for (annot in c('genotype', 'seq')) {
+for (annot in colnames(samples_annot)) {
 
     print(xyplot(value ~ as.factor(motif) | as.factor(sample),
            data = normalized_melted,
@@ -265,7 +264,7 @@ for (annot in c('genotype', 'seq')) {
 ```{r xyplots, include = TRUE, echo = TRUE, cache = TRUE, cache.lazy = FALSE, fig.width = 12, fig.height = 24}         
 
 
-for (annot in c('genotype', 'seq')) {
+for (annot in colnames(samples_annot)) {
     print(xyplot(value ~ as.factor(sample) | as.factor(motif),
            data = normalized_melted,
            auto.key = list(columns = 1, corner = c(0.3,1)),
@@ -314,29 +313,29 @@ for (item in unique(normalized_melted$motif)) {
 melted <- merge(normalized_melted, samples_annot, by = 'sample')
 
 m1 <- lm(value ~ motif * genotype, data = melted)
-## plot(m1)
+plot(m1)
 print(summary(m1))
 
 ## exploring the interactions
 m1.margins <- margins(m1)
 summary(m1.margins)
-## plot(m1.margins)
-## cplot(m1, 'motif') 
-## cplot(m1, 'genotype') 
+plot(m1.margins)
+cplot(m1, 'motif') 
+cplot(m1, 'genotype') 
 
 m2 <- lm(value ~ coded * genotype, data = melted)
 print(summary(m2))
-## print(plot(m2))
+print(plot(m2))
 
-## print(anova(m1,m2))
+print(anova(m1,m2))
 
-## m3 <- lm(value ~ coded, data = melted)
-## plot(m3)
-## print(summary(m3))
+m3 <- lm(value ~ coded, data = melted)
+plot(m3)
+print(summary(m3))
 
-## m4 <- lm(value ~ genotype, data = melted)
-## plot(m4)
-## print(summary(m4))
+m4 <- lm(value ~ genotype, data = melted)
+plot(m4)
+print(summary(m4))
 
 ```
 So the Rsq is much greater when using the motif and not the pu/py stuff, let's extract the pattern
@@ -395,6 +394,10 @@ print(anova(m6, m7))
 
 ```
 
+        
+seqlogo test
+
+
 ```{r pwms, include=TRUE, echo=TRUE, cache = TRUE, cache.lazy = FALSE}
 
 ## png(file.path(WD, 'logos_%03d.png'))
@@ -434,28 +437,7 @@ for (ssample in unique(melted_six$sample)) {
 Sequence logos
          
 
-```{r pdf_include, include = TRUE, cache = TRUE, echo=TRUE, fig.cap = names(pwms)}      
-for (ssample in names(pwms)) {
-  fn <- sprintf('logo_%s_%s', ssample,
-                as.character(samples_annot[samples_annot$sample == ssample, 'genotype']))
-
-  system(sprintf('convert %s %s', file.path(WD, paste0(fn, '.pdf')),
-         file.path(WD, paste0(fn, '.png'))), intern = FALSE, ignore.stdout = FALSE,
-         ignore.stderr = FALSE,
-         wait = TRUE, input = NULL, show.output.on.console = TRUE,
-         minimized = FALSE, invisible = TRUE)
-  
-  print(file.path(WD, paste0(fn, '.png')))
-
-  knitr::include_graphics(file.path(WD, paste0(fn, '.png')))
-
-}
-
-```
-
-         
-
-```{r iterate_logos, include = TRUE, cache = TRUE, fig.width = 14, fig.height = 14}
+```{r iterate_logos, include = TRUE, cache = TRUE, fig.width = 14,  fig.cap = names(pwms)}      
 for (ssample in names(pwms)) {
   fn <- sprintf('logo_%s_%s', ssample,
                 as.character(samples_annot[samples_annot$sample == ssample, 'genotype']))
@@ -470,6 +452,8 @@ for (ssample in names(pwms)) {
 
 }
 
+```
+       
 
 ```{r test, include = TRUE, cache = TRUE, fig.width = 14, fig.height = 14}         
   knitr::include_graphics(file.path(WD, paste0(fn, '.png')))
@@ -477,8 +461,8 @@ for (ssample in names(pwms)) {
 
 
 ```
-       
-        
+
+                
 ## Session
 
 ```{r sessionInfo, include=TRUE, echo=TRUE, results='markup'}
