@@ -276,8 +276,7 @@ pheatmap(as.matrix(normalized),
 Let's focus on purine vs pyrimidine enrichment
 
 
-```{r purine_pyrimidine,
-include=TRUE, echo=TRUE, cache = TRUE, cache.lazy = FALSE}
+```{r purine_pyrimidine, include=TRUE, echo=TRUE, cache = TRUE, cache.lazy = FALSE}
 
 normalized_melted$coded <- NA
 
@@ -322,7 +321,7 @@ Hervouet paper says: Indeed, our work indicates that Dnmt3a and Dnmt3b have cons
 
 
 
-```{r purine_pyrimidine, include=TRUE, echo=TRUE, cache = TRUE, cache.lazy = FALSE}
+```{r motifs_six, include=TRUE, echo=TRUE, cache = TRUE, cache.lazy = FALSE}
 
 ## let's take the full motif again
 
