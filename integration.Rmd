@@ -6,6 +6,10 @@ params:
   seed: 11
 ---
 
+
+# Design
+[design](/home/imallona/src/cg_context/stranded_dnameth.svg)
+          
 ## Set up
     
 ```{r settings, include=FALSE}
@@ -428,7 +432,7 @@ for (ssample in unique(melted_six$sample)) {
         
 Sequence logos
          
-```{r pdf_include, echo=FALSE, out.width = '100%', fig.caption = names(pwms)}
+```{r pdf_include, echo=FALSE, out.width = '100%', fig.cap = names(pwms)}
 
 for (ssample in names(pwms)) {
   knitr::include_graphics(file.path(WD,
