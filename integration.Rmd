@@ -442,10 +442,9 @@ for (ssample in names(pwms)) {
   system(sprintf('convert %s %s', file.path(WD, paste0(fn, '.pdf')),
          file.path(WD, paste0(fn, '.png'))), intern = FALSE, ignore.stdout = FALSE,
          ignore.stderr = FALSE,
-         wait = TRUE, input = NULL, show.output.on.console = TRUE,
-         minimized = FALSE, invisible = TRUE)
+         wait = TRUE, input = NULL)
   
-  print(file.path(WD, paste0(fn, '.png')))
+  ## print(file.path(WD, paste0(fn, '.png')))
 
   knitr::include_graphics(file.path(WD, paste0(fn, '.png')))
 
