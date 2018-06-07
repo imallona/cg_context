@@ -422,11 +422,11 @@ for (ssample in unique(melted_six$sample)) {
 
     dev.off()
     ## shitty export, @todo replace the package used
-    file.rename(
-        file.path(WD, 'Rplots.pdf'),
-        file.path(WD,
-            sprintf('logo_%s_%s.pdf', ssample,
-                    as.character(samples_annot[samples_annot$sample == ssample, 'genotype']))))
+    file.rename('Rplots.pdf',
+                file.path(WD,
+                          sprintf('logo_%s_%s.pdf',
+                                  ssample,
+                                  as.character(samples_annot[samples_annot$sample == ssample, 'genotype']))))
 }
 
 ```
@@ -434,7 +434,7 @@ for (ssample in unique(melted_six$sample)) {
 Sequence logos
          
 
-```{r pdf_include, include = TRUE, cache = TRUE, echo=TRUE, fig.cap = names(pwms)}      
+```{r pdf_include, include = FALSE, cache = TRUE, echo=TRUE, fig.cap = names(pwms)}      
 for (ssample in names(pwms)) {
   fn <- sprintf('logo_%s_%s', ssample,
                 as.character(samples_annot[samples_annot$sample == ssample, 'genotype']))
@@ -454,7 +454,7 @@ for (ssample in names(pwms)) {
 
          
 
-```{r iterate_logos, include = TRUE, cache = TRUE, fig.width = 14, fig.height = 14}
+```{r iterate_logos, include = FALSE, cache = TRUE, fig.width = 14, fig.height = 14}
 for (ssample in names(pwms)) {
   fn <- sprintf('logo_%s_%s', ssample,
                 as.character(samples_annot[samples_annot$sample == ssample, 'genotype']))
@@ -470,7 +470,9 @@ for (ssample in names(pwms)) {
 }
 
 
-```{r test, include = TRUE, cache = TRUE, fig.width = 14, fig.height = 14}         
+
+```{r test, include = FALSE, cache = TRUE, fig.width = 14, fig.height = 14}         
+
   knitr::include_graphics(file.path(WD, paste0(fn, '.png')))
 
 
