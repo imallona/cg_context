@@ -83,7 +83,7 @@ SRR2878520,oocyte,bwa_hiseq1k
 SRR1274742,tko+d3a2,bwa_hiseq2k
 SRR1274743,tko+d3a2,bwa_miseq
 SRR1274744,tko+d3b1,bwa_miseq
-SRR1274745,tko+d3b1,bwa_hiseq2k
+SRR1274745,tko+d3b1,bwa_hiseq2k # @todo remove (tuncay told so)
 SRR1653162,qko+d3b1,bwa_miseq
 SRR2878513,oocyte,bwa_hiseq1k
 SRR299053,stadler_es,bwa_hiseq_single
@@ -96,7 +96,15 @@ SRR299059,stadler_es,bwa_gaiix_single
 SRR299060,stadler_es,bwa_gaiix_single
 SRR299061,stadler_es,bwa_gaiix_single
 SRR299062,stadler_es,bwa_gaiix_single', header = TRUE, sep = ',')
+                                        # todo include qko from hiseq single ned
+## https://www.ebi.ac.uk/arrayexpress/experiments/E-GEOD-57411/samples/?full=true
 
+## sort the lattice plots by the overal dna methylation, and superimpose the samples
+
+## the sorting is based on motifs
+
+
+## and then chh or any other non cg content
 
 rownames(samples_annot) <- samples_annot$sample
 
