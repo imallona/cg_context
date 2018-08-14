@@ -17,9 +17,9 @@ library(pheatmap)
 library(seqLogo)
 library(margins)
 
-TASK <- "cg_context_bulk"
+TASK <- "cg_context"
 HOME <- '/home/imallona'
-WD <-  file.path(HOME, TASK)
+WD <-  file.path(HOME, 'mnt', 'nfs', TASK)
 DATA <- file.path(HOME, 'data')
 
 MIN_DEPTH <- 10
@@ -38,6 +38,9 @@ m2beta <- function(m) {
 opts_chunk$set(fig.width = 12, fig.height = 12, fig.path = file.path(WD, TASK, 'RmdFigs'),
                output.dir = WD,
                root.dir = WD,
+               cache = TRUE,
+               include = TRUE,
+               cache.lazy = FALSE,
                warning = TRUE, message = TRUE)
 
 dir.create(file.path(WD, TASK))
@@ -48,24 +51,26 @@ dir.create(file.path(WD, TASK))
 ```{r data_import, include = TRUE, echo = FALSE, cache = TRUE, cache.lazy = FALSE}
 
 
-fns <- file.path(NFS, list.files(NFS, "*stranded.txt.gz", recursive = TRUE))
+## fns <- file.path(NFS, list.files(NFS, "*stranded.txt.gz", recursive = TRUE))
 
 
-fd <- list()
-for (fn in fns) {
-    toy <- read.table(pipe(sprintf('zcat %s | fgrep -w chr17',
-                                         fn)), header = FALSE)[,c(8,9,4,5,17,18,13,14)]
-    ## watson and crick
-    colnames(toy) <- c('loc_w', 'seq_w', 'meth_w', 'unmeth_w',
-                       'loc_c', 'seq_c', 'meth_c', 'unmeth_c')
+## fd <- list()
+## for (fn in fns) {
+##     toy <- read.table(pipe(sprintf('zcat %s | fgrep -w chr17',
+##                                          fn)), header = FALSE)[,c(8,9,4,5,17,18,13,14)]
+##     ## watson and crick
+##     colnames(toy) <- c('loc_w', 'seq_w', 'meth_w', 'unmeth_w',
+##                        'loc_c', 'seq_c', 'meth_c', 'unmeth_c')
 
-    toy$beta_w <- toy$meth_w/(toy$meth_w + toy$unmeth_w)
-    toy$beta_c <- toy$meth_c/(toy$meth_c + toy$unmeth_c)
+##     toy$beta_w <- toy$meth_w/(toy$meth_w + toy$unmeth_w)
+##     toy$beta_c <- toy$meth_c/(toy$meth_c + toy$unmeth_c)
 
-    toy$beta <-  (toy$meth_c + toy$meth_w)/(toy$meth_c + toy$unmeth_c + toy$meth_w + toy$unmeth_w)
+##     toy$beta <-  (toy$meth_c + toy$meth_w)/(toy$meth_c + toy$unmeth_c + toy$meth_w + toy$unmeth_w)
 
-    fd[[fn]] <- toy
-}
+##     fd[[fn]] <- toy
+## }
+
+# some qko 3b1 needed
 
 samples_annot <- read.table(text ='sample,genotype,seq
 20151223.B-MmES_TKOD3A1c1-3_R,tko+d3a1,bwa_hiseq2k
@@ -77,10 +82,31 @@ BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001,tko+d3b1,bwa_hise
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001,tko+d3b1,bwa_hiseq2k
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002,tko+d3b1,bwa_hiseq2k
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003,tko+d3b1,bwa_hiseq2k
-some qko 3b1 needed
 ', header = TRUE, sep = ',')
-                                        # todo include qko from hiseq single ned
-## https://www.ebi.ac.uk/arrayexpress/experiments/E-GEOD-57411/samples/?full=true
+
+
+fns <- file.path(NFS, list.files(NFS, "*stranded.txt.gz", recursive = TRUE))
+fd <- list()
+
+for (item in samples_annot$sample) {
+    fn <- file.path(WD, sprintf('%s_bwameth_default_stranded.txt.gz', item))
+    if (fn %in% fns) {
+        ## @todo iterate by chromosome here
+        toy <- read.table(pipe(sprintf('zcat %s | fgrep -w chr17',
+                                       fn)), header = FALSE)[,c(8,9,4,5,17,18,13,14)]
+        ## watson and crick
+        colnames(toy) <- c('loc_w', 'seq_w', 'meth_w', 'unmeth_w',
+                           'loc_c', 'seq_c', 'meth_c', 'unmeth_c')
+
+        toy$beta_w <- toy$meth_w/(toy$meth_w + toy$unmeth_w)
+        toy$beta_c <- toy$meth_c/(toy$meth_c + toy$unmeth_c)
+
+        toy$beta <-  (toy$meth_c + toy$meth_w)/(toy$meth_c + toy$unmeth_c + toy$meth_w + toy$unmeth_w)
+
+        fd[[fn]] <- toy
+        
+    }
+}
 
 ## sort the lattice plots by the overal dna methylation, and superimpose the samples
 
@@ -91,7 +117,7 @@ some qko 3b1 needed
 
 rownames(samples_annot) <- samples_annot$sample
 
-stopifnot(length(fd) == nrow(samples_annot))
+## stopifnot(length(fd) == nrow(samples_annot))
 
 ## getting the motifs for both strands, and to integrate them
 
@@ -382,7 +408,7 @@ print(anova(m6, m7))
 
 ## plot(m5)
 
-
+save.image(file = 'curr.RData')
 
 ```
 
@@ -462,7 +488,7 @@ for (ssample in names(pwms)) {
 
 
 
-```{r test, include = FALSE, cache = TRUE, fig.width = 14, fig.height = 14}         
+```{r test, eval = FALSE, cache = TRUE, fig.width = 14, fig.height = 14}         
 
   knitr::include_graphics(file.path(WD, paste0(fn, '.png')))
 
@@ -471,7 +497,7 @@ for (ssample in names(pwms)) {
 ```
        
         
-## Session
+Session
 
 ```{r sessionInfo, include=TRUE, echo=TRUE, results='markup'}
 

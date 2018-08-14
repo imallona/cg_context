@@ -132,44 +132,44 @@ do
 		     --java-mem-size=10G \
 		     -nt $NTHREADS
 
-        # commented so the samples can be merged before calling methyldackel
+        commented so the samples can be merged before calling methyldackel
         
-# 	$METHYLDACKEL extract \
-# 		      -q $MAPQ_THRES \
-# 		      -@ $NTHREADS \
-# 		      --cytosine_report \
-# 		      $MM9 \
-# 		      $bam \
-# 		      -o $(basename $bam .bam)
+	$METHYLDACKEL extract \
+		      -q $MAPQ_THRES \
+		      -@ $NTHREADS \
+		      --cytosine_report \
+		      $MM9 \
+		      $bam \
+		      -o $(basename $bam .bam)
 
 	
-# 	awk '
-# { 
-#   OFS=FS="\t";
-#    print $1,$2-1,$2,$4,$5,$3,$7;
-# }
-# ' "$(basename $bam .bam)".cytosine_report.txt  |
-# 	    "$BEDTOOLS" slop -i - \
-# 			-g "$WD"/mm9.genome \
-# 			-l 3 -r 4 -s | \
-# 	    "$BEDTOOLS" getfasta -fi $MM9 \
-# 			-bed - \
-# 			-fo "$(basename $bam .bam)"_cytosine_report_slop.fa \
-# 			-tab \
-# 			-s
-# 	paste "$(basename $bam .bam)".cytosine_report.txt \
-# 	      "$(basename $bam .bam)"_cytosine_report_slop.fa > tmp
+	awk '
+{ 
+  OFS=FS="\t";
+   print $1,$2-1,$2,$4,$5,$3,$7;
+}
+' "$(basename $bam .bam)".cytosine_report.txt  |
+	    "$BEDTOOLS" slop -i - \
+			-g "$WD"/mm9.genome \
+			-l 3 -r 4 -s | \
+	    "$BEDTOOLS" getfasta -fi $MM9 \
+			-bed - \
+			-fo "$(basename $bam .bam)"_cytosine_report_slop.fa \
+			-tab \
+			-s
+	paste "$(basename $bam .bam)".cytosine_report.txt \
+	      "$(basename $bam .bam)"_cytosine_report_slop.fa > tmp
 
-#         rm -rf "$(basename $bam .bam)"_cytosine_report_slop.fa
-# 	## now get odd and even lines
-# 	awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
-# 	rm -f tmp 
-# 	mv -f bar "$(basename $bam .bam)"_stranded.txt
+        rm -rf "$(basename $bam .bam)"_cytosine_report_slop.fa
+	## now get odd and even lines
+	awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
+	rm -f tmp 
+	mv -f bar "$(basename $bam .bam)"_stranded.txt
 
-# 	echo "$(date) Processing sample $sample ended"
+	echo "$(date) Processing sample $sample ended"
 
-# 	gzip "$(basename $bam .bam)"_stranded.txt
+	gzip "$(basename $bam .bam)"_stranded.txt
         
-# 	cd "$WD"
+	cd "$WD"
     done    
 done < qko_3b1_se.conf
