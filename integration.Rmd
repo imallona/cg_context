@@ -1,4 +1,3 @@
-## -*- mode: poly-markdown+R; -*-
 ---
 title: "CG contexts"
 output: html_document
