@@ -69,7 +69,6 @@ for (fn in fns) {
 
 samples_annot <- read.table(text ='sample,genotype,seq
 20151223.B-MmES_TKOD3A1c1-3_R,tko+d3a1,bwa_hiseq2k
-20151223.B-MmES_TKOD3A1c1-3*_cutadapt_sickle_bismark_bt2_*e.deduplicated_mapq40_stranded.txt,tko+d3a1,bt2_hiseq2k
 BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_6_ACAGTGA_L006_001,tko+d3a2,bwa_hiseq2k
 BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_001,tko+d3a2,bwa_hiseq2k
 BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_002,tko+d3a2,bwa_hiseq2k
@@ -78,23 +77,8 @@ BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001,tko+d3b1,bwa_hise
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001,tko+d3b1,bwa_hiseq2k
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002,tko+d3b1,bwa_hiseq2k
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003,tko+d3b1,bwa_hiseq2k
-SRR2878520,oocyte,bwa_hiseq1k
-SRR1274742,tko+d3a2,bwa_hiseq2k
-SRR1274743,tko+d3a2,bwa_miseq
-SRR1274744,tko+d3b1,bwa_miseq
-SRR1274745,tko+d3b1,bwa_hiseq2k # @todo remove (tuncay told so)
-SRR1653162,qko+d3b1,bwa_miseq
-SRR2878513,oocyte,bwa_hiseq1k
-SRR299053,stadler_es,bwa_hiseq_single
-SRR299054,stadler_es,bwa_hiseq_single
-SRR299055,stadler_es,bwa_hiseq_single
-SRR299056,stadler_es,bwa_gaiix_single
-SRR299057,stadler_es,bwa_gaiix_single
-SRR299058,stadler_es,bwa_gaiix_single
-SRR299059,stadler_es,bwa_gaiix_single
-SRR299060,stadler_es,bwa_gaiix_single
-SRR299061,stadler_es,bwa_gaiix_single
-SRR299062,stadler_es,bwa_gaiix_single', header = TRUE, sep = ',')
+some qko 3b1 needed
+', header = TRUE, sep = ',')
                                         # todo include qko from hiseq single ned
 ## https://www.ebi.ac.uk/arrayexpress/experiments/E-GEOD-57411/samples/?full=true
 
