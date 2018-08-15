@@ -111,7 +111,7 @@ do
 
 	deactivate
 
-        samtools sort --threads $NTHREADS -bS $bam > sorted
+        samtools sort --threads $NTHREADS $bam > sorted
         mv -f sorted $bam
         
 	java -jar -XX:ParallelGCThreads=$NTHREADS \
@@ -122,7 +122,7 @@ do
              METRICS_FILE="$(basename $bam .bam)""_dup_marked.metrics"
 
         mv -f $bam "$(basename $bam .bam)""_dup_included.bam"
-        mv -f "$(basename $bam .bam)""_dup_marked.bam" $bam
+        mv -f "$(basename $bam .bam)""_dup_removed.bam" $bam
 
         samtools index -b -@ $NTHREADS $bam
         
@@ -133,16 +133,13 @@ do
 		     --java-mem-size=10G \
 		     -nt $NTHREADS
 
-        # commented so the samples can be merged before calling methyldackel
-        
 	$METHYLDACKEL extract \
-		      -q $MAPQ_THRES \
-		      -@ $NTHREADS \
-		      --cytosine_report \
-		      $MM9 \
-		      $bam \
-		      -o $(basename $bam .bam)
-
+                      -q $MAPQ_THRES \
+                      -@ $NTHREADS \
+                      --cytosine_report \
+                      $MM9 \
+                      $bam \
+                      -o $(basename $bam .bam)
 	
 	awk '
 { 
@@ -150,16 +147,17 @@ do
    print $1,$2-1,$2,$4,$5,$3,$7;
 }
 ' "$(basename $bam .bam)".cytosine_report.txt  |
-	    "$BEDTOOLS" slop -i - \
-			-g "$WD"/mm9.genome \
-			-l 3 -r 4 -s | \
-	    "$BEDTOOLS" getfasta -fi $MM9 \
-			-bed - \
-			-fo "$(basename $bam .bam)"_cytosine_report_slop.fa \
-			-tab \
-			-s
+            "$BEDTOOLS" slop -i - \
+                        -g "$WD"/mm9.genome \
+                        -l 3 -r 4 -s | \
+            "$BEDTOOLS" getfasta -fi $MM9 \
+                        -bed - \
+                        -fo "$(basename $bam .bam)"_cytosine_report_slop.fa \
+                        -tab \
+                        -s
+        
 	paste "$(basename $bam .bam)".cytosine_report.txt \
-	      "$(basename $bam .bam)"_cytosine_report_slop.fa > tmp
+              "$(basename $bam .bam)"_cytosine_report_slop.fa > tmp
 
         rm -rf "$(basename $bam .bam)"_cytosine_report_slop.fa
 	## now get odd and even lines
