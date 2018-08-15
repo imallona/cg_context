@@ -35,7 +35,8 @@ mkdir -p $WD
 cd $_
 
 mysql --user=genome \
-      --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from mm9.chromInfo" > mm9.genome
+      --host=genome-euro-mysql.soe.ucsc.edu -A -e "select chrom, size from mm9.chromInfo" > \
+      mm9.genome
 
 cat << EOF >> qko_3b1_se.conf
 GSM1545748;qko-dnmt3b1;single;SRR1653150,SRR1653151,SRR1653152,SRR1653153,SRR1653154,SRR1653155,SRR1653156,SRR1653157,SRR1653158,SRR1653159,SRR1653160,SRR1653161
@@ -102,11 +103,11 @@ do
 	source $VIRTENVS/bwa-meth/bin/activate
 	
 	( bwameth.py --reference "$MM9" \
-		     "$fw" \
-		     --threads $NTHREADS | \
-		samtools view --threads $NTHREADS -bS - > \
-			 "$bam" ) \
-	    3>&1 1>&2 2>&3 | tee "$sample"_bwameth_default.log
+                     "$fw" \
+                     --threads $NTHREADS | \
+                samtools view --threads $NTHREADS -bS - > \
+                         "$bam" ) \
+            3>&1 1>&2 2>&3 | tee "$sample"_bwameth_default.log
 
 	deactivate
 
@@ -114,14 +115,14 @@ do
         mv -f sorted $bam
         
 	java -jar -XX:ParallelGCThreads=$NTHREADS \
-             "$PICARD" MarkDuplicates INPUT="$WD"/"$bam" \
+             "$PICARD" MarkDuplicates INPUT="$bam" \
              REMOVE_DUPLICATES=TRUE \
              REMOVE_SEQUENCING_DUPLICATES=TRUE \
              OUTPUT="$(basename $bam .bam)""_dup_removed.bam" \
              METRICS_FILE="$(basename $bam .bam)""_dup_marked.metrics"
 
         mv -f $bam "$(basename $bam .bam)""_dup_included.bam"
-        mv -f $WD/"$(basename $bam .bam)""_dup_marked.bam" $bam
+        mv -f "$(basename $bam .bam)""_dup_marked.bam" $bam
 
         samtools index -b -@ $NTHREADS $bam
         
@@ -132,7 +133,7 @@ do
 		     --java-mem-size=10G \
 		     -nt $NTHREADS
 
-        commented so the samples can be merged before calling methyldackel
+        # commented so the samples can be merged before calling methyldackel
         
 	$METHYLDACKEL extract \
 		      -q $MAPQ_THRES \
