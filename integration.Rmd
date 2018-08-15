@@ -221,7 +221,10 @@ smotifs$meth_vs_represented_ratio <- smotifs$meth  / (smotifs$meth + smotifs$unm
 
 smotifs$motif <- tolower(as.character(smotifs$motif))
 
-smotifs$short <- substr(smotifs$motif, 2,5)
+## this to reduce to nncgnn motifs
+## smotifs$short <- substr(smotifs$motif, 2,5)
+## this to keep nnncgnnn
+smotifs$short <- substr(smotifs$motif, 1,6)
 
 smotifs$sample <- gsub('_bwameth_default_stranded.txt.gz', '', smotifs$sample)
 smotifs$sample <- gsub('_bwameth_default_dup_marked_stranded.txt.gz', '', smotifs$sample)
