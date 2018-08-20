@@ -83,6 +83,23 @@ BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001,tko+d3b1,bwa_hise
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001,tko+d3b1,bwa_hiseq2k
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002,tko+d3b1,bwa_hiseq2k
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003,tko+d3b1,bwa_hiseq2k
+SRR1653150,qko+d3b1,bwa_hiseq2k
+SRR1653151,qko+d3b1,bwa_hiseq2k
+SRR1653152,qko+d3b1,bwa_hiseq2k
+SRR1653153,qko+d3b1,bwa_hiseq2k
+SRR1653154,qko+d3b1,bwa_hiseq2k
+SRR1653155,qko+d3b1,bwa_hiseq2k
+SRR1653156,qko+d3b1,bwa_hiseq2k
+SRR1653157,qko+d3b1,bwa_hiseq2k
+SRR1653158,qko+d3b1,bwa_hiseq2k
+SRR1653159,qko+d3b1,bwa_hiseq2k
+SRR1653160,qko+d3b1,bwa_hiseq2k
+SRR1653161,qko+d3b1,bwa_hiseq2k
+SRR1274743,tko+d3a2,bwa_miseq_pe
+SRR1274744,tko+d3b1,bwa_miseq_pe
+## SRR1653162,qko+d3b1,bwa_miseq_pe
+SRR1274745,tko+d3b1,bwa_miseq_pe
+
 ', header = TRUE, sep = ',')
 
 
