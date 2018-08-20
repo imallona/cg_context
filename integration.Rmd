@@ -83,7 +83,7 @@ BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001,tko+d3b1,bwa_hise
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001,tko+d3b1,bwa_hiseq2k
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002,tko+d3b1,bwa_hiseq2k
 BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003,tko+d3b1,bwa_hiseq2k
-SRR1653150,qko+d3b1,bwa_hiseq2k
+#SRR1653150,qko+d3b1,bwa_hiseq2k
 SRR1653151,qko+d3b1,bwa_hiseq2k
 SRR1653152,qko+d3b1,bwa_hiseq2k
 SRR1653153,qko+d3b1,bwa_hiseq2k
@@ -97,9 +97,8 @@ SRR1653160,qko+d3b1,bwa_hiseq2k
 SRR1653161,qko+d3b1,bwa_hiseq2k
 SRR1274743,tko+d3a2,bwa_miseq_pe
 SRR1274744,tko+d3b1,bwa_miseq_pe
-## SRR1653162,qko+d3b1,bwa_miseq_pe
+#SRR1653162,qko+d3b1,bwa_miseq_pe
 SRR1274745,tko+d3b1,bwa_miseq_pe
-
 ', header = TRUE, sep = ',')
 
 rownames(samples_annot) <- samples_annot$sample
@@ -109,101 +108,106 @@ fd <- list()
 
 smotifs <- list()
 for (item in samples_annot$sample) {
-    fn <- file.path(WD, sprintf('%s_bwameth_default_stranded.txt.gz', item))
+    fn <- sprintf('%s_bwameth_default_stranded.txt.gz', item)
     if (basename(fn) %in% basename(fns)) {
+        ## fn <- file.path(WD, sprintf('%s_bwameth_default_stranded.txt.gz', item))
+        fn <- fns[grep(basename(fn), basename(fns))]
+
         print(fn)
-        ## ## @todo iterate by chromosome here
-        ## toy <- read.table(pipe(sprintf('zcat %s | fgrep -w chr17',
-        ##                                fn)), header = FALSE)[,c(8,9,4,5,17,18,13,14)]
+        tryCatch({
+            ## ## @todo iterate by chromosome here
+            ## toy <- read.table(pipe(sprintf('zcat %s | fgrep -w chr17',
+            ##                                fn)), header = FALSE)[,c(8,9,4,5,17,18,13,14)]
 
-        ## only a million CpGs for testing purposes
-        toy <- fread(sprintf('zcat %s |sed "s/ /\t/g"', fn),
-                     header = FALSE,
-                     sep = '\t',
-                     select = c(8,9,4,5,17,18,13,14),
-                     nrows = 1e6)
+            ## only a million CpGs for testing purposes
+            toy <- fread(sprintf('zcat %s |sed "s/ /\t/g"', fn),
+                         header = FALSE,
+                         sep = '\t',
+                         select = c(8,9,4,5,17,18,13,14),
+                         nrows = 1e6)
 
-        ## toy <- concat.split.DT(fread(sprintf('zcat %s | fgrep -w chr17', fn),
-        ##                              sep = "\t",
-        ##                              header = FALSE,
-        ##                              nrows = 10),
-        ##                        "V9", " ")
-        
-        ##watson and crick
-        
-        colnames(toy) <- c('loc_w', 'seq_w', 'meth_w', 'unmeth_w',
-                           'loc_c', 'seq_c', 'meth_c', 'unmeth_c')
-
-        toy$beta_w <- toy$meth_w/(toy$meth_w + toy$unmeth_w)
-        toy$beta_c <- toy$meth_c/(toy$meth_c + toy$unmeth_c)
-
-        toy$beta <-  (toy$meth_c + toy$meth_w)/(toy$meth_c + toy$unmeth_c + toy$meth_w + toy$unmeth_w)
-
-        fd[[fn]] <- toy
-
-        ## merged here, @todo make functions
-        
-        fd[[fn]]$factor_w <- substr(tolower(as.character(fd[[fn]]$seq_w)), 2, 7)
-        fd[[fn]]$factor_c <- substr(tolower(as.character(fd[[fn]]$seq_c)), 2, 7)
-        
-        curr_covered_w <- with(fd[[fn]], tapply(meth_w + unmeth_w, factor_w, function(x) x >= 5))
-        curr_meth_w <-  with(fd[[fn]], tapply(meth_w , factor_w, function(x) x > 0))
-
-        curr_covered_c <- with(fd[[fn]], tapply(meth_c + unmeth_c, factor_c, function(x) x >= 5))
-        curr_meth_c <-  with(fd[[fn]], tapply(meth_c , factor_c, function(x) x > 0))
-
-        stopifnot(names(curr_covered_w) == names(curr_meth_w))
-        stopifnot(names(curr_covered_c) == names(curr_meth_c))
-
-        for (motif in names(curr_covered_w)) {
-            ## vector of
-            ## sample
-            ## motif
-            ## cgs uncovered
-            ## cgs covered and methylated
-            ## cgs covered and unmethylated
-            smotifs[[paste(fn, motif, 'watson')]] <- c(
-                fn,
-                'watson',
-                motif,
-                nrow(fd[[fn]][fd[[fn]]$factor_w == motif,]) -
-                sum(curr_covered_w[[motif]]),
-                sum(curr_covered_w[[motif]] & curr_meth_w[[motif]]),
-                sum(curr_covered_w[[motif]] & ! curr_meth_w[[motif]]))
+            ## toy <- concat.split.DT(fread(sprintf('zcat %s | fgrep -w chr17', fn),
+            ##                              sep = "\t",
+            ##                              header = FALSE,
+            ##                              nrows = 10),
+            ##                        "V9", " ")
             
-            stopifnot(as.numeric(smotifs[[paste(fn, motif)]][3]) +
-                      as.numeric(smotifs[[paste(fn, motif)]][4]) +
-                      as.numeric(smotifs[[paste(fn, motif)]][5]) ==
-                      nrow(fd[[fn]][fd[[fn]]$factor_w == motif,]))
-
-        }
-        ## this might sound stupid because watson and crick are simetrical and not independent
-        ## but anyway, they might end being like that
-        for (motif in names(curr_covered_c)) {
-            ## vector of
-            ## sample
-            ## motif
-            ## cgs uncovered
-            ## cgs covered and methylated
-            ## cgs covered and unmethylated
-            smotifs[[paste(fn, motif, 'crick')]] <- c(
-                fn,
-                'crick',
-                motif,
-                nrow(fd[[fn]][fd[[fn]]$factor_c == motif,]) -
-                sum(curr_covered_c[[motif]]),
-                sum(curr_covered_c[[motif]] & curr_meth_c[[motif]]),
-                sum(curr_covered_c[[motif]] & ! curr_meth_c[[motif]]))
+            ##watson and crick
             
-            stopifnot(as.numeric(smotifs[[paste(fn, motif)]][3]) +
-                      as.numeric(smotifs[[paste(fn, motif)]][4]) +
-                      as.numeric(smotifs[[paste(fn, motif)]][5]) ==
-                      nrow(fd[[fn]][fd[[fn]]$factor_c == motif,]))
+            colnames(toy) <- c('loc_w', 'seq_w', 'meth_w', 'unmeth_w',
+                               'loc_c', 'seq_c', 'meth_c', 'unmeth_c')
 
-        }
+            toy$beta_w <- toy$meth_w/(toy$meth_w + toy$unmeth_w)
+            toy$beta_c <- toy$meth_c/(toy$meth_c + toy$unmeth_c)
 
-        ## cleansing this time
-        fd[[fn]] <- NULL   
+            toy$beta <-  (toy$meth_c + toy$meth_w)/(toy$meth_c + toy$unmeth_c + toy$meth_w + toy$unmeth_w)
+
+            fd[[fn]] <- toy
+
+            ## merged here, @todo make functions
+            
+            fd[[fn]]$factor_w <- substr(tolower(as.character(fd[[fn]]$seq_w)), 2, 7)
+            fd[[fn]]$factor_c <- substr(tolower(as.character(fd[[fn]]$seq_c)), 2, 7)
+            
+            curr_covered_w <- with(fd[[fn]], tapply(meth_w + unmeth_w, factor_w, function(x) x >= 5))
+            curr_meth_w <-  with(fd[[fn]], tapply(meth_w , factor_w, function(x) x > 0))
+
+            curr_covered_c <- with(fd[[fn]], tapply(meth_c + unmeth_c, factor_c, function(x) x >= 5))
+            curr_meth_c <-  with(fd[[fn]], tapply(meth_c , factor_c, function(x) x > 0))
+
+            stopifnot(names(curr_covered_w) == names(curr_meth_w))
+            stopifnot(names(curr_covered_c) == names(curr_meth_c))
+
+            for (motif in names(curr_covered_w)) {
+                ## vector of
+                ## sample
+                ## motif
+                ## cgs uncovered
+                ## cgs covered and methylated
+                ## cgs covered and unmethylated
+                smotifs[[paste(fn, motif, 'watson')]] <- c(
+                    fn,
+                    'watson',
+                    motif,
+                    nrow(fd[[fn]][fd[[fn]]$factor_w == motif,]) -
+                    sum(curr_covered_w[[motif]]),
+                    sum(curr_covered_w[[motif]] & curr_meth_w[[motif]]),
+                    sum(curr_covered_w[[motif]] & ! curr_meth_w[[motif]]))
+                
+                stopifnot(as.numeric(smotifs[[paste(fn, motif)]][3]) +
+                          as.numeric(smotifs[[paste(fn, motif)]][4]) +
+                          as.numeric(smotifs[[paste(fn, motif)]][5]) ==
+                          nrow(fd[[fn]][fd[[fn]]$factor_w == motif,]))
+
+            }
+            ## this might sound stupid because watson and crick are simetrical and not independent
+            ## but anyway, they might end being like that
+            for (motif in names(curr_covered_c)) {
+                ## vector of
+                ## sample
+                ## motif
+                ## cgs uncovered
+                ## cgs covered and methylated
+                ## cgs covered and unmethylated
+                smotifs[[paste(fn, motif, 'crick')]] <- c(
+                    fn,
+                    'crick',
+                    motif,
+                    nrow(fd[[fn]][fd[[fn]]$factor_c == motif,]) -
+                    sum(curr_covered_c[[motif]]),
+                    sum(curr_covered_c[[motif]] & curr_meth_c[[motif]]),
+                    sum(curr_covered_c[[motif]] & ! curr_meth_c[[motif]]))
+                
+                stopifnot(as.numeric(smotifs[[paste(fn, motif)]][3]) +
+                          as.numeric(smotifs[[paste(fn, motif)]][4]) +
+                          as.numeric(smotifs[[paste(fn, motif)]][5]) ==
+                          nrow(fd[[fn]][fd[[fn]]$factor_c == motif,]))
+
+            }
+
+            ## cleansing this time
+            fd[[fn]] <- NULL
+        }, error = function(x) sprintf('error %s', fn))
     }
 }
 
