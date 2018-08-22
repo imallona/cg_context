@@ -17,6 +17,7 @@ library(pheatmap)
 library(seqLogo)
 library(margins)
 library(data.table)
+library(ggplot2)
 
 TASK <- "cg_context"
 HOME <- '/home/imallona'
@@ -286,20 +287,65 @@ write.csv(normalized, file = file.path(WD, 'normalized.csv'))
 
 normalized_melted <- melt(normalized)
 
+## adding the samples annotation stuff to the normalized melted
+
+normalized_melted <- merge(normalized_melted, samples_annot, by = 'sample')
+
 for (annot in c('genotype', 'seq')) {
 
     print(xyplot(value ~ as.factor(motif) | as.factor(sample),
-           data = normalized_melted,
-           auto.key = list(columns = 1),
-           jitter.x=TRUE,       
-           group = samples_annot[normalized_melted$sample, annot],
-           pch = 19,
-           cex = 0.5,
-           scales=list(x=list(rot=90)),
-           layout = c(6,6)))
+                 data = normalized_melted,
+                 auto.key = list(columns = 1),
+                 jitter.x = TRUE,       
+                 ## group = samples_annot[normalized_melted$sample, annot],
+                 group = normalized_melted[, annot],                 
+                 pch = 19,
+                 cex = 0.5,
+                 scales=list(x=list(rot=90))))
+          ## ,
+          ## layout = c(6,6)))
 
 
 }
+
+
+for (annot in c('genotype', 'seq')) {
+
+    print(xyplot(value ~ as.factor(motif) | as.factor(genotype),
+                 data = normalized_melted,
+                 auto.key = list(columns = 1),
+                 jitter.x=TRUE,       
+                 ## group = samples_annot[normalized_melted$sample, annot],
+                 group = normalized_melted[, annot],  
+                 pch = 19,
+                 cex = 0.5,
+                 scales=list(x=list(rot=90))))
+          ## ,
+          ## layout = c(6,6)))
+}
+
+## what if overlaying the lines?
+    
+## bwplot(value ~ as.factor(motif) | as.factor(genotype),
+##        groups = normalized_melted[, annot],
+##        data = normalized_melted,
+##        panel = "panel.superpose",
+##        panel.groups = "panel.linejoin",
+##        xlab = "treatment",
+##        key = list(lines = Rows(trellis.par.get("superpose.line"),
+##                   c(1:7, 1)),
+##                   columns = 4))
+
+
+print(ggplot(data = normalized_melted,
+       aes(x = motif, y = value, colour = genotype)) +
+      geom_point())
+
+print(ggplot(data = normalized_melted,
+       aes(x = motif, y = value, colour = seq)) +
+      geom_point())
+
+
 
 ```
         
@@ -312,7 +358,7 @@ for (annot in c('genotype', 'seq')) {
            auto.key = list(columns = 1, corner = c(0.3,1)),
            par.settings = list(layout.widths = list(right.padding = 10)),
            jitter.x=TRUE,       
-           group = samples_annot[normalized_melted$sample, annot],
+           group = normalized_melted[, annot],
            pch = 19,
            cex = 0.5,
            scales=list(x=list(rot=90)),
