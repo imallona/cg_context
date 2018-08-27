@@ -53,26 +53,76 @@ SRR1653161,qko+d3b1,bwa_hiseq2k
 SRR1653162,qko+d3b1,bwa_miseq_pe 
 EOF
 
-while IFS='' read -r line || [[ -n "$line" ]]
+
+
+# while IFS='' read -r line || [[ -n "$line" ]]
+# do
+#     bam=""
+#     cd "$WD"
+
+#     sample=$(echo $line | cut -f1 -d ',')
+
+#     bam=$(find $WD -name "*""$sample""*bwameth_default.bam")
+    
+#     echo $sample
+    
+#     if [ -f $bam ]
+#     then
+#         echo 'methyldackel call here'
+#     else
+#         echo 'bam not found for ' "$sample"
+#     fi
+    
+# done < for_cph.conf
+
+
+for genotype in $(cut -f2 -d"," for_cph.conf | sort | uniq)
 do
-    bam=""
-    cd "$WD"
+    echo "$genotype"
+    current=$(fgrep "$genotype" for_cph.conf | cut -f1 -d"," | paste -d" " -s)
+    # currarray=($current)
+    # for sample in "${currarray[@]}"
+    for sample in $current
+    do
+        echo $sample
+        # finding the bamfiles to be merged afterwards
+        bam=$(find $WD -name "*""$sample""*bwameth_default.bam")
+        echo $bam >> tmp        
+    done
 
-    sample=$(echo $line | cut -f1 -d ',')
+    mkdir -p merged_"$genotype"
+    
+    samtools merge -@ $NTHREADS -b tmp merged_"$genotype"/"$genotype"_merged.bam
 
-    bam=$(find $WD -name "*""$sample""*bwameth_default.bam")
-    
-    echo $sample
-    
-    if [ -f $bam ]
-    then
-        echo 'methyldackel call here'
-    else
-        echo 'bam not found for ' "$sample"
-    fi
-    
-done < for_cph.conf
+    mv -f tmp merged_"$genotype"/"$genotype"_merged.bam.sources
 
+    # methyldackel call
+
+    samtools index -@ $NTHREADS \
+             merged_"$genotype"/"$genotype"_merged.bam \
+             merged_"$genotype"/"$genotype"_merged.bam.bai
+    
+    $METHYLDACKEL extract \
+              -q $MAPQ_THRES \
+              -@ $NTHREADS \
+              -d $MIN_DEPTH \
+              --keepStrand \
+              --CHH \
+              --CHG \
+              -o merged_"$genotype"/"$genotype"_ch_d_"$MIN_DEPTH"_mapq_"$MAPQ_THRES".methyldackel \
+              $MM9 \
+              merged_"$genotype"/"$genotype"_merged.bam
+    
+done
+                  
+# # merging by genotype
+# while IFS='' read -r line || [[ -n "$line" ]]
+# do
+#     sample=$(echo $line | cut -f1 -d ',')
+    
+#     sample=$(echo $line | cut -f1 -d ',')
+    
+# done
 
 
 # bware the mindepth requires merging the bamfiles first, or representation will get biased
