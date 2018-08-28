@@ -19,6 +19,7 @@ export MAPQ_THRES=40
 export MIN_DEPTH=5
 
 export METHYLDACKEL="$SOFT"/methyldackel/MethylDackel/MethylDackel
+export BEDTOOLS="$SOFT"/bedtools/bin/bedtools
 
 cd $WD
 
@@ -101,6 +102,8 @@ do
     samtools index -@ $NTHREADS \
              merged_"$genotype"/"$genotype"_merged.bam \
              merged_"$genotype"/"$genotype"_merged.bam.bai
+
+    report=merged_"$genotype"/"$genotype"_ch_d_"$MIN_DEPTH"_mapq_"$MAPQ_THRES".cytosine_report.txt
     
     $METHYLDACKEL extract \
                   -q $MAPQ_THRES \
@@ -113,70 +116,55 @@ do
                   $MM9 \
                   merged_"$genotype"/"$genotype"_merged.bam
 
+    # this only for chromosome 1 for testing purposes (to be parallelized for all
+    # chromosomes @todo)
+    # grep -w "^chr1" merged_"$genotype"/"$genotype"_ch_d_"$MIN_DEPTH"_mapq_"$MAPQ_THRES".cytosine_report.txt > tmpchr1
+    # mv -f tmpchr1 merged_"$genotype"/"$genotype"_ch_d_"$MIN_DEPTH"_mapq_"$MAPQ_THRES".cytosine_report.txt
 
+    # sampled 10000 rows
+    # head -1000000 "$report" > tmphead
+    # mv -f tmphead "$report"
+    
+    
     # only stuff that is methylated at least once and with a coverage of at least 5
+    echo 'getting 10k covered Cs only'
     awk '{
 FS=OFS="\t"; 
 if ($4 >= 1 && $4+$5 >= 5)
  print $0
 }' \
-        merged_"$genotype"/"$genotype"_ch_d_"$MIN_DEPTH"_mapq_"$MAPQ_THRES".cytosine_report.txt > tmp_covered
+        "$report" | head -100000  > tmp_covered
 
-    mv -f tmp_covered merged_"$genotype"/"$genotype"_ch_d_"$MIN_DEPTH"_mapq_"$MAPQ_THRES"
+
+     mv -f tmp_covered "$report"
+
     
+    ## motif retrieval
+
+    echo 'the bedtools slop migth be broken'
+    
+    awk '
+{ 
+  OFS=FS="\t";
+   print $1,$2-1,$2,$4,$5,$3,$7;
+}
+' "$report"  |
+        "$BEDTOOLS" slop -i - \
+                    -g "$WD"/mm9.genome \
+                    -l 3 -r 4 -s | \
+        "$BEDTOOLS" getfasta -fi $MM9 \
+                    -bed - \
+                    -fo "$report"_cytosine_report_slop.fa \
+                    -tab \
+                    -s
+    paste "$report" \
+          "$report"_cytosine_report_slop.fa > tmp
+
+    rm -rf "$report"_cytosine_report_slop.fa
+    ## now get odd and even lines
+    awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
+    rm -f tmp 
+    mv -f bar merged_"$genotype"/"$genotype"_stranded.txt
+    gzip merged_"$genotype"/"$genotype"_stranded.txt
+   ## might better separate cpg of non cpg    
 done
-                  
-# # merging by genotype
-# while IFS='' read -r line || [[ -n "$line" ]]
-# do
-#     sample=$(echo $line | cut -f1 -d ',')
-    
-#     sample=$(echo $line | cut -f1 -d ',')
-    
-# done
-
-
-# bware the mindepth requires merging the bamfiles first, or representation will get biased
-# @todo
-# $METHYLDACKEL extract \
-#               -q $MAPQ_THRES \
-#               -@ $NTHREADS \
-#               -d $MIN_DEPTH \
-#               --keepStrand \
-#               --CHH \
-#               -o test.methyldackel \
-#               $MM9 \
-#               $bam
-
-
-# awk '
-# { 
-#   OFS=FS="\t";
-#    print $1,$2-1,$2,$4,$5,$3,$7;
-# }
-# ' "$(basename $bam .bam)".cytosine_report.txt  |
-#     "$BEDTOOLS" slop -i - \
-#                 -g "$WD"/mm9.genome \
-#                 -l 3 -r 4 -s | \
-#     "$BEDTOOLS" getfasta -fi $MM9 \
-#                 -bed - \
-#                 -fo "$(basename $bam .bam)"_cytosine_report_slop.fa \
-#                 -tab \
-#                 -s
-
-# paste "$(basename $bam .bam)".cytosine_report.txt \
-#       "$(basename $bam .bam)"_cytosine_report_slop.fa > tmp
-
-# rm -rf "$(basename $bam .bam)"_cytosine_report_slop.fa
-# ## now get odd and even lines
-# awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
-# rm -f tmp 
-# mv -f bar "$(basename $bam .bam)"_stranded.txt
-
-# echo "$(date) Processing sample $sample ended"
-
-# gzip "$(basename $bam .bam)"_stranded.txt
-
-# cd "$WD"
-# done    
-
