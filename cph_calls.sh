@@ -13,7 +13,7 @@ export SOFT="$HOME"/soft
 export MM9=/home/Shared/data/annotation/Mouse/mm9/mm9.fa
 export VIRTENVS=~/virtenvs
 
-export NTHREADS=16
+export NTHREADS=32
 
 export MAPQ_THRES=40
 export MIN_DEPTH=5
@@ -26,7 +26,7 @@ cd $WD
 ## samples to call the non cpg methylation from
 ## here rather than a report we require a minimum depth etc from the very beginning
 
-cat << EOF  >> for_cph.conf
+cat << EOF  > for_cph.conf
 20151223.B-MmES_TKOD3A1c1-3_R,tko+d3a1,bwa_hiseq2k
 BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_6_ACAGTGA_L006_001,tko+d3a2,bwa_hiseq2k
 BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_001,tko+d3a2,bwa_hiseq2k
@@ -83,17 +83,23 @@ do
     current=$(fgrep "$genotype" for_cph.conf | cut -f1 -d"," | paste -d" " -s)
     # currarray=($current)
     # for sample in "${currarray[@]}"
+    rm -f tmp
     for sample in $current
     do
         echo $sample
         # finding the bamfiles to be merged afterwards
-        bam=$(find $WD/.. -name "*""$sample""*bwameth_default.bam")
+        bam=$(find $WD -name "*""$sample""*bwameth_default.bam")
         echo $bam >> tmp        
     done
 
     mkdir -p merged_"$genotype"
     
     samtools merge -@ $NTHREADS -b tmp merged_"$genotype"/"$genotype"_merged.bam
+
+    ## mapq over 40
+    samtools view -@ $NTHREADS -h -b -q "$MAPQ_THRES" merged_"$genotype"/"$genotype"_merged.bam \
+             -o mapq.bam
+    mv -f mapq.bam merged_"$genotype"/"$genotype"_merged.bam
 
     mv -f tmp merged_"$genotype"/"$genotype"_merged.bam.sources
 
@@ -104,7 +110,9 @@ do
              merged_"$genotype"/"$genotype"_merged.bam.bai
 
     report=merged_"$genotype"/"$genotype"_ch_d_"$MIN_DEPTH"_mapq_"$MAPQ_THRES".cytosine_report.txt
-    
+
+    # this call does not take into account the min depth nor the mapq thres! methyldackel
+    # does not (might not?) filter for that without the mergecontext stuff
     $METHYLDACKEL extract \
                   -q $MAPQ_THRES \
                   -@ $NTHREADS \
@@ -137,8 +145,7 @@ if ($4 >= 1 && $4+$5 >= 5)
 
 
      mv -f tmp_covered "$report"
-
-    
+     
     ## motif retrieval
 
     echo 'the bedtools slop migth be broken'
@@ -161,10 +168,17 @@ if ($4 >= 1 && $4+$5 >= 5)
           "$report"_cytosine_report_slop.fa > tmp
 
     rm -rf "$report"_cytosine_report_slop.fa
-    ## now get odd and even lines
-    awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
-    rm -f tmp 
-    mv -f bar merged_"$genotype"/"$genotype"_stranded.txt
-    gzip merged_"$genotype"/"$genotype"_stranded.txt
-   ## might better separate cpg of non cpg    
+    # ## now get odd and even lines
+    # awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
+    # rm -f tmp 
+
+    awk '{OFS=FS="\t"; if ($6 == "CG") print $0 }' tmp | \
+        gzip -c > merged_"$genotype"/"$genotype"_cg_stranded.txt.gz
+    awk '{OFS=FS="\t"; if ($6 != "CG") print $0 }' tmp | \
+        gzip -c > merged_"$genotype"/"$genotype"_ch_stranded.txt.gz
+
+
 done
+
+
+# we are missing the uncovered stuff!
