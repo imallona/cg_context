@@ -134,22 +134,29 @@ do
     # mv -f tmphead "$report"
     
     
-    # only stuff that is methylated at least once and with a coverage of at least 5
+#     # only stuff that is methylated at least once and with a coverage of at least 5
+#     echo 'getting 10k covered Cs only'
+#     awk '{
+# FS=OFS="\t"; 
+# if ($4 >= 1 && $4+$5 >= 5)
+#  print $0
+# }' \
+#         "$report" | head -100000  > tmp_covered
+
+    
+    # only stuff  with a coverage of at least 5
     echo 'getting 10k covered Cs only'
     awk '{
 FS=OFS="\t"; 
-if ($4 >= 1 && $4+$5 >= 5)
+if ($4+$5 >= 5)
  print $0
 }' \
-        "$report" | head -100000  > tmp_covered
-
+        "$report" > tmp_covered
 
      mv -f tmp_covered "$report"
      
     ## motif retrieval
 
-    echo 'the bedtools slop migth be broken'
-    
     awk '
 { 
   OFS=FS="\t";
@@ -168,17 +175,32 @@ if ($4 >= 1 && $4+$5 >= 5)
           "$report"_cytosine_report_slop.fa > tmp
 
     rm -rf "$report"_cytosine_report_slop.fa
-    # ## now get odd and even lines
-    # awk '{printf "%s%s",$0,(NR%2?FS:RS)}' tmp > bar
-    # rm -f tmp 
+    # get meth and unmeth stats
+    
+    # split into cg and non cg 
+    awk '{OFS=FS="\t"; if ($6 == "CG") print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9)}' tmp > cg
+    awk '{OFS=FS="\t"; if ($6 != "CG") print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9)}' tmp > ch
+    
+    # split into meth and unmeth
+    awk '{OFS=FS="\t"; if ($4 > 0) print $0 }' cg > cg_meth
+    awk '{OFS=FS="\t"; if ($4 == 0) print $0 }' cg > cg_unmeth
+        
+    awk '{OFS=FS="\t"; if ($4 > 0) print $0 }' ch > ch_meth
+    awk '{OFS=FS="\t"; if ($4 == 0) print $0 }' ch > ch_unmeth
+    wc -l cg_meth cg_unmeth ch_meth ch_unmeth
 
-    awk '{OFS=FS="\t"; if ($6 == "CG") print $0 }' tmp | \
-        gzip -c > merged_"$genotype"/"$genotype"_cg_stranded.txt.gz
-    awk '{OFS=FS="\t"; if ($6 != "CG") print $0 }' tmp | \
-        gzip -c > merged_"$genotype"/"$genotype"_ch_stranded.txt.gz
+    # count instancees by motif
+    for item in  cg_meth cg_unmeth ch_meth ch_unmeth
+    do
+        cut -f9 $item | sort | uniq -c | sed 's/^ *//' > \
+                                             merged_"$genotype"/motif_counts_"$item".txt
+    done
+
+    rm -f cg ch cg_meth cg_unmeth ch_meth ch_unmeth
+
+    mv tmp  merged_"$genotype"/raw_report_"$item".txt
+    gzip  merged_"$genotype"/raw_report_"$item".txt
+
 
 
 done
-
-
-# we are missing the uncovered stuff!
