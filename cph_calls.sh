@@ -86,7 +86,7 @@ do
     do
         echo $sample
         # finding the bamfiles to be merged afterwards
-        bam=$(find $WD -name "*""$sample""*bwameth_default.bam")
+        bam=$(find $WD/.. -name "*""$sample""*bwameth_default.bam")
         echo $bam >> tmp        
     done
 
@@ -103,15 +103,26 @@ do
              merged_"$genotype"/"$genotype"_merged.bam.bai
     
     $METHYLDACKEL extract \
-              -q $MAPQ_THRES \
-              -@ $NTHREADS \
-              -d $MIN_DEPTH \
-              --keepStrand \
-              --CHH \
-              --CHG \
-              -o merged_"$genotype"/"$genotype"_ch_d_"$MIN_DEPTH"_mapq_"$MAPQ_THRES".methyldackel \
-              $MM9 \
-              merged_"$genotype"/"$genotype"_merged.bam
+                  -q $MAPQ_THRES \
+                  -@ $NTHREADS \
+                  -d $MIN_DEPTH \
+                  --cytosine_report \
+                  --CHH \
+                  --CHG \
+                  -o merged_"$genotype"/"$genotype"_ch_d_"$MIN_DEPTH"_mapq_"$MAPQ_THRES" \
+                  $MM9 \
+                  merged_"$genotype"/"$genotype"_merged.bam
+
+
+    # only stuff that is methylated at least once and with a coverage of at least 5
+    awk '{
+FS=OFS="\t"; 
+if ($4 >= 1 && $4+$5 >= 5)
+ print $0
+}' \
+        merged_"$genotype"/"$genotype"_ch_d_"$MIN_DEPTH"_mapq_"$MAPQ_THRES".cytosine_report.txt > tmp_covered
+
+    mv -f tmp_covered merged_"$genotype"/"$genotype"_ch_d_"$MIN_DEPTH"_mapq_"$MAPQ_THRES"
     
 done
                   
