@@ -10,13 +10,14 @@ fig_caption: yes
 
 library(knitr)
 ## library(devtools)
-## library(reshape2)
+library(reshape2)
 ## library(lattice)
 ## library(pheatmap)
 ## library(seqLogo)
 ## library(margins)
 ## library(data.table)
-## library(ggplot2)
+library(ggplot2)
+library(ggfortify)
 
 TASK <- "cg_context"
 HOME <- '/home/imallona'
@@ -244,9 +245,105 @@ apply(nd[[1]][,2:5], 2, mean)
 
 ## plot
 
+for (context in names(nd)) {
+    melted <- melt(nd[[context]])
+    save(melted, file = sprintf('test_plots%s.RData', context))
+
+    ## sorted by kmer
+
+    ggplot(data = melted, aes(x = motif, y = value, group = variable, color = variable))+ 
+        geom_point()
+
+    ## sorted by average dnameth by kmer
+    ## melted <- melted[ order(melted$value),]
+
+
+    ## sorting them from low to high meth
+    ## sorted <- names(sort(with(melted, tapply(value, motif, mean))))
+
+    ## mtcars$cyl3 <- with(mtcars, reorder(cyl, cyl, function(x) -length(x)))
+    ## ggplot(mtcars, aes(cyl3)) + geom_bar()
+
+    melted$fac = reorder(melted$motif, melted$value, mean)
+
+    ## ggplot(d, aes(x=reorder(fac, y, mean), y=y))
+    ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
+                              color = variable))+ 
+        geom_point()  
+    
+}
+
 
 ```
 
+```{r differential}
+
+
+## picking the top 10 motifs with the most variability
+
+## the most variable motifs
+
+
+
+
+for (context in names(nd)) {
+
+    vars <- data.frame(motif = nd[[context]]$motif,
+                       var = apply(nd[[context]][2:ncol(nd[[context]])], 1, var))
+    vars <- vars[order(vars$var, decreasing = TRUE),]
+    plot(density(vars$var))
+
+    ## top 10% variable probes
+    top <- vars[vars$var >= quantile(vars$var, probs = 0.9),]
+    selected <-  nd[[context]][nd[[context]]$motif %in% top$motif,]
+    rownames(selected) <- selected$motif
+    selected <- selected[,-1]
+
+
+    heatmap(as.matrix(selected),
+            Rowv = as.dendrogram(hclust(dist(as.matrix(selected)), method = 'ward')),
+            Colv = as.dendrogram(hclust(dist(t(as.matrix(selected))), method = 'ward')),
+            main = sprintf('q90 variable motifs, n = %s', nrow(selected)))
+
+    ## now pca
+    autoplot(prcomp(selected), label = TRUE,
+             main = sprintf('q90 variable motifs, n = %s', nrow(selected)))
+    autoplot(prcomp(t(selected)), label = TRUE, loadings = TRUE,
+             loadings.label = TRUE, loadings.label.size = 3,
+             main =  sprintf('q90 variable motifs, n = %s', nrow(selected)))
+
+    ## pca on the whole stuff
+    rownames(nd[[context]]) <- nd[[context]]$motif
+    autoplot(prcomp(nd[[context]][,-1]), label = TRUE,
+             main = 'all motifs')
+    
+    autoplot(prcomp(t(nd[[context]][,-1])), label = TRUE, loadings = TRUE,
+             loadings.label = TRUE, loadings.label.size = 3,
+             main =  'all motifs')
+    
+    for (topn in c(10, 20, 50)) {
+
+        top <- head(as.character(vars$motif), topn)
+
+        selected <- nd[[context]][nd[[context]]$motif %in% top,]
+        rownames(selected) <- selected$motif
+        selected <- selected[,-1]
+        
+        heatmap(as.matrix(selected),
+                Rowv = as.dendrogram(hclust(dist(as.matrix(selected)), method = 'ward')),
+                Colv = as.dendrogram(hclust(dist(t(as.matrix(selected))), method = 'ward')),
+                main = sprintf('top %s variable motifs', n = topn))
+
+        ## m1 <- lm(value ~ motif * variable, data = selected,])
+    }
+
+    
+ 
+}
+
+## the motifs that show the highest difference in a genotype
+
+```
 
 ```{r sessionInfo}
 date()
