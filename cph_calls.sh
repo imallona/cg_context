@@ -1,6 +1,7 @@
 #!/bin/bash
 ##
 ## methyldackel calls for non cpg methylation
+## outputs are processed by cph_calls.Rmd
 ##
 # Izaskun Mallona
 # aug the 22nd
