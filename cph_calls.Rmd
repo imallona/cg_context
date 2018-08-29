@@ -51,13 +51,19 @@ dir.create(file.path(WD, TASK))
 
 ```
 
+
+```{r design, include = TRUE, cache = TRUE, fig.width = 20}
+knitr::include_graphics("/home/imallona/src/cg_context/stranded_dnameth.png")
+```
+
+
 ```{r run_trace}
 sources <- list.files(file.path(WD), recursive = TRUE, pattern = '*sources')
 
 for (fn in sources) {
     cat(sprintf('SOURCE BAMS FOR CONFIG FILE %s', fn))
     cat('\n')
-    for (line in readLines(fn)) {
+    for (line in readLines(file.path(WD, fn))) {
         cat(sprintf('%s\n', line))
     }
     cat('\n')
@@ -101,8 +107,8 @@ SRR1653162,qko+d3b1,bwa_miseq_pe
 ```{r data_import, include = TRUE, echo = FALSE, cache = TRUE, cache.lazy = FALSE}
 
 ## meth and unmeth separately
-d <- list(cg = list(meth = NULL, unmeth = NULL),
-          ch = list(meth = NULL, unmeth = NULL))
+d <- list(cg = list(),
+          ch = list())
 
 for (context in c('cg', 'ch')) {
     for (genotype in dirname(sources)) {
@@ -118,7 +124,8 @@ for (context in c('cg', 'ch')) {
             rownames(fd) <- fd$motif
             fd <- fd[grep('N', fd$motif, invert = TRUE),]
             fd <- fd[nchar(fd$motif) == 8,]
-
+            fd <- fd[sort(fd$motif),]
+            
             d[[context]][[genotype]][[state]] <- fd
             rm(fd)
         }
@@ -145,6 +152,7 @@ mdict$ch <- apply(expand.grid('1' = nucl, '2' = nucl, '3' = nucl,
 
 for (item in names(mdict)) {
     fd <- mdict[[item]]
+    fd <- sort(as.character(fd))
     fd <- data.frame(motif = fd, count = 0)
     rownames(fd) <- fd$motif
     mdict[[item]] <- fd
@@ -161,15 +169,84 @@ for (context in c('cg', 'ch')) {
 
             mis <- setdiff(rownames(mdict[[context]]), rownames(curr))
             curr <- rbind(curr, mdict[[context]][mis,])
+            ## lexicographical sorting
+            curr <- curr[order(as.character(curr$motif)),]
             d[[context]][[genotype]][[state]] <- curr
+            
+            
             stopifnot(nrow(curr) == nrow(mdict[[context]]))
             rm(curr, mis)
         }
     }
 }
 
-## check for normalization
 ```
+
+```{r normalize}
+
+## normalization factor based upon the number of meth Cs vs the number of unmeth Cs
+nf <- data.frame(genotype = rep(dirname(sources), each = 2),
+                   context = c('cg', 'ch'),
+                   meth = NA,
+                   unmeth = NA,
+                   ratio = NA)
+                   
+for (i in 1:nrow(nf)) {
+    for (status in c('meth', 'unmeth')) {
+        nf[i, status] <- sum(d[[nf[i, 'context']]][[nf[i, 'genotype']]][[status]]$count)
+    }
+    nf[i, 'ratio'] <- nf[i, 'meth']/(nf[i, 'meth'] + nf[i, 'unmeth'])
+}
+
+## apply the normalization factor
+
+
+nd <- list(cg = setNames(data.frame(matrix(nrow = length(mdict$cg$motif),
+                                           ncol = length(sources) + 1)),
+                         c('motif', dirname(sources))),
+           ch = setNames(data.frame(matrix(nrow = length(mdict$ch$motif),
+                                           ncol = length(sources) + 1)),
+                         c('motif', dirname(sources))))
+
+for (context in names(nd)) {
+    nd[[context]][,'motif'] <-  as.character(mdict[[context]]$motif)
+}
+           
+
+for (context in c('cg', 'ch')) {
+    for (genotype in dirname(sources)) {
+                
+        stopifnot(d[[context]][[genotype]][['meth']]$motif ==
+                  d[[context]][[genotype]][['muneth']]$motif)
+        
+        unnormalized <- d[[context]][[genotype]][['meth']]$count /
+            d[[context]][[genotype]][['unmeth']]$count
+
+
+        normalized <- unnormalized / nf[nf$genotype == genotype
+                                        & nf$context == context, 'ratio']
+
+        stopifnot(d[[context]][[genotype]][['meth']]$motif ==
+                  nd[[context]]$motif)
+        
+        nd[[context]][,genotype] <- normalized
+            
+    }
+
+}
+
+## is this ok?
+apply(nd[[1]][,2:5], 2, mean)
+## merged_qko+d3b1 merged_tko+d3a1 merged_tko+d3a2 merged_tko+d3b1 
+##        1.487654        2.050861        1.567780        1.186425 
+
+## compare with the old integration outputs
+
+## plot
+
+
+```
+
 
 ```{r sessionInfo}
 date()
