@@ -310,20 +310,20 @@ for (context in names(nd)) {
             main = sprintf('q99 variable motifs, n = %s', nrow(selected)))
 
     ## now pca
-    autoplot(prcomp(selected), label = TRUE,
-             main = sprintf('q99 variable motifs, n = %s', nrow(selected)))
-    autoplot(prcomp(t(selected)), label = TRUE, loadings = TRUE,
+    print(autoplot(prcomp(selected), label = TRUE,
+             main = sprintf('q99 variable motifs, n = %s', nrow(selected))))
+    print(autoplot(prcomp(t(selected)), label = TRUE, loadings = TRUE,
              loadings.label = TRUE, loadings.label.size = 3,
-             main =  sprintf('q99 variable motifs, n = %s', nrow(selected)))
+             main =  sprintf('q99 variable motifs, n = %s', nrow(selected))))
 
     ## pca on the whole stuff
     rownames(nd[[context]]) <- nd[[context]]$motif
-    autoplot(prcomp(nd[[context]][,-1]), label = TRUE,
-             main = 'all motifs')
+    print(autoplot(prcomp(nd[[context]][,-1]), label = TRUE,
+             main = 'all motifs'))
     
-    autoplot(prcomp(t(nd[[context]][,-1])), label = TRUE, loadings = TRUE,
+    print(autoplot(prcomp(t(nd[[context]][,-1])), label = TRUE, loadings = TRUE,
              loadings.label = TRUE, loadings.label.size = 3,
-             main =  'all motifs')
+             main =  'all motifs'))
 
 
     for (topn in c(10, 20, 50)) {
@@ -379,10 +379,6 @@ for (context in names(topmotifs)) {
 
 ```{r logos}
 
-
-
-## lbits <- list()
-
 for (context in names(topmotifs)) {
     for (cutoff in names(topmotifs[[context]])) {
         selected <- nd[[context]][nd[[context]]$motif %in% topmotifs[[context]][[cutoff]],]
@@ -396,17 +392,14 @@ for (context in names(topmotifs)) {
             
             
             lprobs[[genotype]] <- rep(curr$motif, curr$score)
-            
-            ## lbits[[genotype]] <- ggseqlogo(melted[melted$variable == genotype, 'motif'], method = 'bits')
-            ## lprobs[[genotype]] <- ggseqlogo(melted[melted$variable == genotype, 'motif'],
-            ##                                 method = 'probability')
-
+        
             
         }
 
-        print(cutoff)
+        print(sprintf('context %s cutoff top %s', context, cutoff))
         print(ggseqlogo(lprobs, ncol = 1, method = 'probability'))
         print(ggseqlogo(lprobs, ncol = 1, method = 'bits'))
+        rm(selected, lprobs)
 
     }
 }
