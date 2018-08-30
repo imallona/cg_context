@@ -243,59 +243,54 @@ for (context in c('cg', 'ch')) {
 
 }
 
-## is this ok?
-apply(nd[[1]][,2:5], 2, mean)
-## merged_qko+d3b1 merged_tko+d3a1 merged_tko+d3a2 merged_tko+d3b1 
-##        1.487654        2.050861        1.567780        1.186425 
 
-## compare with the old integration outputs
+print(nf)
+
+
+print(apply(nd[['cg']][,2:5], 2, mean))
+## merged_qko+d3b1 merged_tko+d3a1 merged_tko+d3a2 merged_tko+d3b1 
+## 0.9835557       0.9927092       1.0196382       0.9758585
+
+
+print(apply(nd[['ch']][,2:5], 2, mean))
+## merged_qko+d3b1 merged_tko+d3a1 merged_tko+d3a2 merged_tko+d3b1 
+##       0.8959019       1.0095152       1.0035416       0.9502164 
+
 
 ## plot
 
 for (context in names(nd)) {
     melted <- melt(nd[[context]])
-    save(melted, file = sprintf('test_plots%s.RData', context))
 
     ## sorted by kmer
 
-    print(ggplot(data = melted, aes(x = motif, y = value, group = variable, color = variable))+ 
-        geom_point())
+    ## print(ggplot(data = melted, aes(x = motif, y = value, group = variable, color = variable))+ 
+    ##     geom_point())
 
     ## sorted by average dnameth by kmer
-    ## melted <- melted[ order(melted$value),]
-
-
-    ## sorting them from low to high meth
-    ## sorted <- names(sort(with(melted, tapply(value, motif, mean))))
-
-    ## mtcars$cyl3 <- with(mtcars, reorder(cyl, cyl, function(x) -length(x)))
-    ## ggplot(mtcars, aes(cyl3)) + geom_bar()
 
     melted$fac = reorder(melted$motif, melted$value, mean)
 
     ## ggplot(d, aes(x=reorder(fac, y, mean), y=y))
     print(ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
                               color = variable))+ 
-        geom_point()  )
+        geom_point(size = 0.5))
     
 }
 
 
 ```
 
-```{r differential}
 
 
-## picking the top 10 motifs with the most variability
-
-## the most variable motifs
+```{r differential_q99}
 
 
-
+## picking the most variable motifs (simple variance)
 
 topmotifs <- list()
 for (context in names(nd)) {
-
+    print(context)
     vars <- data.frame(motif = nd[[context]]$motif,
                        var = apply(nd[[context]][2:ncol(nd[[context]])], 1, var))
     vars <- vars[order(vars$var, decreasing = TRUE),]
@@ -328,17 +323,25 @@ for (context in names(nd)) {
              loadings.label = TRUE, loadings.label.size = 3,
              main =  sprintf('q99 variable motifs, n = %s', nrow(selected))))
 
-    ## pca on the whole stuff
-    rownames(nd[[context]]) <- nd[[context]]$motif
-    print(autoplot(prcomp(nd[[context]][,-1]), label = TRUE,
-             main = 'all motifs'))
+    ## ## pca on the whole stuff
+    ## rownames(nd[[context]]) <- nd[[context]]$motif
+    ## print(autoplot(prcomp(nd[[context]][,-1]), label = TRUE,
+    ##          main = 'all motifs'))
     
-    print(autoplot(prcomp(t(nd[[context]][,-1])), label = TRUE, loadings = TRUE,
-             loadings.label = TRUE, loadings.label.size = 3,
-             main =  'all motifs'))
+    ## print(autoplot(prcomp(t(nd[[context]][,-1])), label = TRUE, loadings = TRUE,
+    ##          loadings.label = TRUE, loadings.label.size = 3,
+    ##          main =  'all motifs'))
 
+}
+```
 
-    for (topn in c(100)) {
+```{r differential_discrete_top}
+for (context in names(nd)) {
+    for (topn in c(10)) {  ## only top 100, not iterating
+        vars <- data.frame(motif = nd[[context]]$motif,
+                       var = apply(nd[[context]][2:ncol(nd[[context]])], 1, var))
+        vars <- vars[order(vars$var, decreasing = TRUE),]
+        
         top <- head(as.character(vars$motif), topn)
 
         selected <- nd[[context]][nd[[context]]$motif %in% top,]
@@ -356,9 +359,11 @@ for (context in names(nd)) {
     } 
 }
 
-## the motifs that show the highest difference in a genotype
 
 ```
+
+
+
 
 ```{r table_plot_tops_cg}
 for (context in names(topmotifs)) {
@@ -388,6 +393,7 @@ for (context in names(topmotifs)) {
 
 ```
 
+## Logos
 
 ```{r logos}
 
@@ -419,6 +425,39 @@ for (context in names(topmotifs)) {
 ## gridExtra::grid.arrange(lbits[[1]], lbits[[2]], lbits[[3]], lbits[[4]], ncol = 1)
 
 ## ggseqlogo(lbits, ncol=1)
+
+```
+## Scored motifs, no filtering
+
+```{r logos_without_filtering}
+
+for (context in names(nd)) {
+    
+    selected <- nd[[context]]
+    melted <- melt(selected)
+
+    ## setting the item with min value as 1 and scoring others (truncating)
+    melted <- melted[melted$value > 0,]
+    melted$score <- round(melted$value/min(melted$value))
+    lprobs <- list()
+    for (genotype in levels(melted$variable)) {
+        curr <- melted[melted$variable == genotype,]
+        
+        
+        lprobs[[genotype]] <- rep(curr$motif, curr$score)
+        
+        
+    }
+
+    print(sprintf('context %s cutoff top %s', context, cutoff))
+    print(ggseqlogo(lprobs, ncol = 1, method = 'probability'))
+    print(ggseqlogo(lprobs, ncol = 1, method = 'bits'))
+    rm(selected, lprobs)
+
+}
+
+
+
 
 ```
 
@@ -466,6 +505,21 @@ for (context in c('cg', 'ch')) {
 
 ##
 
+
+print(nf)
+
+print(apply(nd[['cg']][,2:5], 2, mean))
+
+print(apply(nd[['ch']][,2:5], 2, mean))
+
+print(apply(betas[['cg']][,2:5], 2, mean))
+
+print(apply(betas[['ch']][,2:5], 2, mean))
+
+## differences might be due to the 0es we added to the motifs which were not present
+## @todo check
+
+
 for (context in names(betas)) {
     for (cutoff in names(topmotifs[[context]])) {
 
@@ -476,14 +530,12 @@ for (context in names(betas)) {
         melted <- melt(selected)
 
         melted$fac = reorder(melted$motif, melted$value, mean)
-
         ## ggplot(d, aes(x=reorder(fac, y, mean), y=y))
         print(ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
                                         color = variable))+ 
               geom_point()+
               theme(axis.text.x = element_text(angle = 90, hjust = 1)))
-        
-        
+
         rm(selected, melted)
     }
 }
