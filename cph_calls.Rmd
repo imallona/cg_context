@@ -13,11 +13,13 @@ library(knitr)
 library(reshape2)
 ## library(lattice)
 ## library(pheatmap)
-## library(seqLogo)
+library(seqLogo)
 ## library(margins)
 ## library(data.table)
 library(ggplot2)
 library(ggfortify)
+library(ggseqlogo)
+library(gridExtra)
 
 TASK <- "cg_context"
 HOME <- '/home/imallona'
@@ -286,6 +288,7 @@ for (context in names(nd)) {
 
 
 
+topmotifs <- list()
 for (context in names(nd)) {
 
     vars <- data.frame(motif = nd[[context]]$motif,
@@ -293,24 +296,25 @@ for (context in names(nd)) {
     vars <- vars[order(vars$var, decreasing = TRUE),]
     plot(density(vars$var))
 
-    ## top 10% variable probes
-    top <- vars[vars$var >= quantile(vars$var, probs = 0.9),]
+    ## top 1% variable motifs
+    top <- vars[vars$var >= quantile(vars$var, probs = 0.99),]
     selected <-  nd[[context]][nd[[context]]$motif %in% top$motif,]
     rownames(selected) <- selected$motif
     selected <- selected[,-1]
 
-
+    topmotifs[[context]][['q99']] <- as.character(top$motif)
+    
     heatmap(as.matrix(selected),
             Rowv = as.dendrogram(hclust(dist(as.matrix(selected)), method = 'ward')),
             Colv = as.dendrogram(hclust(dist(t(as.matrix(selected))), method = 'ward')),
-            main = sprintf('q90 variable motifs, n = %s', nrow(selected)))
+            main = sprintf('q99 variable motifs, n = %s', nrow(selected)))
 
     ## now pca
     autoplot(prcomp(selected), label = TRUE,
-             main = sprintf('q90 variable motifs, n = %s', nrow(selected)))
+             main = sprintf('q99 variable motifs, n = %s', nrow(selected)))
     autoplot(prcomp(t(selected)), label = TRUE, loadings = TRUE,
              loadings.label = TRUE, loadings.label.size = 3,
-             main =  sprintf('q90 variable motifs, n = %s', nrow(selected)))
+             main =  sprintf('q99 variable motifs, n = %s', nrow(selected)))
 
     ## pca on the whole stuff
     rownames(nd[[context]]) <- nd[[context]]$motif
@@ -320,9 +324,9 @@ for (context in names(nd)) {
     autoplot(prcomp(t(nd[[context]][,-1])), label = TRUE, loadings = TRUE,
              loadings.label = TRUE, loadings.label.size = 3,
              main =  'all motifs')
-    
-    for (topn in c(10, 20, 50)) {
 
+
+    for (topn in c(10, 20, 50)) {
         top <- head(as.character(vars$motif), topn)
 
         selected <- nd[[context]][nd[[context]]$motif %in% top,]
@@ -334,16 +338,85 @@ for (context in names(nd)) {
                 Colv = as.dendrogram(hclust(dist(t(as.matrix(selected))), method = 'ward')),
                 main = sprintf('top %s variable motifs', n = topn))
 
-        ## m1 <- lm(value ~ motif * variable, data = selected,])
-    }
+        topmotifs[[context]][[as.character(topn)]] <- top
 
-    
- 
+        ## m1 <- lm(value ~ motif * variable, data = selected,])
+    } 
 }
 
 ## the motifs that show the highest difference in a genotype
 
 ```
+
+```{r table_plot_tops_cg}
+for (context in names(topmotifs)) {
+    for (cutoff in names(topmotifs[[context]])) {
+          selected <- nd[[context]][nd[[context]]$motif %in% topmotifs[[context]][[cutoff]],]  
+    }
+
+
+    ## sorted lexicographically
+    
+    melted <- melt(selected)
+    ggplot(data = melted, aes(x = motif, y = value, group = variable, color = variable))+ 
+        geom_point()+
+        theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+    ## sorted by trend
+
+    melted$fac = reorder(melted$motif, melted$value, mean)
+
+    ## ggplot(d, aes(x=reorder(fac, y, mean), y=y))
+    ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
+                              color = variable))+ 
+        geom_point()+
+        theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+}
+
+```
+
+
+```{r logos}
+
+
+
+## lbits <- list()
+
+for (context in names(topmotifs)) {
+    for (cutoff in names(topmotifs[[context]])) {
+        selected <- nd[[context]][nd[[context]]$motif %in% topmotifs[[context]][[cutoff]],]
+        melted <- melt(selected)
+
+        ## setting the item with min value as 1 and scoring others (truncating)
+        melted$score <- round(melted$value/min(melted$value))
+        lprobs <- list()
+        for (genotype in levels(melted$variable)) {
+            curr <- melted[melted$variable == genotype,]
+            
+            
+            lprobs[[genotype]] <- rep(curr$motif, curr$score)
+            
+            ## lbits[[genotype]] <- ggseqlogo(melted[melted$variable == genotype, 'motif'], method = 'bits')
+            ## lprobs[[genotype]] <- ggseqlogo(melted[melted$variable == genotype, 'motif'],
+            ##                                 method = 'probability')
+
+            
+        }
+
+        print(cutoff)
+        ggseqlogo(lprobs, ncol = 1, method = 'probability')
+        ggseqlogo(lprobs, ncol = 1, method = 'bits')
+
+    }
+}
+
+## gridExtra::grid.arrange(lbits[[1]], lbits[[2]], lbits[[3]], lbits[[4]], ncol = 1)
+
+## ggseqlogo(lbits, ncol=1)
+
+```
+
 
 ```{r sessionInfo}
 date()
