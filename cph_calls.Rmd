@@ -253,8 +253,8 @@ for (context in names(nd)) {
 
     ## sorted by kmer
 
-    ggplot(data = melted, aes(x = motif, y = value, group = variable, color = variable))+ 
-        geom_point()
+    print(ggplot(data = melted, aes(x = motif, y = value, group = variable, color = variable))+ 
+        geom_point())
 
     ## sorted by average dnameth by kmer
     ## melted <- melted[ order(melted$value),]
@@ -269,9 +269,9 @@ for (context in names(nd)) {
     melted$fac = reorder(melted$motif, melted$value, mean)
 
     ## ggplot(d, aes(x=reorder(fac, y, mean), y=y))
-    ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
+    print(ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
                               color = variable))+ 
-        geom_point()  
+        geom_point()  )
     
 }
 
@@ -358,19 +358,19 @@ for (context in names(topmotifs)) {
     ## sorted lexicographically
     
     melted <- melt(selected)
-    ggplot(data = melted, aes(x = motif, y = value, group = variable, color = variable))+ 
+    print(ggplot(data = melted, aes(x = motif, y = value, group = variable, color = variable))+ 
         geom_point()+
-        theme(axis.text.x = element_text(angle = 90, hjust = 1))
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)))
 
     ## sorted by trend
 
     melted$fac = reorder(melted$motif, melted$value, mean)
 
     ## ggplot(d, aes(x=reorder(fac, y, mean), y=y))
-    ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
+    print(ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
                               color = variable))+ 
         geom_point()+
-        theme(axis.text.x = element_text(angle = 90, hjust = 1))
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)))
 
 }
 
@@ -405,8 +405,8 @@ for (context in names(topmotifs)) {
         }
 
         print(cutoff)
-        ggseqlogo(lprobs, ncol = 1, method = 'probability')
-        ggseqlogo(lprobs, ncol = 1, method = 'bits')
+        print(ggseqlogo(lprobs, ncol = 1, method = 'probability'))
+        print(ggseqlogo(lprobs, ncol = 1, method = 'bits'))
 
     }
 }
