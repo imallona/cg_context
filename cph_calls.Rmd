@@ -12,7 +12,7 @@ library(knitr)
 ## library(devtools)
 library(reshape2)
 ## library(lattice)
-## library(pheatmap)
+library(pheatmap)
 library(seqLogo)
 ## library(margins)
 ## library(data.table)
@@ -57,6 +57,11 @@ dir.create(file.path(WD, TASK))
 
 ```{r design, include = TRUE, cache = TRUE, fig.width = 20}
 knitr::include_graphics("/home/imallona/src/cg_context/stranded_dnameth.png")
+
+```
+
+```{r scores, out.extra='page=4'}
+knitr::include_graphics("/home/imallona/src/talks/current_work_mark_aug_2018/cw_mark_aug_2018.pdf")
 ```
 
 
@@ -223,7 +228,7 @@ for (context in c('cg', 'ch')) {
                   d[[context]][[genotype]][['muneth']]$motif)
         
         unnormalized <- d[[context]][[genotype]][['meth']]$count /
-            d[[context]][[genotype]][['unmeth']]$count
+            (d[[context]][[genotype]][['unmeth']]$count + d[[context]][[genotype]][['meth']]$count)
 
 
         normalized <- unnormalized / nf[nf$genotype == genotype
@@ -294,7 +299,9 @@ for (context in names(nd)) {
     vars <- data.frame(motif = nd[[context]]$motif,
                        var = apply(nd[[context]][2:ncol(nd[[context]])], 1, var))
     vars <- vars[order(vars$var, decreasing = TRUE),]
-    plot(density(vars$var))
+
+    print(sprintf('variance distribution in context %s', context))
+    plot(density(vars$var), main = context, xlab = 'meth score variance across genotypes')
 
     ## top 1% variable motifs
     top <- vars[vars$var >= quantile(vars$var, probs = 0.99),]
@@ -304,7 +311,12 @@ for (context in names(nd)) {
 
     topmotifs[[context]][['q99']] <- as.character(top$motif)
     
-    heatmap(as.matrix(selected),
+    ## heatmap(as.matrix(selected),
+    ##         Rowv = as.dendrogram(hclust(dist(as.matrix(selected)), method = 'ward')),
+    ##         Colv = as.dendrogram(hclust(dist(t(as.matrix(selected))), method = 'ward')),
+    ##         main = sprintf('q99 variable motifs, n = %s', nrow(selected)))
+
+    pheatmap(as.matrix(selected),
             Rowv = as.dendrogram(hclust(dist(as.matrix(selected)), method = 'ward')),
             Colv = as.dendrogram(hclust(dist(t(as.matrix(selected))), method = 'ward')),
             main = sprintf('q99 variable motifs, n = %s', nrow(selected)))
@@ -326,14 +338,14 @@ for (context in names(nd)) {
              main =  'all motifs'))
 
 
-    for (topn in c(10, 20, 50)) {
+    for (topn in c(100)) {
         top <- head(as.character(vars$motif), topn)
 
         selected <- nd[[context]][nd[[context]]$motif %in% top,]
         rownames(selected) <- selected$motif
         selected <- selected[,-1]
         
-        heatmap(as.matrix(selected),
+        pheatmap(as.matrix(selected),
                 Rowv = as.dendrogram(hclust(dist(as.matrix(selected)), method = 'ward')),
                 Colv = as.dendrogram(hclust(dist(t(as.matrix(selected))), method = 'ward')),
                 main = sprintf('top %s variable motifs', n = topn))
@@ -351,26 +363,26 @@ for (context in names(nd)) {
 ```{r table_plot_tops_cg}
 for (context in names(topmotifs)) {
     for (cutoff in names(topmotifs[[context]])) {
-          selected <- nd[[context]][nd[[context]]$motif %in% topmotifs[[context]][[cutoff]],]  
+        selected <- nd[[context]][nd[[context]]$motif %in% topmotifs[[context]][[cutoff]],]  
+
+        print(sprintf('top %s motifs in context %s', cutoff, context))
+        
+        ## sorted lexicographically        
+        melted <- melt(selected)
+        print(ggplot(data = melted, aes(x = motif, y = value, group = variable, color = variable))+ 
+              geom_point()+
+              theme(axis.text.x = element_text(angle = 90, hjust = 1)))
+
+        ## sorted by trend
+
+        melted$fac = reorder(melted$motif, melted$value, mean)
+
+        ## ggplot(d, aes(x=reorder(fac, y, mean), y=y))
+        print(ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
+                                        color = variable))+ 
+              geom_point()+
+              theme(axis.text.x = element_text(angle = 90, hjust = 1)))
     }
-
-
-    ## sorted lexicographically
-    
-    melted <- melt(selected)
-    print(ggplot(data = melted, aes(x = motif, y = value, group = variable, color = variable))+ 
-        geom_point()+
-        theme(axis.text.x = element_text(angle = 90, hjust = 1)))
-
-    ## sorted by trend
-
-    melted$fac = reorder(melted$motif, melted$value, mean)
-
-    ## ggplot(d, aes(x=reorder(fac, y, mean), y=y))
-    print(ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
-                              color = variable))+ 
-        geom_point()+
-        theme(axis.text.x = element_text(angle = 90, hjust = 1)))
 
 }
 
@@ -410,6 +422,75 @@ for (context in names(topmotifs)) {
 
 ```
 
+## Beta value overview for top scoring motifs
+
+
+```{r betavalues}
+
+
+## beware, these are not betavalues!
+betas <- list(cg = setNames(data.frame(matrix(nrow = length(mdict$cg$motif),
+                                           ncol = length(sources) + 1)),
+                         c('motif', dirname(sources))),
+           ch = setNames(data.frame(matrix(nrow = length(mdict$ch$motif),
+                                           ncol = length(sources) + 1)),
+                         c('motif', dirname(sources))))
+
+for (context in names(betas)) {
+    betas[[context]][,'motif'] <-  as.character(mdict[[context]]$motif)
+}
+           
+
+for (context in c('cg', 'ch')) {
+    for (genotype in dirname(sources)) {
+                
+        stopifnot(d[[context]][[genotype]][['meth']]$motif ==
+                  d[[context]][[genotype]][['muneth']]$motif)
+        
+        unnormalized <- d[[context]][[genotype]][['meth']]$count /
+            (d[[context]][[genotype]][['unmeth']]$count + d[[context]][[genotype]][['meth']]$count)
+
+
+      
+
+        stopifnot(d[[context]][[genotype]][['meth']]$motif ==
+                  betas[[context]]$motif)
+        
+        betas[[context]][,genotype] <- unnormalized
+     
+    }
+     rownames(betas[[context]]) <- betas[[context]]$motif
+     ## betas[[context]] <- betas[[context]][,-1]
+}
+
+
+##
+
+for (context in names(betas)) {
+    for (cutoff in names(topmotifs[[context]])) {
+
+        print(sprintf('top %s motifs in context %s', cutoff, context))
+        
+        selected <- betas[[context]][betas[[context]]$motif %in% topmotifs[[context]][[cutoff]],]
+        
+        melted <- melt(selected)
+
+        melted$fac = reorder(melted$motif, melted$value, mean)
+
+        ## ggplot(d, aes(x=reorder(fac, y, mean), y=y))
+        print(ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
+                                        color = variable))+ 
+              geom_point()+
+              theme(axis.text.x = element_text(angle = 90, hjust = 1)))
+        
+        
+        rm(selected, melted)
+    }
+}
+
+
+
+```
 
 ```{r sessionInfo}
 date()
