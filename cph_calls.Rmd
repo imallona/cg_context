@@ -372,11 +372,11 @@ for (context in names(topmotifs)) {
 
         print(sprintf('top %s motifs in context %s', cutoff, context))
         
-        ## sorted lexicographically        
-        melted <- melt(selected)
-        print(ggplot(data = melted, aes(x = motif, y = value, group = variable, color = variable))+ 
-              geom_point()+
-              theme(axis.text.x = element_text(angle = 90, hjust = 1)))
+        ## ## sorted lexicographically        
+        ## melted <- melt(selected)
+        ## print(ggplot(data = melted, aes(x = motif, y = value, group = variable, color = variable))+ 
+        ##       geom_point()+
+        ##       theme(axis.text.x = element_text(angle = 90, hjust = 1)))
 
         ## sorted by trend
 
@@ -449,7 +449,7 @@ for (context in names(nd)) {
         
     }
 
-    print(sprintf('context %s cutoff top %s', context, cutoff))
+    ## print(sprintf('context %s cutoff top %s', context, cutoff))
     print(ggseqlogo(lprobs, ncol = 1, method = 'probability'))
     print(ggseqlogo(lprobs, ncol = 1, method = 'bits'))
     rm(selected, lprobs)
@@ -463,6 +463,7 @@ for (context in names(nd)) {
 
 ## Beta value overview for top scoring motifs
 
+(These are not exactly betavalues, but the ratio M/(M+U) for gruped motifs)
 
 ```{r betavalues}
 
