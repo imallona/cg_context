@@ -365,7 +365,7 @@ for (context in names(nd)) {
 
 
 
-```{r table_plot_tops_cg}
+```{r table_plot_tops_cg, eval = FALSE}
 for (context in names(topmotifs)) {
     for (cutoff in names(topmotifs[[context]])) {
         selected <- nd[[context]][nd[[context]]$motif %in% topmotifs[[context]][[cutoff]],]  
