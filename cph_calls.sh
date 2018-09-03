@@ -146,7 +146,7 @@ do
 
     
     # only stuff  with a coverage of at least 5
-    echo 'getting 10k covered Cs only'
+    # echo 'getting 10k covered Cs only'
     awk '{
 FS=OFS="\t"; 
 if ($4+$5 >= 5)
@@ -199,9 +199,62 @@ if ($4+$5 >= 5)
 
     rm -f cg ch cg_meth cg_unmeth ch_meth ch_unmeth
 
+    ## this naming is inconsitent, @todo fix
     mv tmp  merged_"$genotype"/raw_report_"$item".txt
     gzip  merged_"$genotype"/raw_report_"$item".txt
 
 
 
+done
+
+
+## adding extra summaries with different depths
+## i.e. higher coverages than 5 reads
+## @todo check here
+
+
+for genotype in $(cut -f2 -d"," for_cph.conf | sort | uniq)
+do
+    cd $WD
+    echo "$genotype"
+    current=$(fgrep "$genotype" for_cph.conf | cut -f1 -d"," | paste -d" " -s)
+    # currarray=($current)
+
+    item="ch" # this naming is inconsistent, @todo fix
+    for depth in 5 10 25 50
+    do
+        cd $WD/merged_"$genotype"
+        depth_path=merged_"$genotype"/min_depth_"$depth"
+        mkdir -p "$deph_path"
+        cd "$depth_path"
+        
+        zcat ../merged_"$genotype"/raw_report_"$item".txt.gz | \
+            awk -v depth="$depth" '{
+FS=OFS="\t"; 
+if ($4+$5 >= depth)
+ print $0
+}' > tmp
+
+        # # split into cg and non cg 
+        # awk '{OFS=FS="\t"; if ($6 == "CG") print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9)}' tmp > cg
+        # awk '{OFS=FS="\t"; if ($6 != "CG") print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9)}' tmp > ch
+        
+        # # split into meth and unmeth
+        # awk '{OFS=FS="\t"; if ($4 > 0) print $0 }' cg > cg_meth
+        # awk '{OFS=FS="\t"; if ($4 == 0) print $0 }' cg > cg_unmeth
+        
+        # awk '{OFS=FS="\t"; if ($4 > 0) print $0 }' ch > ch_meth
+        # awk '{OFS=FS="\t"; if ($4 == 0) print $0 }' ch > ch_unmeth
+        # wc -l cg_meth cg_unmeth ch_meth ch_unmeth
+
+        # # count instancees by motif
+        # for item in  cg_meth cg_unmeth ch_meth ch_unmeth
+        # do
+        #     cut -f9 $item | sort | uniq -c | sed 's/^ *//' > \
+        #                                          "$depth_path"/motif_counts_"$item".txt
+        # done
+
+        # rm -f cg ch cg_meth cg_unmeth ch_meth ch_unmeth
+        cd $WD
+    done
 done
