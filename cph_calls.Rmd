@@ -1,9 +1,14 @@
 ---
 title: "CG and CH contexts"
-output: html_document
+output:
+  html_document:
+    keep_md: true
+    toc: true
+    toc_float: true
+    toc_depth: 4
 params:
   seed: 11
-fig_caption: yes
+
 ---
     
 ```{r settings, include=FALSE}
@@ -53,17 +58,57 @@ opts_chunk$set(fig.width = 12,
 dir.create(file.path(WD, TASK))
 
 ```
+# Aim
 
+- Hypothesis: DNMTs (DNA meth transferases) show sequence specificity
+-   Datasets: WGBS in three mouse cells lacking DNA meth (called
+    `triple KOs or TKOs`)
+-   They have a different DNMT (DNA meth transferases) addback each
+
+# Design
 
 ```{r design, include = TRUE, cache = TRUE, fig.width = 20}
 knitr::include_graphics("/home/imallona/src/cg_context/stranded_dnameth.png")
 
 ```
 
-```{r scores, out.extra='page=4'}
-knitr::include_graphics("/home/imallona/src/talks/current_work_mark_aug_2018/cw_mark_aug_2018.pdf")
-```
+<!-- ```{r scores, out.extra='page=4'} -->
+<!-- knitr::include_graphics("/home/imallona/src/talks/current_work_mark_aug_2018/cw_mark_aug_2018.pdf") -->
+<!-- ``` -->
 
+
+-   Flow
+
+    -   Call DNA methylation for every CpG in a strand-specific manner
+
+    -   Collapse counts (methylated/unmethylated) for each context 6-mer
+        `NNNCGNNN`
+
+    -   Normalize by the overall methylation levels
+
+    -   Check proportions
+
+We define a score which reads as a fold change (motif aggregated beta value / average aggregated beta value)
+
+               N-mer      M     U    uncov    $\beta$ value          score
+  ---------- ---------- ----- ----- ------- ----------------- --------------------
+      1       AAACGAAA   127   321    988    $\frac{M}{M+U}$   $\frac{\beta}{NF}$
+      2       AAACGAAT   107   312    568                     
+   $\cdots$                                                   
+    $4^N$                                                     
+
+Being
+
+-   $N$ motif size
+-   $M$ num meth motifs
+-   $U$ num unmeth motifs
+-   `uncov` num motifs below min coverage
+-   $0 <\beta < 1$ methylation level
+-   $NF_{sample} = \frac{\sum \beta}{4^N}$ (needed because samples’ avg $\beta$ ranges 0.08-0.80)
+
+
+
+# Datasets load
 
 ```{r run_trace}
 sources <- list.files(file.path(WD), recursive = TRUE, pattern = '*sources')
@@ -190,6 +235,8 @@ for (context in c('cg', 'ch')) {
 
 ```
 
+##  Normalization
+
 ```{r normalize}
 
 ## normalization factor based upon the number of meth Cs vs the number of unmeth Cs
@@ -247,43 +294,59 @@ for (context in c('cg', 'ch')) {
 print(nf)
 
 
-print(apply(nd[['cg']][,2:5], 2, mean))
-## merged_qko+d3b1 merged_tko+d3a1 merged_tko+d3a2 merged_tko+d3b1 
-## 0.9835557       0.9927092       1.0196382       0.9758585
+## print(apply(nd[['cg']][,2:5], 2, mean))
+## ## merged_qko+d3b1 merged_tko+d3a1 merged_tko+d3a2 merged_tko+d3b1 
+## ## 0.9835557       0.9927092       1.0196382       0.9758585
 
 
-print(apply(nd[['ch']][,2:5], 2, mean))
-## merged_qko+d3b1 merged_tko+d3a1 merged_tko+d3a2 merged_tko+d3b1 
-##       0.8959019       1.0095152       1.0035416       0.9502164 
+## print(apply(nd[['ch']][,2:5], 2, mean))
+## ## merged_qko+d3b1 merged_tko+d3a1 merged_tko+d3a2 merged_tko+d3b1 
+## ##       0.8959019       1.0095152       1.0035416       0.9502164 
+```
+
+# Plotting scores
+
+Plotting the motifs sorted by their average score (CG context).
+
+```{r plotting_overall_cpg}
+
+context <- 'cg'
+melted <- melt(nd[[context]])
+## sorted by average dnameth by kmer
+
+melted$fac = reorder(melted$motif, melted$value, mean)
+
+## ggplot(d, aes(x=reorder(fac, y, mean), y=y))
+print(ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
+                                color = variable))+ 
+      geom_point(size = 0.5))
+```
 
 
-## plot
+Same for CH context
 
-for (context in names(nd)) {
-    melted <- melt(nd[[context]])
+```{r plotting_overall_ch}
 
-    ## sorted by kmer
+context <- 'ch'
+melted <- melt(nd[[context]])
+## sorted by average dnameth by kmer
 
-    ## print(ggplot(data = melted, aes(x = motif, y = value, group = variable, color = variable))+ 
-    ##     geom_point())
+melted$fac = reorder(melted$motif, melted$value, mean)
 
-    ## sorted by average dnameth by kmer
+## ggplot(d, aes(x=reorder(fac, y, mean), y=y))
+print(ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
+                                color = variable))+ 
+      geom_point(size = 0.5))
 
-    melted$fac = reorder(melted$motif, melted$value, mean)
-
-    ## ggplot(d, aes(x=reorder(fac, y, mean), y=y))
-    print(ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
-                              color = variable))+ 
-        geom_point(size = 0.5))
-    
-}
 
 
 ```
 
+# Subsetting for the most variable motifs
 
+Getting the top percentile (q99) for variable motifs.
 
-```{r differential_q99}
+```{r differential_q99, eval = TRUE}
 
 
 ## picking the most variable motifs (simple variance)
@@ -304,17 +367,19 @@ for (context in names(nd)) {
     rownames(selected) <- selected$motif
     selected <- selected[,-1]
 
-    topmotifs[[context]][['q99']] <- as.character(top$motif)
-    
-    ## heatmap(as.matrix(selected),
-    ##         Rowv = as.dendrogram(hclust(dist(as.matrix(selected)), method = 'ward')),
-    ##         Colv = as.dendrogram(hclust(dist(t(as.matrix(selected))), method = 'ward')),
-    ##         main = sprintf('q99 variable motifs, n = %s', nrow(selected)))
+    ## setting a red palette for values below 1, and blue over 1
+    pivot <- max(selected)
+    breaks <-  c(seq(0, 0.99, length = 20), seq(1.01, pivot, length = 20))
+    pal <- colorRampPalette(c('darkred', 'black', 'darkgreen'))(40)
 
-    pheatmap(as.matrix(selected),
-            Rowv = as.dendrogram(hclust(dist(as.matrix(selected)), method = 'ward')),
-            Colv = as.dendrogram(hclust(dist(t(as.matrix(selected))), method = 'ward')),
-            main = sprintf('q99 variable motifs, n = %s', nrow(selected)))
+    topmotifs[[context]][['q99']] <- as.character(top$motif)
+   
+    print(pheatmap(as.matrix(selected),
+                   breaks = breaks,
+                   color = pal,
+                   Rowv = as.dendrogram(hclust(dist(as.matrix(selected)), method = 'ward')),
+                   Colv = as.dendrogram(hclust(dist(t(as.matrix(selected))), method = 'ward')),
+                   main = sprintf('q99 variable motifs, n = %s', nrow(selected))))
 
     ## now pca
     print(autoplot(prcomp(selected), label = TRUE,
@@ -335,7 +400,7 @@ for (context in names(nd)) {
 }
 ```
 
-```{r differential_discrete_top}
+```{r differential_discrete_top, eval = FALSE, include = FALSE}
 for (context in names(nd)) {
     for (topn in c(10)) {  ## only top 100, not iterating
         vars <- data.frame(motif = nd[[context]]$motif,
@@ -347,7 +412,7 @@ for (context in names(nd)) {
         selected <- nd[[context]][nd[[context]]$motif %in% top,]
         rownames(selected) <- selected$motif
         selected <- selected[,-1]
-        
+
         pheatmap(as.matrix(selected),
                 Rowv = as.dendrogram(hclust(dist(as.matrix(selected)), method = 'ward')),
                 Colv = as.dendrogram(hclust(dist(t(as.matrix(selected))), method = 'ward')),
@@ -393,9 +458,9 @@ for (context in names(topmotifs)) {
 
 ```
 
-## Logos
+# Getting sequence logos
 
-```{r logos}
+```{r logos, eval = FALSE, include = FALSE}
 
 for (context in names(topmotifs)) {
     for (cutoff in names(topmotifs[[context]])) {
@@ -463,9 +528,9 @@ for (context in names(nd)) {
 
 ## Beta value overview for top scoring motifs
 
-(These are not exactly betavalues, but the ratio M/(M+U) for gruped motifs)
+Mind that these are not exactly betavalues, but the ratio M/(M+U) for gruped motifs
 
-```{r betavalues}
+```{r betavalues, eval = TRUE}
 
 
 ## beware, these are not betavalues!
@@ -490,9 +555,6 @@ for (context in c('cg', 'ch')) {
         unnormalized <- d[[context]][[genotype]][['meth']]$count /
             (d[[context]][[genotype]][['unmeth']]$count + d[[context]][[genotype]][['meth']]$count)
 
-
-      
-
         stopifnot(d[[context]][[genotype]][['meth']]$motif ==
                   betas[[context]]$motif)
         
@@ -502,24 +564,6 @@ for (context in c('cg', 'ch')) {
      rownames(betas[[context]]) <- betas[[context]]$motif
      ## betas[[context]] <- betas[[context]][,-1]
 }
-
-
-##
-
-
-print(nf)
-
-print(apply(nd[['cg']][,2:5], 2, mean))
-
-print(apply(nd[['ch']][,2:5], 2, mean))
-
-print(apply(betas[['cg']][,2:5], 2, mean))
-
-print(apply(betas[['ch']][,2:5], 2, mean))
-
-## differences might be due to the 0es we added to the motifs which were not present
-## @todo check
-
 
 for (context in names(betas)) {
     for (cutoff in names(topmotifs[[context]])) {
@@ -544,6 +588,8 @@ for (context in names(betas)) {
 
 
 ```
+
+# Timestamp
 
 ```{r sessionInfo}
 date()
