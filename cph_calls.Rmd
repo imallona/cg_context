@@ -235,6 +235,20 @@ for (context in c('cg', 'ch')) {
 
 ```
 
+Saving the data as an R object with the following structure:
+
+- context (cg or ch)
+- sample (i.e. qko)
+- status (meth or unmeth)
+- dataframe the columns motif, number of instances
+
+```{r saving_r_data}
+
+save(x = d, file = file.path(WD, 'counts_nested_list.RData'))
+str(d)
+
+```
+
 ##  Normalization
 
 ```{r normalize}
@@ -396,6 +410,13 @@ for (context in names(nd)) {
     ## print(autoplot(prcomp(t(nd[[context]][,-1])), label = TRUE, loadings = TRUE,
     ##          loadings.label = TRUE, loadings.label.size = 3,
     ##          main =  'all motifs'))
+
+    ## exporting dataset
+    write.csv(file.path(WD, sprintf('%s_normalized_data.csv', context)),
+              x = nd[[context]],
+              row.names = FALSE,
+              quote = FALSE,
+              sep = ',')
 
 }
 ```
