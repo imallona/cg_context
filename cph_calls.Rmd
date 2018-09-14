@@ -481,6 +481,9 @@ for (context in names(topmotifs)) {
 
 # Getting sequence logos
 
+   
+
+
 ```{r logos, eval = FALSE, include = FALSE}
 
 for (context in names(topmotifs)) {
@@ -542,7 +545,56 @@ for (context in names(nd)) {
 
 }
 
+```
 
+Variant plotting logos without any kind of normalization, just counting the events
+
+```{r logos_pwm}
+
+proportion <- function(x){
+   rs <- sum(x);
+   return(x / rs);
+}
+
+
+
+## a <- c(1,6,9,4,13,16,16,14,15,9)
+## c <- c(5,8,3,3,1,0,0,0,1,2)
+## g <- c(8,2,4,1,0,0,0,2,0,2)
+## t <- c(2,0,0,8,2,0,0,0,0,3)
+ 
+## fd <- data.frame(a,c,g,t)
+## fd
+
+## pwm <- apply(df, 1, proportion)
+## pwm <- makePWM(pwm)
+for (context in names(d)) {
+    for (genotype in names(d[[context]])) {
+        print(genotype)
+
+        selected <- d[[context]][[genotype]]$meth
+
+        for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
+                              C = NA,
+                              G = NA,
+                              T = NA)
+
+        for (i in 1:nchar(selected$motif[1])) {
+            id <- paste0('d',i)
+            selected[, id] <- substr(selected$motif, i, i)
+            for (nt in c('A', 'T', 'C', 'G')) {
+                tsum <- 0
+                tsum <- sum(selected[selected[,id] == nt,'count'])
+                for_pwm[i, nt] <- tsum 
+                    
+            }
+        }
+        print(pwm)
+        pwm <- makePWM(apply(for_pwm, 1, proportion))
+        plot(pwm, main = genotype)
+        
+    }
+}
 
 
 ```
