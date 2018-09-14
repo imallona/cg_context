@@ -269,7 +269,6 @@ for (i in 1:nrow(nf)) {
 
 ## apply the normalization factor
 
-
 nd <- list(cg = setNames(data.frame(matrix(nrow = length(mdict$cg$motif),
                                            ncol = length(sources) + 1)),
                          c('motif', dirname(sources))),
@@ -320,8 +319,10 @@ print(nf)
 
 # Plotting scores
 
-Plotting the motifs sorted by their average score (CG context).
+Plotting the motifs sorted by their average score.
 
+
+## CG context 
 ```{r plotting_overall_cpg}
 
 context <- 'cg'
@@ -337,7 +338,7 @@ print(ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = va
 ```
 
 
-Same for CH context
+## CH context
 
 ```{r plotting_overall_ch}
 
@@ -358,7 +359,7 @@ print(ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = va
 
 # Subsetting for the most variable motifs
 
-Getting the top percentile (q99) for variable motifs.
+Getting the top percentile (q99) variable motifs for quick visualization.
 
 ```{r differential_q99, eval = TRUE}
 
@@ -373,7 +374,8 @@ for (context in names(nd)) {
     vars <- vars[order(vars$var, decreasing = TRUE),]
 
     print(sprintf('variance distribution in context %s', context))
-    plot(density(vars$var), main = context, xlab = 'meth score variance across genotypes')
+    plot(density(vars$var), main = context,
+         xlab = 'meth score variance across genotypes')
 
     ## top 1% variable motifs
     top <- vars[vars$var >= quantile(vars$var, probs = 0.99),]
@@ -411,12 +413,11 @@ for (context in names(nd)) {
     ##          loadings.label = TRUE, loadings.label.size = 3,
     ##          main =  'all motifs'))
 
-    ## exporting dataset
+    ## exporting dataset (intemediate results)
     write.csv(file.path(WD, sprintf('%s_normalized_data.csv', context)),
               x = nd[[context]],
               row.names = FALSE,
-              quote = FALSE,
-              sep = ',')
+              quote = FALSE)
 
 }
 ```
@@ -451,7 +452,7 @@ for (context in names(nd)) {
 
 
 
-```{r table_plot_tops_cg, eval = FALSE}
+```{r table_plot_tops_cg, eval = FALSE, include = FALSE}
 for (context in names(topmotifs)) {
     for (cutoff in names(topmotifs[[context]])) {
         selected <- nd[[context]][nd[[context]]$motif %in% topmotifs[[context]][[cutoff]],]  
@@ -487,7 +488,7 @@ for (context in names(topmotifs)) {
 
 Scoring on normalized data (i.e. taking into account the unmethylated, but covered, motifs as well).
 
-```{r logos_normalized_top, eval = FALSE}
+```{r logos_normalized_top, eval = FALSE, include = FALSE}
 
 for (context in names(topmotifs)) {
     for (cutoff in names(topmotifs[[context]])) {
@@ -501,8 +502,6 @@ for (context in names(topmotifs)) {
             curr <- melted[melted$variable == genotype,]
                         
             lprobs[[genotype]] <- rep(curr$motif, curr$score)
-        
-            
         }
 
         print(sprintf('context %s cutoff top %s', context, cutoff))
@@ -528,13 +527,10 @@ for (context in names(nd)) {
     lprobs <- list()
     for (genotype in levels(melted$variable)) {
         curr <- melted[melted$variable == genotype,]
-        
-        
         lprobs[[genotype]] <- rep(curr$motif, curr$score)
         
         
     }
-
     ## print(sprintf('context %s cutoff top %s', context, cutoff))
     print(ggseqlogo(lprobs, ncol = 1, method = 'probability'))
     print(ggseqlogo(lprobs, ncol = 1, method = 'bits'))
@@ -545,7 +541,7 @@ for (context in names(nd)) {
 
 ## Logos without normalization
 
-Independent logo call without normalization, just counting the nucleotide proportions for methylated motifs.
+Independent logo call without normalization, just counting the nucleotide proportions for methylated motifs (i.e. without normalizing against covered but unmethylated cytosines).
 
 ```{r logos_pwm, fig.width = 12, fig.height = 4,}
 
@@ -554,18 +550,6 @@ proportion <- function(x){
    return(x / rs);
 }
 
-
-
-## a <- c(1,6,9,4,13,16,16,14,15,9)
-## c <- c(5,8,3,3,1,0,0,0,1,2)
-## g <- c(8,2,4,1,0,0,0,2,0,2)
-## t <- c(2,0,0,8,2,0,0,0,0,3)
- 
-## fd <- data.frame(a,c,g,t)
-## fd
-
-## pwm <- apply(df, 1, proportion)
-## pwm <- makePWM(pwm)
 for (context in names(d)) {
     for (genotype in names(d[[context]])) {
         print(genotype)
@@ -598,9 +582,9 @@ for (context in names(d)) {
 
 ```
 
-## Beta value overview for top scoring motifs
+## Aggregated beta values of top scoring motifs
 
-Mind that these are not exactly betavalues, but the ratio M/(M+U) for gruped motifs
+Mind that these are not exactly betavalues, but the ratio M/(M+U) for gruped motifs.
 
 ```{r betavalues, eval = TRUE}
 
@@ -659,6 +643,11 @@ for (context in names(betas)) {
 
 
 ```
+
+# Intermediate data download
+* [Download whole RData](`r sprintf('counts_nested_list.RData')`)
+* [Download normalized CG data](`r sprintf('cg_normalized_data.csv') `)
+* [Download normalized CH data](`r sprintf('ch_normalized_data.csv') `)
 
 # Timestamp
 
