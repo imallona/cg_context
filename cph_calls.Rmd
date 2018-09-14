@@ -481,10 +481,13 @@ for (context in names(topmotifs)) {
 
 # Getting sequence logos
 
+
    
+## Normalized logos
 
+Scoring on normalized data (i.e. taking into account the unmethylated, but covered, motifs as well).
 
-```{r logos, eval = FALSE, include = FALSE}
+```{r logos_normalized_top, eval = FALSE}
 
 for (context in names(topmotifs)) {
     for (cutoff in names(topmotifs[[context]])) {
@@ -496,8 +499,7 @@ for (context in names(topmotifs)) {
         lprobs <- list()
         for (genotype in levels(melted$variable)) {
             curr <- melted[melted$variable == genotype,]
-            
-            
+                        
             lprobs[[genotype]] <- rep(curr$motif, curr$score)
         
             
@@ -510,13 +512,8 @@ for (context in names(topmotifs)) {
 
     }
 }
-
-## gridExtra::grid.arrange(lbits[[1]], lbits[[2]], lbits[[3]], lbits[[4]], ncol = 1)
-
-## ggseqlogo(lbits, ncol=1)
-
 ```
-## Scored motifs, no filtering
+
 
 ```{r logos_without_filtering}
 
@@ -544,12 +541,13 @@ for (context in names(nd)) {
     rm(selected, lprobs)
 
 }
-
 ```
 
-Variant plotting logos without any kind of normalization, just counting the events
+## Logos without normalization
 
-```{r logos_pwm}
+Independent logo call without normalization, just counting the nucleotide proportions for methylated motifs.
+
+```{r logos_pwm, fig.width = 12, fig.height = 4,}
 
 proportion <- function(x){
    rs <- sum(x);
@@ -589,8 +587,9 @@ for (context in names(d)) {
                     
             }
         }
-        print(pwm)
         pwm <- makePWM(apply(for_pwm, 1, proportion))
+        print(pwm)
+
         plot(pwm, main = genotype)
         
     }
@@ -605,8 +604,7 @@ Mind that these are not exactly betavalues, but the ratio M/(M+U) for gruped mot
 
 ```{r betavalues, eval = TRUE}
 
-
-## beware, these are not betavalues!
+## beware, these are not betavalues but aggregated beta values
 betas <- list(cg = setNames(data.frame(matrix(nrow = length(mdict$cg$motif),
                                            ncol = length(sources) + 1)),
                          c('motif', dirname(sources))),
