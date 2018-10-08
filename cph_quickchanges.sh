@@ -9,10 +9,13 @@
 
 export HOME=/home/imallona
 export TASK="cg_context"
-export WD="$HOME"/mnt/nfs/"$TASK"
+export WD="$HOME"/mnt/nfs/"$TASK"/quickchanges
 export SOFT="$HOME"/soft
 export MM9=/home/Shared/data/annotation/Mouse/mm9/mm9.fa
 export VIRTENVS=~/virtenvs
+
+export NTHREADS=24
+export MIN_DEPTH=10
 
 export FASTQC=/usr/local/software/FastQC/fastqc
 export SICKLE="$HOME"/soft/sickle/sickle-1.33/sickle
@@ -26,19 +29,30 @@ export FASTQDUMP=/usr/local/software/sratoolkit.2.9.0-ubuntu64/bin/fastq-dump
 export ILLUMINA_UNIVERSAL="AGATCGGAAGAG"
 export ILLUMINA="CGGTTCAGCAGGAATGCCGAGATCGGAAGAGCGGTT"
 
+mkdir -p $WD
+
 cd $WD
 
 
-cat << EOF  > quickchanges.conf
-whatever,b2a,bwa_hiseq2k
-whatever,a2b,bwa_hiseq2k 
-EOF
+# cd $WD
 
+## no idea which one is each! @ todo ask 
+cat << EOF  > quickchanges.conf
+20180913.A-WGBS_3,20180913.A-WGBS_3_R1.fastq.gz,20180913.A-WGBS_3_R2.fastq.gz,bwa_hiseq4k_pe
+20180913.A-WGBS_4,20180913.A-WGBS_4_R1.fastq.gz,20180913.A-WGBS_4_R2.fastq.gz,bwa_hiseq4k_pe
+EOF
 
 echo data retrieval
 
 ## from fabric
+wget --user imallona -e robots=off --ask-password -r --no-parent -nH \
+     --cut-dirs=2 \
+     -A '*WGBS*gz' \
+     --reject='index.html*' \
+     https://fgcz-gstore.uzh.ch/projects/p2046/HiSeq4000_20180913_RUN481_o4758_DataDelivery/
 
+
+echo next
 
 mysql --user=genome \
       --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from mm9.chromInfo" > mm9.genome
@@ -55,11 +69,12 @@ while IFS='' read -r line || [[ -n "$line" ]]; do
     echo "$(date) Processing sample $sample"
     echo "... read 1 is $r1"
     echo "... read 2 is $r2"
-    
+
     ## process
 
     for r in "$r1" "$r2"
     do
+        ln -s "HiSeq4000_20180913_RUN481_o4758_DataDelivery"/"$r"
         curr="$r"_raw
         mkdir -p $curr
         
