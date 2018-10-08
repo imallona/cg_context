@@ -38,8 +38,8 @@ cd $WD
 
 ## no idea which one is each! @ todo ask 
 cat << EOF  > quickchanges.conf
-20180913.A-WGBS_3,20180913.A-WGBS_3_R1.fastq.gz,20180913.A-WGBS_3_R2.fastq.gz,bwa_hiseq4k_pe
-20180913.A-WGBS_4,20180913.A-WGBS_4_R1.fastq.gz,20180913.A-WGBS_4_R2.fastq.gz,bwa_hiseq4k_pe
+20180913.A-WGBS_3,20180913.A-WGBS_3_R1,20180913.A-WGBS_3_R2,bwa_hiseq4k_pe
+20180913.A-WGBS_4,20180913.A-WGBS_4_R1,20180913.A-WGBS_4_R2,bwa_hiseq4k_pe
 EOF
 
 echo data retrieval
