@@ -1,5 +1,5 @@
 ---
-title: "CG and CH contexts"
+title: "CG and CH contexts, quickchanges as well"
 output:
   html_document:
     keep_md: true
@@ -125,37 +125,6 @@ for (fn in sources) {
 
 ```
 
-```{r config_annot, include = FALSE}
-
-samples_annot <- read.table(text ='sample,genotype,seq
-20151223.B-MmES_TKOD3A1c1-3_R,tko+d3a1,bwa_hiseq2k
-BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_6_ACAGTGA_L006_001,tko+d3a2,bwa_hiseq2k
-BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_001,tko+d3a2,bwa_hiseq2k
-BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_002,tko+d3a2,bwa_hiseq2k
-BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_003,tko+d3a2,bwa_hiseq2k
-SRR1274743,tko+d3a2,bwa_miseq_pe
-BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001,tko+d3b1,bwa_hiseq2k
-BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001,tko+d3b1,bwa_hiseq2k
-BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002,tko+d3b1,bwa_hiseq2k
-BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003,tko+d3b1,bwa_hiseq2k
-SRR1274744,tko+d3b1,bwa_miseq_pe
-SRR1274745,tko+d3b1,bwa_miseq_pe
-SRR1653150,qko+d3b1,bwa_hiseq2k
-SRR1653151,qko+d3b1,bwa_hiseq2k
-SRR1653152,qko+d3b1,bwa_hiseq2k
-SRR1653153,qko+d3b1,bwa_hiseq2k
-SRR1653154,qko+d3b1,bwa_hiseq2k
-SRR1653155,qko+d3b1,bwa_hiseq2k
-SRR1653156,qko+d3b1,bwa_hiseq2k
-SRR1653157,qko+d3b1,bwa_hiseq2k
-SRR1653158,qko+d3b1,bwa_hiseq2k
-SRR1653159,qko+d3b1,bwa_hiseq2k
-SRR1653160,qko+d3b1,bwa_hiseq2k
-SRR1653161,qko+d3b1,bwa_hiseq2k
-SRR1653162,qko+d3b1,bwa_miseq_pe
-', header = TRUE, sep = ',')
-
-```
 
 ```{r data_import, include = TRUE, echo = FALSE, cache = TRUE, cache.lazy = FALSE}
 
@@ -185,6 +154,42 @@ for (context in c('cg', 'ch')) {
     }
 }
 
+```
+
+```{r data_import_quickchanges}
+## these are located at the quickchanges folder. No idea which one is it, names are 3 and 4.
+for (context in c('cg', 'ch')) {
+    for (genotype in c('20180913.A-WGBS_3', '20180913.A-WGBS_4')) {
+        for (state in c('meth', 'unmeth')) {
+            fd <- read.table(
+                file.path(WD, 'quickchanges',
+                          sprintf('%s_motif_counts_%s_%s_%s.txt', genotype, context, state,
+                                  genotype)),
+                col.names = c('count', 'motif'),
+                stringsAsFactors = FALSE)
+
+            ## removing Ns and short motifs
+            rownames(fd) <- fd$motif
+            fd <- fd[grep('N', fd$motif, invert = TRUE),]
+            fd <- fd[nchar(fd$motif) == 8,]
+            fd <- fd[sort(fd$motif),]
+            
+            d[[context]][[genotype]][[state]] <- fd
+            rm(fd)
+        }
+    }
+}
+
+```
+
+
+```{r updating_sources_quickchanges}
+
+sources <- c(sources, '20180913.A-WGBS_3/20180913.A-WGBS_3', '20180913.A-WGBS_4/20180913.A-WGBS_4')
+
+```
+
+``` {r preproc_countings}
 ## dictionary of the whole set of motifs
 nucl <- c('T', 'C', 'G', 'A')
 
@@ -244,7 +249,7 @@ Saving the data as an R object with the following structure:
 
 ```{r saving_r_data}
 
-save(x = d, file = file.path(WD, 'counts_nested_list.RData'))
+save(x = d, file = file.path(WD, 'counts_nested_list_quickchanges.RData'))
 str(d)
 
 ```
@@ -253,19 +258,25 @@ str(d)
 
 ```{r normalize}
 
+
 ## normalization factor based upon the number of meth Cs vs the number of unmeth Cs
 nf <- data.frame(genotype = rep(dirname(sources), each = 2),
                    context = c('cg', 'ch'),
                    meth = NA,
                    unmeth = NA,
                    ratio = NA)
-                   
+
+nf$genotype <- as.character(nf$genotype)
+nf$context <- as.character(nf$context)
+
 for (i in 1:nrow(nf)) {
     for (status in c('meth', 'unmeth')) {
         nf[i, status] <- sum(d[[nf[i, 'context']]][[nf[i, 'genotype']]][[status]]$count)
     }
     nf[i, 'ratio'] <- nf[i, 'meth']/(nf[i, 'meth'] + nf[i, 'unmeth'])
 }
+
+
 
 ## apply the normalization factor
 
@@ -306,15 +317,6 @@ for (context in c('cg', 'ch')) {
 
 print(nf)
 
-
-## print(apply(nd[['cg']][,2:5], 2, mean))
-## ## merged_qko+d3b1 merged_tko+d3a1 merged_tko+d3a2 merged_tko+d3b1 
-## ## 0.9835557       0.9927092       1.0196382       0.9758585
-
-
-## print(apply(nd[['ch']][,2:5], 2, mean))
-## ## merged_qko+d3b1 merged_tko+d3a1 merged_tko+d3a2 merged_tko+d3b1 
-## ##       0.8959019       1.0095152       1.0035416       0.9502164 
 ```
 
 # Plotting scores
@@ -374,11 +376,11 @@ for (context in names(nd)) {
     vars <- vars[order(vars$var, decreasing = TRUE),]
 
     print(sprintf('variance distribution in context %s', context))
-    plot(density(vars$var), main = context,
+    plot(density(na.omit(vars$var)), main = context,
          xlab = 'meth score variance across genotypes')
 
     ## top 1% variable motifs
-    top <- vars[vars$var >= quantile(vars$var, probs = 0.99),]
+    top <- vars[vars$var >= quantile(vars$var, probs = 0.99, na.rm = TRUE),]
     selected <-  nd[[context]][nd[[context]]$motif %in% top$motif,]
     rownames(selected) <- selected$motif
     selected <- selected[,-1]
@@ -414,7 +416,7 @@ for (context in names(nd)) {
     ##          main =  'all motifs'))
 
     ## exporting dataset (intemediate results)
-    write.csv(file.path(WD, sprintf('%s_normalized_data.csv', context)),
+    write.csv(file.path(WD, sprintf('%s_normalized_data_quickchanges.csv', context)),
               x = nd[[context]],
               row.names = FALSE,
               quote = FALSE)
@@ -488,41 +490,43 @@ for (context in names(topmotifs)) {
 
 Scoring on normalized data (i.e. taking into account the unmethylated, but covered, motifs as well).
 
-```{r logos_normalized_top, eval = FALSE, include = FALSE}
+<!-- ```{r logos_normalized_top, eval = FALSE, include = FALSE} -->
 
-for (context in names(topmotifs)) {
-    for (cutoff in names(topmotifs[[context]])) {
-        selected <- nd[[context]][nd[[context]]$motif %in% topmotifs[[context]][[cutoff]],]
-        melted <- melt(selected)
+<!-- for (context in names(topmotifs)) { -->
+<!--     for (cutoff in names(topmotifs[[context]])) { -->
+<!--         selected <- nd[[context]][nd[[context]]$motif %in% topmotifs[[context]][[cutoff]],] -->
+<!--         melted <- melt(selected) -->
 
-        ## setting the item with min value as 1 and scoring others (truncating)
-        melted$score <- round(melted$value/min(melted$value))
-        lprobs <- list()
-        for (genotype in levels(melted$variable)) {
-            curr <- melted[melted$variable == genotype,]
+<!--         ## setting the item with min value as 1 and scoring others (truncating) -->
+<!--         ## this is shitty because some are valued 0! -->
+<!--         melted$score <- round(melted$value/min(melted$value)) -->
+<!--         lprobs <- list() -->
+<!--         for (genotype in levels(melted$variable)) { -->
+<!--             curr <- melted[melted$variable == genotype,] -->
                         
-            lprobs[[genotype]] <- rep(curr$motif, curr$score)
-        }
+<!--             lprobs[[genotype]] <- rep(curr$motif, curr$score) -->
+<!--         } -->
 
-        print(sprintf('context %s cutoff top %s', context, cutoff))
-        print(ggseqlogo(lprobs, ncol = 1, method = 'probability'))
-        print(ggseqlogo(lprobs, ncol = 1, method = 'bits'))
-        rm(selected, lprobs)
+<!--         print(sprintf('context %s cutoff top %s', context, cutoff)) -->
+<!--         print(ggseqlogo(lprobs, ncol = 1, method = 'probability')) -->
+<!--         print(ggseqlogo(lprobs, ncol = 1, method = 'bits')) -->
+<!--         rm(selected, lprobs) -->
 
-    }
-}
-```
+<!--     } -->
+<!-- } -->
+<!-- ``` -->
 
 
-```{r logos_without_filtering}
+
+```{r logos_without_filtering, eval = TRUE}
 
 for (context in names(nd)) {
     
     selected <- nd[[context]]
     melted <- melt(selected)
 
-    ## setting the item with min value as 1 and scoring others (truncating)
-    melted <- melted[melted$value > 0,]
+    ## setting the item with min value (but not being 0) as 1 and scoring others (truncating)
+    melted <- na.omit(melted[melted$value > 0,])
     melted$score <- round(melted$value/min(melted$value))
     lprobs <- list()
     for (genotype in levels(melted$variable)) {
@@ -645,9 +649,9 @@ for (context in names(betas)) {
 ```
 
 # Intermediate data download
-* [Download whole RData](`r sprintf('counts_nested_list.RData')`)
-* [Download normalized CG data](`r sprintf('cg_normalized_data.csv') `)
-* [Download normalized CH data](`r sprintf('ch_normalized_data.csv') `)
+* [Download whole RData](`r sprintf('counts_nested_list_quickchanges.RData')`)
+* [Download normalized CG data](`r sprintf('cg_normalized_data_quickchanges.csv') `)
+* [Download normalized CH data](`r sprintf('ch_normalized_data_quickchanges.csv') `)
 
 # Timestamp
 

@@ -285,7 +285,7 @@ for (context in c('cg', 'ch')) {
     for (genotype in dirname(sources)) {
                 
         stopifnot(d[[context]][[genotype]][['meth']]$motif ==
-                  d[[context]][[genotype]][['unmeth']]$motif)
+                  d[[context]][[genotype]][['muneth']]$motif)
         
         unnormalized <- d[[context]][[genotype]][['meth']]$count /
             (d[[context]][[genotype]][['unmeth']]$count + d[[context]][[genotype]][['meth']]$count)
@@ -605,7 +605,7 @@ for (context in c('cg', 'ch')) {
     for (genotype in dirname(sources)) {
                 
         stopifnot(d[[context]][[genotype]][['meth']]$motif ==
-                  d[[context]][[genotype]][['unmeth']]$motif)
+                  d[[context]][[genotype]][['muneth']]$motif)
         
         unnormalized <- d[[context]][[genotype]][['meth']]$count /
             (d[[context]][[genotype]][['unmeth']]$count + d[[context]][[genotype]][['meth']]$count)
