@@ -648,7 +648,114 @@ for (context in names(betas)) {
 
 ```
 
+# Simplest visualization
+
+Just evaluating the deviation of motif abundances to the 0.25:0.25:0.25:0.25 ratio
+
+Scoring is calculated as the log2 of the ratio (i.e. being nucleotide A present 0.24 or 24% of the times at position 1) as compared to 0.25 (uniform distributtion)
+
+log2fc goes from minus infinity to +2 (meaning a letter is in 100% of the cases at a given position )
+
+```{r deviations}
+
+
+proportion <- function(x){
+   rs <- sum(x);
+   return(x / rs);
+}
+
+
+deviation_from_proportion <- function(x){
+   rs <- sum(x);
+   ## return((x / rs) - 0.25)
+   return((x / rs) / 0.25)
+}
+
+
+log2ratio_proportion <- function(x){
+   rs <- sum(x);
+   ## return((x / rs) - 0.25)
+   return(log2((x / rs) - 0.25))
+}
+
+## information content
+
+for (context in names(d)) {
+    melted <- list()
+    for (genotype in names(d[[context]])) {
+        print(genotype)
+
+        selected <- d[[context]][[genotype]]$meth
+
+        for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
+                              C = NA,
+                              G = NA,
+                              T = NA)
+
+        for (i in 1:nchar(selected$motif[1])) {
+            id <- paste0('d',i)
+            selected[, id] <- substr(selected$motif, i, i)
+            for (nt in c('A', 'T', 'C', 'G')) {
+                tsum <- 0
+                tsum <- sum(selected[selected[,id] == nt,'count'])
+                for_pwm[i, nt] <- tsum 
+                
+            }
+        }
+        pwm <- makePWM(apply(for_pwm, 1, proportion))
+        print(pwm)
+
+        ## deviations <- (apply(for_pwm, 1, deviation_from_proportion))
+        ## deviations <- (apply(for_pwm, 1, log2ratio_proportion))
+
+        ## (pwm@pwm - 0.25)
+        deviations <- log2(pwm@pwm /0.25)
+        ## deviations[!is.finite(deviations)] <- 0
+        
+        data.m <- melt(deviations)
+
+        
+
+        data.m$genotype <- genotype
+        melted[[genotype]] <- data.m
+
+        
+    }
+    melted2 <- do.call(rbind.data.frame, melted)
+    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'genotype')
+    ## ## plot everything
+    ## ggplot(melted, aes(position, deviation)) +   
+    ##     geom_bar(aes(fill = genotype), position = "dodge", stat="identity")
+
+    ## ggplot(melted, aes(nucleotide, deviation, fill=as.factor(position)))+
+    ##     geom_bar(position="dodge",stat="identity")+
+    ##     facet_wrap(~genotype,nrow=3)
+
+
+    ## ggplot(melted2, aes(position, deviation, fill=as.factor(nucleotide)))+
+    ##     geom_bar(position="dodge",stat="identity")+
+    ##     facet_wrap(~genotype,nrow=2)
+
+    ggplot(melted2, aes(position, deviation, fill=as.factor(genotype)))+
+        geom_bar(position="dodge",stat="identity") +
+        ## scale_x_discrete(breaks = 1:8) +
+        scale_x_continuous(breaks = 1:8) +
+        facet_wrap(~nucleotide,nrow=4) + xlab("position") + ylab('log2fc to 1/4')
+
+    ggplot(melted2, aes(position, deviation, fill=as.factor(nucleotide)))+
+        geom_bar(position="dodge",stat="identity") +
+        ## scale_x_discrete(breaks = 1:8) +
+        scale_x_continuous(breaks = 1:8) +
+        facet_wrap(~genotype,nrow=4) + xlab("position") + ylab('log2fc to 1/4')
+    
+}
+
+
+```
+
+
 # Intermediate data download
+
 * [Download whole RData](`r sprintf('counts_nested_list_quickchanges.RData')`)
 * [Download normalized CG data](`r sprintf('cg_normalized_data_quickchanges.csv') `)
 * [Download normalized CH data](`r sprintf('ch_normalized_data_quickchanges.csv') `)
