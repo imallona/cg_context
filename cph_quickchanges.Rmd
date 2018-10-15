@@ -736,17 +736,17 @@ for (context in names(d)) {
     ##     geom_bar(position="dodge",stat="identity")+
     ##     facet_wrap(~genotype,nrow=2)
 
-    ggplot(melted2, aes(position, deviation, fill=as.factor(genotype)))+
-        geom_bar(position="dodge",stat="identity") +
-        ## scale_x_discrete(breaks = 1:8) +
-        scale_x_continuous(breaks = 1:8) +
-        facet_wrap(~nucleotide,nrow=4) + xlab("position") + ylab('log2fc to 1/4')
+    print(ggplot(melted2, aes(position, deviation, fill=as.factor(genotype)))+
+          geom_bar(position="dodge",stat="identity") +
+          ## scale_x_discrete(breaks = 1:8) +
+          scale_x_continuous(breaks = 1:8) +
+          facet_wrap(~nucleotide,nrow=4) + xlab("position") + ylab('log2fc to 1/4'))
 
-    ggplot(melted2, aes(position, deviation, fill=as.factor(nucleotide)))+
-        geom_bar(position="dodge",stat="identity") +
-        ## scale_x_discrete(breaks = 1:8) +
-        scale_x_continuous(breaks = 1:8) +
-        facet_wrap(~genotype,nrow=4) + xlab("position") + ylab('log2fc to 1/4')
+    print(ggplot(melted2, aes(position, deviation, fill=as.factor(nucleotide)))+
+          geom_bar(position="dodge",stat="identity") +
+          ## scale_x_discrete(breaks = 1:8) +
+          scale_x_continuous(breaks = 1:8) +
+          facet_wrap(~genotype,nrow=4) + xlab("position") + ylab('log2fc to 1/4'))
     
 }
 
