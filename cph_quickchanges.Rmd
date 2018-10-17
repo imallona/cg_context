@@ -58,6 +58,7 @@ opts_chunk$set(fig.width = 12,
 dir.create(file.path(WD, TASK))
 
 ```
+
 # Aim
 
 - Hypothesis: DNMTs (DNA meth transferases) show sequence specificity
@@ -155,6 +156,115 @@ for (context in c('cg', 'ch')) {
 }
 
 ```
+
+
+## Quickchanges QC 
+
+Quickchanges are named WGBS 3 and 4, no idea which are the aminoacid changes and which was the background.
+
+Regarding sequence cutadapting/sickle-ing
+
+```
+[imallona@imlstaupo quickchanges]$ pwd
+/home/imallona/mnt/nfs/cg_context/quickchanges
+
+[imallona@imlstaupo quickchanges]$ find . -name "*sickle.log" | xargs head
+==> ./20180913.A-WGBS_3_cutadapt_sickle.log <==
+
+FastQ paired records kept: 109032024 (54516012 pairs)
+FastQ single records kept: 479178 (from PE1: 455320, from PE2: 23858)
+FastQ paired records discarded: 17340 (8670 pairs)
+FastQ single records discarded: 479178 (from PE1: 23858, from PE2: 455320)
+
+
+==> ./20180913.A-WGBS_4_cutadapt_sickle.log <==
+
+FastQ paired records kept: 152820834 (76410417 pairs)
+FastQ single records kept: 609665 (from PE1: 585466, from PE2: 24199)
+FastQ paired records discarded: 25058 (12529 pairs)
+FastQ single records discarded: 609665 (from PE1: 24199, from PE2: 585466)
+
+```
+
+As for mapping (bwameth default) after dedup and map40 filtering
+
+```
+[imallona@imlstaupo quickchanges]$ samtools flagstat -@ 12 20180913.A-WGBS_3_bwameth_default.bam
+57261802 + 4723556 in total (QC-passed reads + QC-failed reads)
+4011243 + 215900 secondary
+0 + 0 supplementary
+0 + 0 duplicates
+57261802 + 4723556 mapped (100.00% : 100.00%)
+53250559 + 4507656 paired in sequencing
+26854450 + 2289387 read1
+26396109 + 2218269 read2
+52410363 + 0 properly paired (98.42% : 0.00%)
+53151977 + 4466585 with itself and mate mapped
+98582 + 41071 singletons (0.19% : 0.91%)
+184465 + 118036 with mate mapped to a different chr
+184465 + 118036 with mate mapped to a different chr (mapQ>=5)
+
+
+[imallona@imlstaupo quickchanges]$ samtools flagstat -@ 12 20180913.A-WGBS_4_bwameth_default.bam
+59395798 + 3890657 in total (QC-passed reads + QC-failed reads)
+2950326 + 202473 secondary
+0 + 0 supplementary
+0 + 0 duplicates
+59395798 + 3890657 mapped (100.00% : 100.00%)
+56445472 + 3688184 paired in sequencing
+28582565 + 1895496 read1
+27862907 + 1792688 read2
+55602134 + 0 properly paired (98.51% : 0.00%)
+56371508 + 3664469 with itself and mate mapped
+73964 + 23715 singletons (0.13% : 0.64%)
+383760 + 258508 with mate mapped to a different chr
+383760 + 258508 with mate mapped to a different chr (mapQ>=5)
+
+```
+
+So around 60M alignments with highest quality. (BWA sets as QC-failed when reads are soft-clipped)
+
+Secondary alignments are half of them (discarded with methyldackel)
+
+Regarding duplication
+
+```
+[imallona@imlstaupo quickchanges]$ find . -name "*metrics" | xargs fgrep LIBRARY -A 1
+
+
+./20180913.A-WGBS_3_bwameth_default_dup_marked.metrics:LIBRARY	UNPAIRED_READS_EXAMINED	READ_PAIRS_EXAMINED	SECONDARY_OR_SUPPLEMENTARY_RDS	UNMAPPED_READS	UNPAIRED_READ_DUPLICATES	READ_PAIR_DUPLICATES	READ_PAIR_OPTICAL_DUPLICATES	PERCENT_DUPLICATION	ESTIMATED_LIBRARY_SIZE
+./20180913.A-WGBS_3_bwameth_default_dup_marked.metrics-Unknown Library	290264	54087918	14857545	565924	103908	14880118	141779   0.275332	79780960
+
+
+./20180913.A-WGBS_4_bwameth_default_dup_marked.metrics:LIBRARY	UNPAIRED_READS_EXAMINED	READ_PAIRS_EXAMINED	SECONDARY_OR_SUPPLEMENTARY_RDS	UNMAPPED_READS	UNPAIRED_READ_DUPLICATES	READ_PAIR_DUPLICATES	READ_PAIR_OPTICAL_DUPLICATES	PERCENT_DUPLICATION	ESTIMATED_LIBRARY_SIZE
+./20180913.A-WGBS_4_bwameth_default_dup_marked.metrics-Unknown Library	282352	76064994	13934541	408494	147585	32994796	208542   0.433936	60046770
+
+```
+
+So duplication rates of 27 to 43%.
+
+Qualimap run as well before deduplication but after mapq subsetting value 40. Oddly enough it reports back mapq values of 30 etc.
+
+```
+cd ~/cg_context
+mkdir qualimap_quickchanges
+cd $_
+
+rsync -avt imlstaupo://home/imallona/mnt/nfs/cg_context/quickchanges/*qualimap .
+
+```
+
+Checking mapqvalues distribution with samtools
+
+```
+
+samtools view -@ 12 -q 10 -b 20180913.A-WGBS_3_bwameth_default.bam | wc -l
+# 17131607
+samtools view -@ 12 -q 30 -b 20180913.A-WGBS_3_bwameth_default.bam | wc -l
+# 17131607
+```
+
+Is bamqc broken then? But results are consistent with the `cphg_quickchanges.sh` protocol, so nothing to see here.
 
 ```{r data_import_quickchanges}
 ## these are located at the quickchanges folder. No idea which one is it, names are 3 and 4.
