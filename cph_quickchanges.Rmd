@@ -863,6 +863,114 @@ for (context in names(d)) {
 
 ```
 
+## Normalized by covered/unmethylated
+
+Similar to the upper, log2ratio_proportion but not compared to an uniform 0.25 freq for each nucleotide but to the unmethylated proportions (do they differ?)
+
+
+
+```{r deviations_compared_to_unmeth}
+
+
+for (context in names(d)) {
+    melted <- list()
+    for (genotype in names(d[[context]])) {
+        print(genotype)
+        
+        selected <- d[[context]][[genotype]]$meth
+
+        for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
+                              C = NA,
+                              G = NA,
+                              T = NA)
+
+        for (i in 1:nchar(selected$motif[1])) {
+            id <- paste0('d',i)
+            selected[, id] <- substr(selected$motif, i, i)
+            for (nt in c('A', 'T', 'C', 'G')) {
+                tsum <- 0
+                tsum <- sum(selected[selected[,id] == nt,'count'])
+                for_pwm[i, nt] <- tsum 
+                
+            }
+        }
+        pwm <- makePWM(apply(for_pwm, 1, proportion))
+
+        print(sprintf('meth proportions sample %s context %s', genotype, context))
+        print(pwm)
+        
+        pwm_meth <- pwm
+
+        ## same for unmeth
+
+        selected <- d[[context]][[genotype]]$unmeth
+
+        for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
+                              C = NA,
+                              G = NA,
+                              T = NA)
+
+        for (i in 1:nchar(selected$motif[1])) {
+            id <- paste0('d',i)
+            selected[, id] <- substr(selected$motif, i, i)
+            for (nt in c('A', 'T', 'C', 'G')) {
+                tsum <- 0
+                tsum <- sum(selected[selected[,id] == nt,'count'])
+                for_pwm[i, nt] <- tsum 
+                
+            }
+        }
+        pwm <- makePWM(apply(for_pwm, 1, proportion))
+        print(sprintf('unmeth proportions sample %s context %s', genotype, context))
+        
+        print(pwm)
+        pwm_unmeth <- pwm
+
+        print(sprintf('log2 (meth/unmeth) sample %s context %s', genotype, context))
+        deviations <- log2(pwm_meth@pwm /pwm_unmeth@pwm)
+
+        print(deviations)
+        data.m <- melt(deviations)
+
+        
+
+        data.m$genotype <- genotype
+        melted[[genotype]] <- data.m
+
+        
+    }
+    melted2 <- do.call(rbind.data.frame, melted)
+    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'genotype')
+    ## ## plot everything
+    ## ggplot(melted, aes(position, deviation)) +   
+    ##     geom_bar(aes(fill = genotype), position = "dodge", stat="identity")
+
+    ## ggplot(melted, aes(nucleotide, deviation, fill=as.factor(position)))+
+    ##     geom_bar(position="dodge",stat="identity")+
+    ##     facet_wrap(~genotype,nrow=3)
+
+
+    ## ggplot(melted2, aes(position, deviation, fill=as.factor(nucleotide)))+
+    ##     geom_bar(position="dodge",stat="identity")+
+    ##     facet_wrap(~genotype,nrow=2)
+
+    print(ggplot(melted2, aes(position, deviation, fill=as.factor(genotype)))+
+          geom_bar(position="dodge",stat="identity") +
+          ## scale_x_discrete(breaks = 1:8) +
+          scale_x_continuous(breaks = 1:8) +
+          facet_wrap(~nucleotide,nrow=4) + xlab("position") + ylab('log2fc meth/unmeth'))
+
+    print(ggplot(melted2, aes(position, deviation, fill=as.factor(nucleotide)))+
+          geom_bar(position="dodge",stat="identity") +
+          ## scale_x_discrete(breaks = 1:8) +
+          scale_x_continuous(breaks = 1:8) +
+          facet_wrap(~genotype,nrow=4) + xlab("position") + ylab('log2fc meth/unmeth'))
+    
+}
+
+
+```
+
 
 # Intermediate data download
 
