@@ -16,6 +16,7 @@ export VIRTENVS=~/virtenvs
 
 export NTHREADS=18
 export MAPQ_THRES=40
+export MIN_DEPTH=10
 
 export FASTQC=/usr/local/software/FastQC/fastqc
 export SICKLE="$HOME"/soft/sickle/sickle-1.33/sickle
@@ -181,42 +182,32 @@ while IFS='' read -r line || [[ -n "$line" ]]; do
 done < "$CONFIG_FILE"
 
 
+echo 'cph motifs counts'
 
-
-
-
-EOF <<EOF
 
 mysql --user=genome \
       --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from mm9.chromInfo" > mm9.genome
 
 
-
-
-## bulk bamfiles check
-
-for fn in $(find .. -name "*bam" ! -name "*dup_included*" ! -name "*with_duplicates*" \
-                  ! -name "*merged*")
+while IFS='' read -r line || [[ -n "$line" ]]
 do
-    bam=$(basename $fn)
-    sample=$(basename $bam .bam)
-    echo $sample    
-    ###
+    cd $WD
+     
+    sample=$(echo $line | cut -f1 -d",")
+    cd $sample
+    
+    bam= bam="$sample"_bwameth_default.bam
+    ll -h $bam
+
     
     echo "$(date) cph calls for sample $sample"
     
     # ## mapq over 40
-    # samtools view -@ $NTHREADS -h -b -q "$MAPQ_THRES" "$bam" \
-    #          -o "$sample"_mapq.bam
-    
-    # mv -f "$sample"_mapq.bam "$bam"
-
-    ln -s $fn
+    # was done before
     
     samtools index -@ $NTHREADS "$bam" "$bam".bai
 
-    # this call does not take into account the min depth nor the mapq thres! methyldackel
-    # does not (might not?) filter for that without the mergecontext flag
+    ## mind the mapq40 filtering was done before
     $METHYLDACKEL extract \
                   -q $MAPQ_THRES \
                   -@ $NTHREADS \
@@ -277,7 +268,7 @@ if ($4+$5 >= 10)
     awk '{OFS=FS="\t"; if ($4 == 0) print $0 }' ch_"$sample" > ch_unmeth_"$sample"
     wc -l cg_meth_"$sample" cg_unmeth_"$sample" ch_meth_"$sample" ch_unmeth_"$sample"
 
-    # count instancees by motif
+    # count instances by motif
     for item in  cg_meth_"$sample" cg_unmeth_"$sample" ch_meth_"$sample" ch_unmeth_"$sample"
     do
         cut -f9 "$item" | sort | uniq -c | sed 's/^ *//' > \
@@ -290,9 +281,5 @@ if ($4+$5 >= 10)
     mv tmp_"$sample" "$sample"_raw_report.txt
     rm -f "$sample"_raw_report.txt
 
-done 
-
-## cleaning (removal of .bai s etc)
-
-
-EOF
+    cd $WD
+done < "$CONFIG_FILE"
