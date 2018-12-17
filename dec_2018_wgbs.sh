@@ -283,3 +283,126 @@ if ($4+$5 >= 10)
 
     cd $WD
 done < "$CONFIG_FILE"
+
+
+## tests on further stratifying the contexts
+
+
+sample=20181207.A-WGBS_IL12
+cd $sample
+
+bam="$sample"_bwameth_default.bam
+# ll -h $bam
+
+
+# echo "$(date) cph calls for sample $sample"
+
+# # ## mapq over 40
+# # was done before
+
+# samtools index -@ $NTHREADS "$bam" "$bam".bai
+
+# ## mind the mapq40 filtering was done before
+# $METHYLDACKEL extract \
+#               -q $MAPQ_THRES \
+#               -@ $NTHREADS \
+#               -d $MIN_DEPTH \
+#               --cytosine_report \
+#               --CHH \
+#               --CHG \
+#               -o "$bam"_ch_d_"$MIN_DEPTH"_mapq_"$MAPQ_THRES" \
+#               $MM9 \
+#               "$bam"
+
+report="$bam"_ch_d_"$MIN_DEPTH"_mapq_"$MAPQ_THRES".cytosine_report.txt
+
+head -100000 $report > test_report.txt
+report=test_report.txt
+
+# only stuff  with a coverage of at least 10
+# echo 'getting 10k covered Cs only'
+awk '{
+FS=OFS="\t"; 
+if ($4+$5 >= 10)
+ print $0
+}' \
+    "$report" > tmp_covered_"$sample"
+
+mv -f tmp_covered_"$sample" "$report"
+
+## motif retrieval
+
+awk '
+{ 
+  OFS=FS="\t";
+   print $1,$2-1,$2,$4,$5,$3,$7;
+}
+' "$report"  |
+    "$BEDTOOLS" slop -i - \
+                -g "$WD"/mm9.genome \
+                -l 3 -r 4 -s | \
+    "$BEDTOOLS" getfasta -fi $MM9 \
+                -bed - \
+                -fo "$report"_cytosine_report_slop.fa \
+                -tab \
+                -s
+paste "$report" \
+      "$report"_cytosine_report_slop.fa > tmp_"$sample"
+
+rm -rf "$report"_cytosine_report_slop.fa
+
+## iterate over diff meth states
+mkdir -p discretized
+
+# awk '{
+# OFS=FS="\t"; 
+# if ( ($6 == "CG") && ($5/($4+$5) < 0.2)) 
+#   print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_02"
+# else if ($6 != "CG")
+#   print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch"
+# else 
+#   print $0 > "discretized/error"
+# }' tmp_"$sample" 
+
+
+awk '{
+OFS=FS="\t"; 
+if ( ($6 == "CG") && (($4/($4+$5)) < 0.2) )  
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_02"
+else if ( ($6 == "CG") && (($4/($4+$5)) < 0.4) ) 
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_04"
+else if ( ($6 == "CG") && (($4/($4+$5)) < 0.6) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_06"
+else if ( ($6 == "CG") && (($4/($4+$5)) < 0.8) ) 
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_08"
+else if ( ($6 == "CG") && (($4/($4+$5)) <= 1) ) 
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_1"
+else if ( ($6 != "CG") && (($4/($4+$5)) < 0.2) ) 
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_02"
+else if ( ($6 != "CG") && (($4/($4+$5)) < 0.4) ) 
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_04"
+else if ( ($6 != "CG") && (($4/($4+$5)) < 0.6) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_06"
+else if ( ($6 != "CG") && (($4/($4+$5)) < 0.8) ) 
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_08"
+else if ( ($6 != "CG") && (($4/($4+$5)) <= 1) ) 
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_1"
+else 
+  print $0,$4/($4+$5) > "discretized/error"
+}' tmp_"$sample" 
+
+## some cg or ch files might be missing
+
+for fn in $(find discretized -type f)
+do
+    echo $fn
+    item=$(basename $fn)
+    cut -f9 "$fn" | sort | uniq -c | sed 's/^ *//' > \
+                                           discretized/"$sample"_motif_counts_"$item".txt
+done
+
+rm -f discretized/c*
+
+
+cd $WD
+
