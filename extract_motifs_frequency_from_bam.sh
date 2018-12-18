@@ -12,62 +12,67 @@ usage(){
     echo "Params"
     echo " -b --bam        WGBS bamfile          [mandatory]"
     echo " -t --threads    number of cores       [defaults to 4]"
-    echo " -s --sample     sample name           [defaults to the bam basename]"
-    echo " --bedtools      path to bedtools"
+    echo " --bedtools      path to bedtools      [defaults to bedtools]"
+    echo " --methyldackel  path to methyldackel  [defaults to methyldackel]"
     echo ""
 }
 
-# @todo split into items!
+# @todo split into items! parallelize by chromosome!
 process(){
-     samtools index -@ $NTHREADS "$bam" "$bam".bai
+    bam="$1"
+    nthreads="$2"
+    BEDTOOLS="$3"
+    METHYLDACKEL="$4"
+    
+    sample=$(basename $bam .bam)
+    samtools index -@ $nthreads "$bam" "$bam".bai
 
-     ## mind the mapq40 filtering was done before
-     $METHYLDACKEL extract \
-                   -@ $nthreads \
-                   --cytosine_report \
-                   --CHH \
-                   --CHG \
-                   -o "$bam"_ch_d \
-                   $MM9 \
-                   "$bam"
+    ## mind the mapq40 filtering was done before
+    $METHYLDACKEL extract \
+                  -@ $nthreads \
+                  --cytosine_report \
+                  --CHH \
+                  --CHG \
+                  -o "$bam"_ch_d \
+                  $MM9 \
+                  "$bam"
 
-     report="$bam"_ch_d.cytosine_report.txt
+    report="$bam"_ch_d.cytosine_report.txt
 
-     ## min coverage 10, @todo better not hardcoded
-     awk '{
+    ## min coverage 10, @todo better not hardcoded
+    awk '{
 FS=OFS="\t"; 
 if ($4+$5 >= 10)
  print $0
 }' \
-         "$report" > tmp_covered_"$sample"
+        "$report" > tmp_covered_"$sample"
 
-     mv -f tmp_covered_"$sample" "$report"
+    mv -f tmp_covered_"$sample" "$report"
 
-     ## motif retrieval
-     awk '
+    ## motif retrieval
+    awk '
 { 
   OFS=FS="\t";
    print $1,$2-1,$2,$4,$5,$3,$7;
 }
 ' "$report"  |
-         "$BEDTOOLS" slop -i - \
-                     -g mm9.genome \
-                     -l 3 -r 4 -s | \
-         "$BEDTOOLS" getfasta -fi $MM9 \
-                     -bed - \
-                     -fo "$report"_cytosine_report_slop.fa \
-                     -tab \
-                     -s
-     paste "$report" \
-           "$report"_cytosine_report_slop.fa > tmp_"$sample"
+        "$BEDTOOLS" slop -i - \
+                    -g mm9.genome \
+                    -l 3 -r 4 -s | \
+        "$BEDTOOLS" getfasta -fi $MM9 \
+                    -bed - \
+                    -fo "$report"_cytosine_report_slop.fa \
+                    -tab \
+                    -s
+    paste "$report" \
+          "$report"_cytosine_report_slop.fa > tmp_"$sample"
 
-     rm -rf "$report"_cytosine_report_slop.fa
+    rm -rf "$report"_cytosine_report_slop.fa
 
-     ## iterate over diff meth states
-     mkdir -p discretized
+    ## iterate over diff meth states
+    mkdir -p discretized
 
-
-     awk '{
+    awk '{
 OFS=FS="\t"; 
 if ( ($6 == "CG") && (($4/($4+$5)) < 0.2) )  
   print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_02"
@@ -93,19 +98,19 @@ else
   print $0,$4/($4+$5) > "discretized/error"
 }' tmp_"$sample" 
 
-     ## some cg or ch files might be missing
+    ## some cg or ch files might be missing
 
-     for fn in $(find discretized -type f)
-     do
-         echo $fn
-         item=$(basename $fn)
-         cut -f9 "$fn" | sort | uniq -c | sed 's/^ *//' > \
-                                              discretized/"$sample"_motif_counts_"$item".txt
-     done
+    for fn in $(find discretized -type f)
+    do
+        echo $fn
+        item=$(basename $fn)
+        cut -f9 "$fn" | sort | uniq -c | sed 's/^ *//' > \
+                                             discretized/"$sample"_motif_counts_"$item".txt
+    done
 
-     rm -f discretized/c*
-     mv tmp_"$sample" "$sample"_raw_report.txt
-     rm -f "$sample"_raw_report.txt
+    rm -f discretized/c*
+    mv tmp_"$sample" "$sample"_raw_report.txt
+    rm -f "$sample"_raw_report.txt
 
 }
 
@@ -116,13 +121,12 @@ fi
 
 bam=
 nthreads=4
-sample=
 BEDTOOLS=bedtools
+METHYLDACKEL=methyldackel
 while [ "$1" != "" ]; do
     case $1 in
         -b | --bam )           shift
                                bam="$1"
-                               sample="$(basename $bam .bam)"
                                ;;
         -t | --threads )       shift
                                nthreads=$1
@@ -132,6 +136,9 @@ while [ "$1" != "" ]; do
                                ;;
          --bedtools)           shift
                                BEDTOOLS=$1
+                               ;;
+         --methyldackel)       shift
+                               METHYLDACKEL=$1
                                ;;
         -h | --help )          usage
                                exit
@@ -153,5 +160,11 @@ echo "$(date)" Processing sample $sample from "$bam" with "$nthreads" threads st
 mysql --user=genome \
       --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from mm9.chromInfo" > mm9.genome
 
+# # bam=test.bam
+# bash extract_motifs_frequency_from_bam.sh -b test.bam \
+#      -t 4 \
+#      -s $(basename test.bam .bam)
+#      --bedtools $BEDTOOLS
+process $bam $nthreads $BEDTOOLS $METHYLDACKEL
 
 echo "$(date)" Processing sample $sample from "$bam" with "$nthreads" threads end

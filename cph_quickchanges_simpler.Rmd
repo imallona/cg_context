@@ -457,12 +457,18 @@ for (context in names(d)) {
 
 ```
 
+# Sample-wise plots, rather than mergings
+
+To check robustness across depths/technologies, i.e. in terms of unmeth motifs representation
+
+
 
 # Intermediate data download
 
 * [Download whole RData](`r sprintf('counts_nested_list_quickchanges.RData')`)
 * [Download normalized CG data](`r sprintf('cg_normalized_data_quickchanges.csv') `)
 * [Download normalized CH data](`r sprintf('ch_normalized_data_quickchanges.csv') `)
+
 
 # Timestamp
 
