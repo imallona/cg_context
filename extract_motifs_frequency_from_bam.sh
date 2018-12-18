@@ -149,7 +149,7 @@ while [ "$1" != "" ]; do
     shift
 done
 
-if [[ "$bam" -eq "" ]] ; then
+if [[ "$bam" == "" ]] ; then
     usage
     exit 0
 fi
