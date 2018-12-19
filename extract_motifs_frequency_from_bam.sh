@@ -72,28 +72,80 @@ if ($4+$5 >= 10)
     ## iterate over diff meth states
     mkdir -p discretized
 
-    awk '{
+#     awk '{
+# OFS=FS="\t"; 
+# if ( ($6 == "CG") && (($4/($4+$5)) < 0.2) )  
+#   print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_02"
+# else if ( ($6 == "CG") && (($4/($4+$5)) < 0.4) ) 
+#   print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_04"
+# else if ( ($6 == "CG") && (($4/($4+$5)) < 0.6) )
+#   print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_06"
+# else if ( ($6 == "CG") && (($4/($4+$5)) < 0.8) ) 
+#   print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_08"
+# else if ( ($6 == "CG") && (($4/($4+$5)) <= 1) ) 
+#   print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_1"
+# else if ( ($6 != "CG") && (($4/($4+$5)) < 0.2) ) 
+#   print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_02"
+# else if ( ($6 != "CG") && (($4/($4+$5)) < 0.4) ) 
+#   print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_04"
+# else if ( ($6 != "CG") && (($4/($4+$5)) < 0.6) )
+#   print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_06"
+# else if ( ($6 != "CG") && (($4/($4+$5)) < 0.8) ) 
+#   print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_08"
+# else if ( ($6 != "CG") && (($4/($4+$5)) <= 1) ) 
+#   print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_1"
+# else 
+#   print $0,$4/($4+$5) > "discretized/error"
+# }' tmp_"$sample"
+
+        awk '{
 OFS=FS="\t"; 
-if ( ($6 == "CG") && (($4/($4+$5)) < 0.2) )  
-  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_02"
-else if ( ($6 == "CG") && (($4/($4+$5)) < 0.4) ) 
-  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_04"
+if ( ($6 == "CG") && ($4 == 0) )  
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_000"
+else if ( ($6 == "CG") && (($4/($4+$5)) < 0.1) ) 
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_010"
+else if ( ($6 == "CG") && (($4/($4+$5)) < 0.2) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_020"
+else if ( ($6 == "CG") && (($4/($4+$5)) < 0.3) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_030"
+else if ( ($6 == "CG") && (($4/($4+$5)) < 0.4) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_040"
+else if ( ($6 == "CG") && (($4/($4+$5)) < 0.5) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_050"
 else if ( ($6 == "CG") && (($4/($4+$5)) < 0.6) )
-  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_06"
-else if ( ($6 == "CG") && (($4/($4+$5)) < 0.8) ) 
-  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_08"
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_060"
+else if ( ($6 == "CG") && (($4/($4+$5)) < 0.7) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_070"
+else if ( ($6 == "CG") && (($4/($4+$5)) < 0.8) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_080"
+else if ( ($6 == "CG") && (($4/($4+$5)) < 0.9) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_090"
 else if ( ($6 == "CG") && (($4/($4+$5)) <= 1) ) 
-  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_1"
-else if ( ($6 != "CG") && (($4/($4+$5)) < 0.2) ) 
-  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_02"
-else if ( ($6 != "CG") && (($4/($4+$5)) < 0.4) ) 
-  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_04"
-else if ( ($6 != "CG") && (($4/($4+$5)) < 0.6) )
-  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_06"
-else if ( ($6 != "CG") && (($4/($4+$5)) < 0.8) ) 
-  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_08"
-else if ( ($6 != "CG") && (($4/($4+$5)) <= 1) ) 
-  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_1"
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/cg_100"
+
+else if ( ($6  != "CG") && ($4 == 0) )  
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_000"
+else if ( ($6  != "CG") && (($4/($4+$5)) < 0.1) ) 
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_010"
+else if ( ($6  != "CG") && (($4/($4+$5)) < 0.2) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_020"
+else if ( ($6  != "CG") && (($4/($4+$5)) < 0.3) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_030"
+else if ( ($6  != "CG") && (($4/($4+$5)) < 0.4) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_040"
+else if ( ($6  != "CG") && (($4/($4+$5)) < 0.5) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_050"
+else if ( ($6  != "CG") && (($4/($4+$5)) < 0.6) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_060"
+else if ( ($6  != "CG") && (($4/($4+$5)) < 0.7) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_070"
+else if ( ($6  != "CG") && (($4/($4+$5)) < 0.8) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_080"
+else if ( ($6  != "CG") && (($4/($4+$5)) < 0.9) )
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_090"
+else if ( ($6  != "CG") && (($4/($4+$5)) <= 1) ) 
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > "discretized/ch_100"
+
 else 
   print $0,$4/($4+$5) > "discretized/error"
 }' tmp_"$sample" 

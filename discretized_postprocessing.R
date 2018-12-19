@@ -3,6 +3,9 @@
 ##
 ## 18th Dec 2018
 
+library(pheatmap)
+library(reshape2)
+
 TASK <- "cg_context"
 HOME <- '/home/imallona/mnt/nfs'
 WD <-  file.path(HOME, TASK)
@@ -47,7 +50,8 @@ for (ssample in samples$V1) {
     curr <- list(cg = data.frame(motif = mdict$cg$motif, row.names = 1),
                  ch = data.frame(motif = mdict$ch$motif, row.names = 1))
     for (context in c('cg', 'ch')) {
-        for (thres in c('02', '04', '06', '08', '1')) {
+        for (thres in c('000', '010', '020', '030', '040', '050', '060', '070',
+                        '080', '090', '100')) {
             fn <- file.path(WD, 'dec_2018', 'discretized',
                                       sprintf('%s_bwameth_default_motif_counts_%s_%s.txt',
                                               ssample, context, thres))
@@ -83,7 +87,8 @@ for (ssample in samples$V1) {
 }
 
 
-## get proportions
+## get proportions (row-wise)
+
 p <- d
 
 for (ssample in names(p)) {
@@ -119,6 +124,14 @@ ch <- as.data.frame( sapply(m, function(x) return(x$ch)))
 
 ## plot and cluster
 
-## still this maybe should be better normalized by overall dnameth level
+for (i in 1:ncol(cg))
+    cg[,i] <- as.numeric(as.character(cg[,i]))
+
+pheatmap(cg)
+
+pheatmap(cg[rowSums(cg) > 0,])
+
+
+## still this maybe should be better normalized by overall dnameth level, or maybe comparing the statuses, more than 0.1 meth, more than 0.2 meth etc? for unmeth and meth statuses
 
 ## remember to normalize!
