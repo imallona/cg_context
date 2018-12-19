@@ -30,7 +30,6 @@ mdict$ch <- apply(expand.grid('1' = nucl, '2' = nucl, '3' = nucl,
                   1,
                   function(x) paste(x, collapse = ''))
 
-                  function(x) paste(x, collapse = ''))
 
 for (item in names(mdict)) {
     fd <- mdict[[item]]
@@ -45,12 +44,12 @@ for (item in names(mdict)) {
 
 d <- list()
 for (ssample in samples$V1) {
-    curr <- list(cg = data.frame(motif = mdict$cg$motif),
-                 ch = data.frame(motif = mdict$ch$motif))
+    curr <- list(cg = data.frame(motif = mdict$cg$motif, row.names = 1),
+                 ch = data.frame(motif = mdict$ch$motif, row.names = 1))
     for (context in c('cg', 'ch')) {
         for (thres in c('02', '04', '06', '08', '1')) {
-            fn <- file.path(WD, 'dec_2018', ssample, 'discretized',
-                                      sprintf('%s_motif_counts_%s_%s.txt',
+            fn <- file.path(WD, 'dec_2018', 'discretized',
+                                      sprintf('%s_bwameth_default_motif_counts_%s_%s.txt',
                                               ssample, context, thres))
             if (file.exists(fn)) {
                 fd <- read.table(fn, col.names = c('count', 'motif'),
@@ -83,4 +82,43 @@ for (ssample in samples$V1) {
     d[[ssample]] <- curr
 }
 
-## plotting, normalizing, integrating
+
+## get proportions
+p <- d
+
+for (ssample in names(p)) {
+    for (context in c('cg', 'ch')) {
+        rowsums <- rowSums(p[[ssample]][[context]])
+        for (status in colnames(p[[ssample]][[context]])) {
+            p[[ssample]][[context]][,status] <- p[[ssample]][[context]][,status]/rowsums
+        }
+        rowsums <- NULL
+    }
+}
+
+## switch to narrow getting the biggest proportion
+
+m <- p
+
+for (ssample in names(p)) {
+    for (context in c('cg', 'ch')) {
+        ## m[[ssample]][[context]] <- apply(p[[ssample]][[context]], 1, which.max)
+        ## m[[ssample]][[context]] <- apply(p[[ssample]][[context]], 1, function(x) max.col(x, ties.method="first"))
+        m[[ssample]][[context]] <- apply(p[[ssample]][[context]],
+                                         1,
+                                         function(x) names(which.max(x)))
+    }
+}
+
+table(m[[1]][[1]])
+
+## collapsing into dataframes
+
+cg <- as.data.frame( sapply(m, function(x) return(x$cg)))
+ch <- as.data.frame( sapply(m, function(x) return(x$ch)))
+
+## plot and cluster
+
+## still this maybe should be better normalized by overall dnameth level
+
+## remember to normalize!
