@@ -134,4 +134,25 @@ pheatmap(cg[rowSums(cg) > 0,])
 
 ## still this maybe should be better normalized by overall dnameth level, or maybe comparing the statuses, more than 0.1 meth, more than 0.2 meth etc? for unmeth and meth statuses
 
+
+## collapse to 4-mers
+cgfour <- cg
+
+cgfour$sixmer <- rownames(cgfour)
+cgfour$fourmer <- substr(cgfour$sixmer, 2, 7)
+
+
+## for (ssample in samples$V1) {
+##     foo <- rowsum(cgfour[,1], cgfour$fourmer, reorder = TRUE)
+## }
+
+unique(substr(mdict$cg$motif, 2, 7))
+
+for (ssample in samples$V1) {
+    foo <- as.data.frame(tapply(cgfour[,ssample], cgfour$fourmer, function(x) median(x)))
+
+    foo <- rowsum(cgfour[,1], cgfour$fourmer, reorder = TRUE)
+}
+
+
 ## remember to normalize!
