@@ -152,9 +152,23 @@ for (ssample in names(p)) {
     for (context in c('cg', 'ch')) {
         ## m[[ssample]][[context]] <- apply(p[[ssample]][[context]], 1, which.max)
         ## m[[ssample]][[context]] <- apply(p[[ssample]][[context]], 1, function(x) max.col(x, ties.method="first"))
-        m[[ssample]][[context]] <- apply(p[[ssample]][[context]],
-                                         1,
-                                         function(x) names(which.max(x)))
+
+        ## this would get the unmeth always
+        
+        ## m[[ssample]][[context]] <- apply(p[[ssample]][[context]],
+        ##                                  1,
+        ##                                  function(x) names(which.max(x)))
+
+        ## the sort of betavalue with the highest value which is represented
+        ## m[[ssample]][[context]]  <- apply(p[[ssample]][[context]],
+        ##              1,
+        ##              function(x) return(tail(as.numeric(names(x[x!=0])), n = 1)))
+
+        ## the maximum beta value discrete category for a given motif but
+        ## requiring it to greater than 0.05% proportion
+        m[[ssample]][[context]]  <- apply(p[[ssample]][[context]],
+                     1,
+                     function(x) return(tail(as.numeric(names(x[x>0.05])), n = 1)))
     }
 }
 
@@ -182,7 +196,7 @@ for (context in c('cg', 'ch')) {
 
     pca <- prcomp(curr, center = TRUE, scale = TRUE)
     ## biplot(pca)
-    pheatmap(curr, clustering_method = 'ward', cluster_row = FALSE,
+    pheatmap(curr, clustering_method = 'ward', cluster_row = TRUE,
              main = sprintf(context))
 
     dev.off()
@@ -192,9 +206,9 @@ for (context in c('cg', 'ch')) {
     ##     height = 1000)
     ## what the hell with the replicates!
     
-    p <- autoplot(pca, data = annot, colour = 'genotype', loadings = FALSE, main = context)
+    gp <- autoplot(pca, data = annot, colour = 'genotype', loadings = FALSE, main = context)
     ## dev.off()
-    ggsave(p, filename = file.path(WD, sprintf('samples_pca_%s.png', context)),
+    ggsave(gp, filename = file.path(WD, sprintf('samples_pca_%s.png', context)),
            width = 5, height = 5, units = "in")
 }
 
