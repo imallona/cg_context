@@ -5,6 +5,8 @@
 
 library(pheatmap)
 library(reshape2)
+library(ggfortify)
+
 
 TASK <- "cg_context"
 HOME <- '/home/imallona/mnt/nfs'
@@ -14,6 +16,15 @@ DATA <- file.path(HOME, TASK, 'dec_2018')
 MIN_DEPTH <- 10
 
 samples <-  read.csv(file.path(WD, 'dec_2018', 'dec_2018.conf'), header = FALSE)
+
+annot <- data.frame(seq = c('20181207.A-WGBS_IL12',
+                            '20181207.A-WGBS_IL14',
+                            '20181207.A-WGBS_IL18',
+                            '20181207.A-WGBS_IL19'),
+                    genotype = c('WT_DNMT3A2_in_TKO',
+                                 'QC_DNMT3A2_in_TKO',
+                                 'WT_DNMT3A2_in_TKO',
+                                 'QC_DNMT3A2_in_TKO'))
 
 ## dictionaries of the whole set of motifs
 nucl <- c('T', 'C', 'G', 'A')
@@ -101,6 +112,38 @@ for (ssample in names(p)) {
     }
 }
 
+
+## plot start
+## let's get a motif sorting for all samples
+hc <- list(cg = NULL, ch = NULL)
+for (context in c('cg', 'ch')) {
+    added <- p[[1]][[context]]
+    added[!is.na(added)] <- 0 ## reset
+    for (ssample in names(p)) {
+        added <- added + p[[ssample]][[context]]
+    }
+    ## hc[[context]] <- hclust(dist(as.matrix(added[,colSums(added) != 0])), method = 'ward.D2')
+    hc[[context]] <- hclust(dist(as.matrix(na.omit(added))), method = 'ward.D2')
+
+}
+
+for (ssample in names(p)) {
+    for (context in c('cg', 'ch')) {
+        
+        png(file.path(WD, sprintf('pheatmap_%s_%s.png', context, ssample)),
+            width = 1000,
+            height = 1000)
+        
+        pheatmap(as.matrix(p[[ssample]][[context]]),
+                 cluster_cols = FALSE,
+                 cluster_rows = hc[[context]],
+                 main = sprintf('%s %s', context, ssample))
+        dev.off()
+    }
+}
+
+## plot end
+
 ## switch to narrow getting the biggest proportion
 
 m <- p
@@ -119,18 +162,45 @@ table(m[[1]][[1]])
 
 ## collapsing into dataframes
 
-cg <- as.data.frame( sapply(m, function(x) return(x$cg)))
-ch <- as.data.frame( sapply(m, function(x) return(x$ch)))
+for (context in c('cg', 'ch')) {
+    png(file.path(WD, sprintf('samples_clustering_%s.png', context)),
+        width = 1000,
+        height = 1000)
 
-## plot and cluster
+    
+    curr <- as.data.frame( sapply(m, function(x) return(x[[context]])))
 
-for (i in 1:ncol(cg))
-    cg[,i] <- as.numeric(as.character(cg[,i]))
+    ## plot and cluster
 
-pheatmap(cg)
+    for (i in 1:ncol(curr)) {
+        curr[,i] <- as.numeric(as.character(curr[,i]))
+    }
 
-pheatmap(cg[rowSums(cg) > 0,])
+    curr <- t(na.omit(curr))
+    ## removing nonvariable motifs
+    curr <- curr[, - as.numeric(which(apply(curr, 2, var) == 0))]
 
+    pca <- prcomp(curr, center = TRUE, scale = TRUE)
+    ## biplot(pca)
+    pheatmap(curr, clustering_method = 'ward', cluster_row = FALSE,
+             main = sprintf(context))
+
+    dev.off()
+
+    ## png(file.path(WD, sprintf('samples_pca_%s.png', context)),
+    ##     width = 1000,
+    ##     height = 1000)
+    ## what the hell with the replicates!
+    
+    p <- autoplot(pca, data = annot, colour = 'genotype', loadings = FALSE, main = context)
+    ## dev.off()
+    ggsave(p, filename = file.path(WD, sprintf('samples_pca_%s.png', context)),
+           width = 5, height = 5, units = "in")
+}
+
+## the upper is probably not ok, rather than most common meth stats, why not evaluating a sort of beta value?
+
+stop('till here')
 
 ## still this maybe should be better normalized by overall dnameth level, or maybe comparing the statuses, more than 0.1 meth, more than 0.2 meth etc? for unmeth and meth statuses
 
