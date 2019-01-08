@@ -6,7 +6,7 @@
 library(pheatmap)
 library(reshape2)
 library(ggfortify)
-
+library(heatmaply)
 
 TASK <- "cg_context"
 HOME <- '/home/imallona/mnt/nfs'
@@ -216,27 +216,173 @@ for (context in c('cg', 'ch')) {
 
 stop('till here')
 
+## fourmers
+
+four <- d
+
+for (ssample in names(d)) {
+    for (context in c('cg', 'ch')) {
+        ## four[[ssample]][[context]]$fourmer <-substr(, 2, 7)
+        ## substr(, 2, 7)
+        four[[ssample]][[context]] <- list()
+        for (i in 1:ncol(d[[ssample]][[context]])) {
+            ## four[[ssample]][[context]][,i] <- tapply(d[[ssample]][[context]][,i],
+            ##                                         substr(rownames(d[[ssample]][[context]][i]),
+            ##                                                2,7),
+            ##                                         function(x) sum(x))
+
+            
+            four[[ssample]][[context]][[i]] <- as.data.frame(tapply(d[[ssample]][[context]][,i],
+                                                     substr(rownames(d[[ssample]][[context]][i]),
+                                                            2,7),
+                                                     function(x) sum(x)))
+            
+            
+        }
+    }
+}
+
+for (ssample in names(four)) {
+    for (context in c('cg', 'ch')) {
+        foo <- do.call(cbind.data.frame, four[[ssample]][[context]])
+        colnames(foo) <- colnames(d[[ssample]][[1]])
+
+        four[[ssample]][[context]] <- foo
+        ## four[[context
+    }
+}
+
+
+## fourmer processing start
+
+## get proportions (row-wise)
+
+p <- four
+
+for (ssample in names(p)) {
+    for (context in c('cg', 'ch')) {
+        rowsums <- rowSums(four[[ssample]][[context]])
+        for (status in colnames(four[[ssample]][[context]])) {
+            four[[ssample]][[context]][,status] <- four[[ssample]][[context]][,status]/rowsums
+        }
+        rowsums <- NULL
+    }
+}
+
+
+## plot start
+## let's get a motif sorting for all samples
+hc <- list(cg = NULL, ch = NULL)
+for (context in c('cg', 'ch')) {
+    added <- four[[1]][[context]]
+    added[!is.na(added)] <- 0 ## reset
+    for (ssample in names(p)) {
+        added <- added + four[[ssample]][[context]]
+    }
+    ## hc[[context]] <- hclust(dist(as.matrix(added[,colSums(added) != 0])), method = 'ward.D2')
+    hc[[context]] <- hclust(dist(as.matrix(na.omit(added))), method = 'ward.D2')
+
+}
+
+for (ssample in names(p)) {
+    for (context in c('cg', 'ch')) {
+        
+        png(file.path(WD, sprintf('pheatmap_fourmer_%s_%s.png', context, ssample)),
+            width = 1000,
+            height = 1800)
+        
+        pheatmap(as.matrix(four[[ssample]][[context]]),
+                 cluster_cols = FALSE,
+                 cluster_rows = hc[[context]],
+                 main = sprintf('%s %s', context, ssample))
+        dev.off()
+    }
+}
+
+
+
+## switch to narrow getting the biggest proportion
+
+m <- four
+
+for (ssample in names(p)) {
+    for (context in c('cg', 'ch')) {      
+        ## the maximum beta value discrete category for a given motif but
+        ## requiring it to greater than 0.05% proportion
+        m[[ssample]][[context]]  <- apply(four[[ssample]][[context]],
+                     1,
+                     function(x) return(tail(as.numeric(names(x[x>0.05])), n = 1)))
+    }
+}
+
+table(m[[1]][[1]])
+
+## collapsing into dataframes
+
+for (context in c('cg', 'ch')) {
+    png(file.path(WD, sprintf('samples_clustering_fourmer_%s.png', context)),
+        width = 1000,
+        height = 1000)
+
+    
+    curr <- as.data.frame( sapply(m, function(x) return(x[[context]])))
+
+    ## plot and cluster
+
+    for (i in 1:ncol(curr)) {
+        curr[,i] <- as.numeric(as.character(curr[,i]))
+    }
+
+    curr <- t(na.omit(curr))
+    ## removing nonvariable motifs
+    curr <- curr[, - as.numeric(which(apply(curr, 2, var) == 0))]
+
+    pca <- prcomp(curr, center = TRUE, scale = TRUE)
+    ## biplot(pca)
+    pheatmap(curr, clustering_method = 'ward', cluster_row = TRUE,
+             main = sprintf(context))
+
+    dev.off()
+
+    ## png(file.path(WD, sprintf('samples_pca_%s.png', context)),
+    ##     width = 1000,
+    ##     height = 1000)
+    ## what the hell with the replicates!
+    
+    gp <- autoplot(pca, data = annot, colour = 'genotype', loadings = FALSE, main = context)
+    ## dev.off()
+    ggsave(gp, filename = file.path(WD, sprintf('samples_pca_fourmer_%s.png', context)),
+           width = 5, height = 5, units = "in")
+}
+
+
+## fourmer processing end
+
+
+
+stop('till here')
+
 ## still this maybe should be better normalized by overall dnameth level, or maybe comparing the statuses, more than 0.1 meth, more than 0.2 meth etc? for unmeth and meth statuses
 
 
-## collapse to 4-mers
-cgfour <- cg
+## ## collapse to 4-mers
+## cgfour <- cg
 
-cgfour$sixmer <- rownames(cgfour)
-cgfour$fourmer <- substr(cgfour$sixmer, 2, 7)
+## cgfour$sixmer <- rownames(cgfour)
+## cgfour$fourmer <- substr(cgfour$sixmer, 2, 7)
 
+
+## ## for (ssample in samples$V1) {
+## ##     foo <- rowsum(cgfour[,1], cgfour$fourmer, reorder = TRUE)
+## ## }
+
+## unique(substr(mdict$cg$motif, 2, 7))
 
 ## for (ssample in samples$V1) {
+##     foo <- as.data.frame(tapply(cgfour[,ssample], cgfour$fourmer, function(x) sum(x)))
+
 ##     foo <- rowsum(cgfour[,1], cgfour$fourmer, reorder = TRUE)
 ## }
-
-unique(substr(mdict$cg$motif, 2, 7))
-
-for (ssample in samples$V1) {
-    foo <- as.data.frame(tapply(cgfour[,ssample], cgfour$fourmer, function(x) median(x)))
-
-    foo <- rowsum(cgfour[,1], cgfour$fourmer, reorder = TRUE)
-}
 
 
 ## remember to normalize!
