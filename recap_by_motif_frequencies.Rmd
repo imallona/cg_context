@@ -205,7 +205,7 @@ ModelOptions <- getDefaultModelOptions(MOFAobject)
 ## ## ModelOptions$numFactors <- 20
 ## ModelOptions <- list(likelihood = c('gaussian', 'bernoulli', 'gaussian', 'gaussian'),
 ##                      numFactors = 50,
-                     sparsity = TRUE)
+                     ## sparsity = TRUE)
 ModelOptions
 
 TrainOptions <- getDefaultTrainOptions()
