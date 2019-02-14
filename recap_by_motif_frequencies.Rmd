@@ -228,7 +228,30 @@ MOFAobject <- runMOFA(MOFAobject, outfile = file.path(WD, 'mofa.out'))
 
 ```
 
-```{r mofa_vis}
+Mind that plots are not easily retrieved
+
+```{r test_save}
+## from https://stackoverflow.com/questions/43051525/how-to-draw-pheatmap-plot-to-screen-and-also-save-to-file
+save_pheatmap_png <- function(x, filename, width=700, height=700) {
+   stopifnot(!missing(x))
+   stopifnot(!missing(filename))
+   png(filename, width=width, height=height)
+   grid::grid.newpage()
+   grid::grid.draw(x$gtable)
+   dev.off()
+}
+
+export_image <- function(x,  filename, width = 1200, height = 700) {
+    if (class(x) == 'pheatmap')
+        save_pheatmap_png(x, filename, width, height)
+    else if (any(class(x) == 'gg'))
+        ggsave(filename = sprintf('%s.png', filename))
+}
+
+
+```
+
+```{r mofa_vis_000}
 
 r2 <- calculateVarianceExplained(MOFAobject)
 r2$R2Total
@@ -237,25 +260,42 @@ head(r2$R2PerFactor)
 
 plotVarianceExplained(MOFAobject)
 
+
 for (status in names(views)) {
-    plotWeightsHeatmap(
+    p <- plotWeightsHeatmap(
         MOFAobject, 
         view = status, 
-        factors = 1:5,
-        show_colnames = FALSE)
+        factors = factorNames(MOFAobject),
+        show_colnames = TRUE)
 
-    plotWeights(
-        MOFAobject, 
-        view = status, 
-        factor = 1, 
-        nfeatures = 5)
+    export_image(p, filename = sprintf('weightsheatmap_status_%s.png', status))
 
-    plotDataHeatmap(
-        MOFAobject, 
-        view = status, 
-        factor = 1, 
-        features = 20, 
-        show_rownames = TRUE)
+    for (lf in 1:length(factorNames(MOFAobject))) {
+        
+        p <- plotWeights(
+            MOFAobject, 
+            view = status, 
+            factor = factorNames(MOFAobject)[lf], 
+            nfeatures = 10,
+            scale = TRUE)
+         
+        export_image(p, filename = sprintf('weights_%s_status_%s.png', lf, status))
+
+        p <- plotTopWeights(
+            MOFAobject, 
+            view = status, 
+            factor = factorNames(MOFAobject)[lf])
+        
+        export_image(p, filename = sprintf('topweights_%s_status_%s.png', lf, status))
+        
+        p <- plotDataHeatmap(
+            MOFAobject, 
+            view = status, 
+            factor = factorNames(MOFAobject)[lf], 
+            features = 20, 
+            show_rownames = TRUE)
+        export_image(p, filename = sprintf('data_heatmap_%s_status_%s.png', lf, status))
+    }
 }
 
 ```
