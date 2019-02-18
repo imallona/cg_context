@@ -108,16 +108,17 @@ for (batch in sources) {
                  ch = data.frame(motif = mdict$ch$motif, row.names = 1))
 
     fns <- list.files(file.path(DATA, batch, 'discretized'))
-    tryCatch({
+    ## tryCatch({
         for (context in c('cg', 'ch')) {
             for (thres in c('000', '010', '020', '030', '040', '050', '060', '070',
                             '080', '090', '100')) {
                 
-                fn_match <- grep(sprintf(".*%s.*%s.*%s.*", batch, context, thres), fns, value = TRUE)
+                fn_match <- grep(sprintf(".*%s.*%s.*",  context, thres), fns, value = TRUE)
 
-                fn_match <- file.path(DATA, batch, 'discretized', fn_match)
-                
-                if (file.exists(fn_match)) {
+                               
+                if (length(fn_match) > 0) {
+                    fn_match <- file.path(DATA, batch, 'discretized', fn_match)
+                    
                     fd <- read.table(fn_match, col.names = c('count', 'motif'),
                                      stringsAsFactors = FALSE)
 
@@ -147,7 +148,7 @@ for (batch in sources) {
         }
         
         d[[batch]] <- curr
-    }, error = function(x) print(batch))
+    ## }, error = function(x) print(sprintf('error %s', batch)))
 }
 
 ```
@@ -226,7 +227,7 @@ MOFAobject <- prepareMOFA(
 
 
 ```{r runmofa}
-MOFAobject <- runMOFA(MOFAobject, outfile = file.path(WD, 'mofa.out'))
+MOFAobject <- runMOFA(MOFAobject, outfile = file.path(WD, 'mofa_full.out'))
 
 ```
 
@@ -437,7 +438,7 @@ MOFAobject <- prepareMOFA(
 
 ```{r runmofa2}
 
-MOFAobject <- runMOFA(MOFAobject, outfile = file.path(WD, 'mofa2.out'))
+MOFAobject <- runMOFA(MOFAobject, outfile = file.path(WD, 'mofa2_full.out'))
 
 ```
 
