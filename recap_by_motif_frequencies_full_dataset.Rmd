@@ -12,7 +12,7 @@ params:
 
 ---
     
-```{r settings, include=FALSE}
+```{r settings, include=TRUE, message = FALSE, warning = FALSE}
 
 library(knitr)
 ## library(devtools)
@@ -29,6 +29,7 @@ library(ggplot2)
 library(MOFA)
 library(DT)
 library(dplyr)
+suppressPackageStartupMessages(library(MultiAssayExperiment))
 
 TASK <- "cg_context"
 HOME <- '/home/imallona'
@@ -100,7 +101,8 @@ for (item in names(mdict)) {
 
 ```{r dataload}
 sources <- list.files(file.path(DATA), recursive = FALSE)
-
+sources <- setdiff(sources, 'feb_2019.conf')
+    
 d <- list()
 for (batch in sources) {
 
@@ -193,68 +195,6 @@ for (assay in names(views)){
 ```
 
 
-
-```{r mofa_pre}
-MOFAobject <- createMOFAobject(views)
-plotTilesData(MOFAobject)
-
-
-DataOptions <- getDefaultDataOptions()
-DataOptions$removeIncompleteSamples <- TRUE
-DataOptions
-
-ModelOptions <- getDefaultModelOptions(MOFAobject)
-
-## ## ModelOptions$numFactors <- 20
-## ModelOptions <- list(likelihood = c('gaussian', 'bernoulli', 'gaussian', 'gaussian'),
-##                      numFactors = 50,
-                     ## sparsity = TRUE)
-ModelOptions
-
-TrainOptions <- getDefaultTrainOptions()
-## Automatically drop factors that explain less than 2% of variance in all omics
-TrainOptions$DropFactorThreshold <- 0.02
-
-TrainOptions$seed <- 1
-TrainOptions
-
-MOFAobject <- prepareMOFA(
-    MOFAobject, 
-    DataOptions = DataOptions,
-    ModelOptions = ModelOptions,
-    TrainOptions = TrainOptions)
-```
-
-
-```{r runmofa}
-MOFAobject <- runMOFA(MOFAobject, outfile = file.path(WD, 'mofa_full.out'))
-
-```
-
-Mind that plots are not easily retrieved
-
-```{r test_save}
-## from https://stackoverflow.com/questions/43051525/how-to-draw-pheatmap-plot-to-screen-and-also-save-to-file
-save_pheatmap_png <- function(x, filename, width=700, height=700) {
-   stopifnot(!missing(x))
-   stopifnot(!missing(filename))
-   png(filename, width=width, height=height)
-   grid::grid.newpage()
-   grid::grid.draw(x$gtable)
-   dev.off()
-}
-
-export_image <- function(x,  filename, width = 1200, height = 700) {
-    if (class(x) == 'pheatmap')
-        save_pheatmap_png(x, filename, width, height)
-    else if (any(class(x) == 'gg'))
-        ggsave(filename = sprintf('%s.png', filename))
-}
-
-
-```
-
-
 ```{r annot_manual}
 annot <- read.table(text = '20181207.A-WGBS_IL12,tko+d3a2,bwa_hiseq4k_pe
 20181207.A-WGBS_IL14,tko+d3a2qc,bwa_hiseq4k_pe
@@ -293,8 +233,81 @@ tko+d3a2_merged,tko+d3a2,merged
 tko+d3b1_merged,tko+d3b1,merged',
   sep = ',',
   header = FALSE,
-  col.names = c('batch', 'genotype', 'tech'))
+col.names = c('batch', 'genotype', 'tech'))
+
+rownames(annot) <- annot$batch
+
 ```
+
+```{r mofa_pre}
+## MOFAobject <- createMOFAobject(views)
+
+mae <- MultiAssayExperiment(
+  experiments = views, 
+  colData = annot)
+
+MOFAobject <- createMOFAobject(mae)
+rm(mae)
+
+plotTilesData(MOFAobject)
+
+
+DataOptions <- getDefaultDataOptions()
+DataOptions$removeIncompleteSamples <- TRUE
+DataOptions
+
+ModelOptions <- getDefaultModelOptions(MOFAobject)
+
+## ## ModelOptions$numFactors <- 20
+## ModelOptions <- list(likelihood = c('gaussian', 'bernoulli', 'gaussian', 'gaussian'),
+##                      numFactors = 50,
+                     ## sparsity = TRUE)
+ModelOptions
+
+TrainOptions <- getDefaultTrainOptions()
+## Automatically drop factors that explain less than 2% of variance in all omics
+TrainOptions$DropFactorThreshold <- 0.02
+
+TrainOptions$seed <- 1
+TrainOptions
+
+MOFAobject <- prepareMOFA(
+    MOFAobject, 
+    DataOptions = DataOptions,
+    ModelOptions = ModelOptions,
+    TrainOptions = TrainOptions)
+```
+
+
+```{r runmofa}
+MOFAobject <- runMOFA(MOFAobject, outfile = file.path(WD, 'mofa_full_mae.out'))
+
+```
+
+Mind that plots are not easily retrieved
+
+```{r test_save}
+## from https://stackoverflow.com/questions/43051525/how-to-draw-pheatmap-plot-to-screen-and-also-save-to-file
+save_pheatmap_png <- function(x, filename, width=700, height=700) {
+   stopifnot(!missing(x))
+   stopifnot(!missing(filename))
+   png(filename, width=width, height=height)
+   grid::grid.newpage()
+   grid::grid.draw(x$gtable)
+   dev.off()
+}
+
+export_image <- function(x,  filename, width = 1200, height = 700) {
+    if (class(x) == 'pheatmap')
+        save_pheatmap_png(x, filename, width, height)
+    else if (any(class(x) == 'gg'))
+        ggsave(filename = sprintf('%s.png', filename))
+}
+
+
+```
+
+
 
 ```{r annot_vis}
 DT::datatable(annot %>% as.data.frame() %>% 
@@ -354,6 +367,34 @@ for (status in names(views)) {
     }
 }
 
+```
+
+```{r mofa_full_checks}
+lf_unmeth <- 2
+status_unmeth <- '000'
+
+p <- plotDataHeatmap(
+    MOFAobject, 
+    view = status_unmeth, 
+    factor = factorNames(MOFAobject)[lf_unmeth], 
+    features = 30, 
+    show_rownames = TRUE)
+
+rownames(annot) <- annot$batch
+
+plotDataScatter(MOFAobject, 
+    view = status_unmeth, 
+    factor = factorNames(MOFAobject)[lf_unmeth], 
+    features = 10 ,
+    color_by = 'genotype')
+
+plotFactorScatter(MOFAobject, 
+                  factor = 1:2,
+                  color_by= 'genotype')
+
+plotFactorScatters(MOFAobject, 
+                   factor = 1:3,
+                   color_by = 'genotype')
 ```
 
 
@@ -491,3 +532,4 @@ for (status in names(views)) {
 }
 
 ```
+
