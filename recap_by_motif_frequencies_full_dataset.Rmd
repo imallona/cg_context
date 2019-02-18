@@ -380,7 +380,15 @@ p <- plotDataHeatmap(
     features = 30, 
     show_rownames = TRUE)
 
-rownames(annot) <- annot$batch
+plotDataHeatmap(
+    MOFAobject, 
+    view = status_unmeth, 
+    factor = factorNames(MOFAobject)[lf_unmeth], 
+    features = 30, 
+    show_rownames = TRUE,
+    include.weights = TRUE)
+
+
 
 plotDataScatter(MOFAobject, 
     view = status_unmeth, 
@@ -398,6 +406,79 @@ plotFactorScatters(MOFAobject,
 ```
 
 
+```{r mixturemethunmeth}
+
+merge_factors <- function (object, view, factor1, factor2, features = 50, includeWeights = FALSE, 
+     ...) 
+{
+    
+
+    
+    W <- c(getWeights(object)[[view]][, factor1])
+    Z <- getFactors(object)[, factor1]
+    Z <- Z[!is.na(Z)]
+
+    data <- getTrainData(object, view)[[1]]
+    
+    data <- data[, names(Z)]
+    data <- data[, apply(data, 2, function(x) !all(is.na(x)))]
+    if (is(features, "numeric")) {
+        features1 <- names(tail(sort(abs(W)), n = features))
+        stopifnot(all(features1 %in% featureNames(object)[[view]]))
+    }
+  
+    W <- c(getWeights(object)[[view]][, factor2])
+    Z <- getFactors(object)[, factor2]
+    Z <- Z[!is.na(Z)]
+
+    data <- getTrainData(object, view)[[1]]
+    
+    data <- data[, names(Z)]
+    data <- data[, apply(data, 2, function(x) !all(is.na(x)))]
+   
+    features2 <- names(tail(sort(abs(W)), n = features))
+    features <- c(features1, features2)
+    
+    data <- getTrainData(object, view)[[1]]
+    
+    data <- data[, names(Z)]
+    data <- data[, apply(data, 2, function(x) !all(is.na(x)))]
+    
+    data <- data[features, ]
+
+    pheatmap(t(data), ...)
+    
+}
+
+
+merge_factors(
+    MOFAobject, 
+    view = status_unmeth, 
+    factor1 = 1,
+    factor2 = 2,
+    features = 10, 
+    show_rownames = TRUE,
+    include.weights = TRUE)
+
+x11()
+
+merge_factors(
+    MOFAobject, 
+    view = '100', 
+    factor1 = 1,
+    factor2 = 2,
+    features = 30, 
+    show_rownames = TRUE,
+    include.weights = TRUE)
+
+ ## plotDataHeatmap(
+ ##    MOFAobject, 
+ ##    view = status_unmeth, 
+ ##    factor = 1, 
+ ##    features = 30, 
+ ##    show_rownames = TRUE)
+
+```
 
 
 # Motifs as views
