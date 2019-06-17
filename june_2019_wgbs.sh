@@ -107,15 +107,14 @@ while IFS='' read -r line || [[ -n "$line" ]]; do
               -f "$r1"_cutadapt.fastq.gz \
               -o "$r1"_cutadapt_sickle.fastq.gz \
               -t sanger \
-              -s "$sample"_cutadapt_sickle_singles.fastq.gz \
               -g &> "$sample"_cutadapt_sickle.log
 
 
     rm -f "$r1"_cutadapt.fastq.gz 
     
-    curr="$r"_cutadapt_sickle
+    curr="$r1"_cutadapt_sickle
     mkdir -p "$curr"
-    $FASTQC "$r"_cutadapt_sickle.fastq.gz \
+    $FASTQC "$sample"_cutadapt_sickle.fastq.gz \
             --outdir "$curr" \
             -t $NTHREADS &> "$curr"/"$r"_fastqc.log
     
