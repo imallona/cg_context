@@ -8,6 +8,7 @@
 ## GPL
 
 export HOME=/home/imallona
+export SRC="$HOME"/src/cg_context
 export TASK="cg_context"
 export WD=/home/Shared_s3it/imallona/"$TASK"/neuro
 export SOFT="$HOME"/soft
@@ -166,110 +167,6 @@ while IFS='' read -r line || [[ -n "$line" ]]; do
 done < "$CONFIG_FILE"
 
 
-EOF <<EOF
-echo 'cph motifs counts'
-
-
-mysql --user=genome \
-      --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from mm9.chromInfo" > mm9.genome
-
-
-while IFS='' read -r line || [[ -n "$line" ]]
-do
-    cd $WD
-     
-    sample=$(echo $line | cut -f1 -d",")
-    cd $sample
-    
-    bam= bam="$sample"_bwameth_default.bam
-    ll -h $bam
-
-    
-    echo "$(date) cph calls for sample $sample"
-    
-    # ## mapq over 40
-    # was done before
-    
-    samtools index -@ $NTHREADS "$bam" "$bam".bai
-
-    ## mind the mapq40 filtering was done before
-    $METHYLDACKEL extract \
-                  -q $MAPQ_THRES \
-                  -@ $NTHREADS \
-                  -d $MIN_DEPTH \
-                  --cytosine_report \
-                  --CHH \
-                  --CHG \
-                  -o "$bam"_ch_d_"$MIN_DEPTH"_mapq_"$MAPQ_THRES" \
-                  $MM9 \
-                  "$bam"
-
-    report="$bam"_ch_d_"$MIN_DEPTH"_mapq_"$MAPQ_THRES".cytosine_report.txt
-
-    # only stuff  with a coverage of at least 10
-    # echo 'getting 10k covered Cs only'
-    awk '{
-FS=OFS="\t"; 
-if ($4+$5 >= 10)
- print $0
-}' \
-        "$report" > tmp_covered_"$sample"
-
-    mv -f tmp_covered_"$sample" "$report"
-    
-    ## motif retrieval
-
-    awk '
-{ 
-  OFS=FS="\t";
-   print $1,$2-1,$2,$4,$5,$3,$7;
-}
-' "$report"  |
-        "$BEDTOOLS" slop -i - \
-                    -g "$WD"/mm9.genome \
-                    -l 3 -r 4 -s | \
-        "$BEDTOOLS" getfasta -fi $MM9 \
-                    -bed - \
-                    -fo "$report"_cytosine_report_slop.fa \
-                    -tab \
-                    -s
-    paste "$report" \
-          "$report"_cytosine_report_slop.fa > tmp_"$sample"
-
-    rm -rf "$report"_cytosine_report_slop.fa
-    # get meth and unmeth stats
-    
-    # split into cg and non cg 
-    awk '{OFS=FS="\t"; if ($6 == "CG") print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9)}' \
-        tmp_"$sample" > cg_"$sample"
-    awk '{OFS=FS="\t"; if ($6 != "CG") print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9)}' \
-        tmp_"$sample" > ch_"$sample"
-    
-    # split into meth and unmeth
-    awk '{OFS=FS="\t"; if ($4 > 0) print $0 }' cg_"$sample" > cg_meth_"$sample"
-    awk '{OFS=FS="\t"; if ($4 == 0) print $0 }' cg_"$sample" > cg_unmeth_"$sample"
-    
-    awk '{OFS=FS="\t"; if ($4 > 0) print $0 }' ch_"$sample" > ch_meth_"$sample"
-    awk '{OFS=FS="\t"; if ($4 == 0) print $0 }' ch_"$sample" > ch_unmeth_"$sample"
-    wc -l cg_meth_"$sample" cg_unmeth_"$sample" ch_meth_"$sample" ch_unmeth_"$sample"
-
-    # count instances by motif
-    for item in  cg_meth_"$sample" cg_unmeth_"$sample" ch_meth_"$sample" ch_unmeth_"$sample"
-    do
-        cut -f9 "$item" | sort | uniq -c | sed 's/^ *//' > \
-                                               "$sample"_motif_counts_"$item".txt
-    done
-
-    rm -f cg_"$sample" ch_"$sample" cg_meth_"$sample" cg_unmeth_"$sample" \
-       ch_meth_"$sample" ch_unmeth_"$sample"
-
-    mv tmp_"$sample" "$sample"_raw_report.txt
-    rm -f "$sample"_raw_report.txt
-
-    cd $WD
-done < "$CONFIG_FILE"
-
-
 ## tests on further stratifying the contexts
 cd $WD
 
@@ -277,11 +174,11 @@ for bam in $(find $WD -name "*default.bam")
 do
     echo $bam
 
-    bash extract_motifs_frequency_from_bam.sh \
+    bash $SRC/cg_context/extract_motifs_frequency_from_bam.sh \
          -b $bam \
          -t $NTHREADS \
          --bedtools $BEDTOOLS \
          --methyldackel $METHYLDACKEL    
 done
 
-EOF
+
