@@ -1,6 +1,6 @@
 #!/usr/bin/env R
 ##
-## Requires june_2019_wgbs.sh to be run first, cg only
+## Requires june_2019_wgbs.sh to be run first
 ##
 ## 19th june 2019
 
@@ -218,7 +218,6 @@ for (context in c('cg', 'ch')) {
 
 ## the upper is probably not ok, rather than most common meth stats, why not evaluating a sort of beta value?
 
-##  stop('till here')
 
 ## fourmers
 
@@ -365,17 +364,20 @@ for (context in c('cg', 'ch')) {
 
 
 ## pu vs py plot for each genotype and each methylation status
+## this time for cph
 
 pu <- c('A', 'G')
 py <- c('T', 'C') 
 
 ## Taking the four-mers and aggregating
 
+head(substr(rownames(d[[ssample]][['ch']][i]),
+                                                            2,7))
 
 four <- d
 
 for (ssample in names(d)) {
-    for (context in c('cg', 'ch')) {
+    for (context in c('ch')) {
         ## four[[ssample]][[context]]$fourmer <-substr(, 2, 7)
         ## substr(, 2, 7)
         four[[ssample]][[context]] <- list()
@@ -391,8 +393,10 @@ for (ssample in names(d)) {
     }
 }
 
+str(four)
+
 for (ssample in names(four)) {
-    for (context in c('cg', 'ch')) {
+    for (context in c('ch')) {
         foo <- do.call(cbind.data.frame, four[[ssample]][[context]])
         colnames(foo) <- colnames(d[[ssample]][[1]])
 
@@ -401,25 +405,32 @@ for (ssample in names(four)) {
     }
 }
 
+str(four)
+rownames(four[[1]]$cg)
+rownames(four[[1]]$ch)
 ## to aggregate we add a pu or py column to each register
 
 for (ssample in names(four)) {
-    four[[ssample]][['cg']][,'chem'] <- NA
+    four[[ssample]][['ch']][,'chem'] <- NA
     
-    four[[ssample]][['cg']][,'chem'] <-  ifelse(
-        test = substr(rownames(four[[ssample]][['cg']]),5,5) %in% pu,
+    four[[ssample]][['ch']][,'chem'] <-  ifelse(
+        test = substr(rownames(four[[ssample]][['ch']]),5,5) %in% pu,
         yes = 'pu',
         no = 'py')
     
-    stopifnot(all(!is.na(four[[ssample]][['cg']][,'chem'])))
+    stopifnot(all(!is.na(four[[ssample]][['ch']][,'chem'])))
     
 }
 
+str(four)
+table(four[[1]]$cg$chem)
+
+table(four[[1]]$ch$chem)
 ## aggregating by being pu or py
 
 pupy <- list()
 for (ssample in names(four)) {
-    pupy[[ssample]] <- aggregate(. ~ chem, four[[ssample]][['cg']], sum)
+    pupy[[ssample]] <- aggregate(. ~ chem, four[[ssample]][['ch']], sum)
     rownames(pupy[[ssample]]) <- pupy[[ssample]]$chem
     pupy[[ssample]] <- pupy[[ssample]][,-1]    
 }
@@ -471,7 +482,7 @@ mg <- mg + facet_grid(. ~ base, margins = TRUE)
 
 
 ggsave(mg +  theme(axis.text.x = element_text(angle = 90, hjust = 1)) ,
-       filename = file.path(WD, sprintf('proportions_cg_1.png')),
+       filename = file.path(WD, sprintf('proportions_ch_1.png')),
         width = 10, height = 5, units = "in")
 
 mg <- ggplot(melted, aes(x = meth_status,
@@ -483,7 +494,7 @@ mg <- ggplot(melted, aes(x = meth_status,
 mg <- mg + facet_wrap(. ~ genotype, ncol =2)
 
 ggsave(mg +  theme(axis.text.x = element_text(angle = 90, hjust = 1)),
-       filename = file.path(WD, sprintf('proportions_cg_2.png')),
+       filename = file.path(WD, sprintf('proportions_ch_2.png')),
         width = 8, height = 5, units = "in")
 
 
@@ -495,27 +506,27 @@ ggsave(mg +  theme(axis.text.x = element_text(angle = 90, hjust = 1)),
 
 
 for (ssample in names(four)) {
-    four[[ssample]][['cg']][,'chem'] <- NA
+    four[[ssample]][['ch']][,'chem'] <- NA
     
-    four[[ssample]][['cg']][,'chem'] <-  ifelse(
-        test = substr(rownames(four[[ssample]][['cg']]),5,5) %in% pu,
+    four[[ssample]][['ch']][,'chem'] <-  ifelse(
+        test = substr(rownames(four[[ssample]][['ch']]),5,5) %in% pu,
         yes = 'pu',
         no = 'py')
     
-    stopifnot(all(!is.na(four[[ssample]][['cg']][,'chem'])))
+    stopifnot(all(!is.na(four[[ssample]][['ch']][,'chem'])))
     
 }
 
 
 for (ssample in names(four)) {
-    four[[ssample]][['cg']][,'chem'] <- NA
+    four[[ssample]][['ch']][,'chem'] <- NA
     
-    four[[ssample]][['cg']][,'chem'] <-  ifelse(
-        test = substr(rownames(four[[ssample]][['cg']]),5,5) %in% pu,
+    four[[ssample]][['ch']][,'chem'] <-  ifelse(
+        test = substr(rownames(four[[ssample]][['ch']]),5,5) %in% pu,
         yes = 'pu',
         no = 'py')
     
-    stopifnot(all(!is.na(four[[ssample]][['cg']][,'chem'])))
+    stopifnot(all(!is.na(four[[ssample]][['ch']][,'chem'])))
     
 }
 
@@ -524,7 +535,7 @@ for (ssample in names(four)) {
 fourp <- four
 for (ssample in names(fourp)) {
 
-    curr <- fourp[[ssample]]$cg
+    curr <- fourp[[ssample]]$ch
     rowsums <- rowSums(curr[,setdiff(colnames(curr), 'chem')])
     for (status in setdiff(colnames(curr), 'chem')) {
 
@@ -577,7 +588,7 @@ mg <- mg + facet_grid(. ~ base, margins = TRUE)
 
 
 ggsave(mg +  theme(axis.text.x = element_text(angle = 90, hjust = 1)) ,
-       filename = file.path(WD, sprintf('proportions_cg_3.png')),
+       filename = file.path(WD, sprintf('proportions_ch_3.png')),
         width = 15, height = 5, units = "in")
 
 mg <- ggplot(melted, aes(x = meth_status,
@@ -589,39 +600,14 @@ mg <- ggplot(melted, aes(x = meth_status,
 mg <- mg + facet_wrap(. ~ genotype, ncol =2)
 
 ggsave(mg +  theme(axis.text.x = element_text(angle = 90, hjust = 1)),
-       filename = file.path(WD, sprintf('proportions_cg_4.png')),
+       filename = file.path(WD, sprintf('proportions_ch_4.png')),
         width = 8, height = 5, units = "in")
 
 
 
+write.csv(melted, file =file.path(WD, 'novel_neuro_ch.csv'),
+          row.names= FALSE)
 ## getting proportions
 
 
-## aggregate(four[[ssample]][['cg']]$`000`, by=list(chem = four[[ssample]][['cg']]$chem), FUN=sum)
-
-## stop('till here')
-
-## still this maybe should be better normalized by overall dnameth level, or maybe comparing the statuses, more than 0.1 meth, more than 0.2 meth etc? for unmeth and meth statuses
-
-
-## ## collapse to 4-mers
-## cgfour <- cg
-
-## cgfour$sixmer <- rownames(cgfour)
-## cgfour$fourmer <- substr(cgfour$sixmer, 2, 7)
-
-
-## ## for (ssample in samples$V1) {
-## ##     foo <- rowsum(cgfour[,1], cgfour$fourmer, reorder = TRUE)
-## ## }
-
-## unique(substr(mdict$cg$motif, 2, 7))
-
-## for (ssample in samples$V1) {
-##     foo <- as.data.frame(tapply(cgfour[,ssample], cgfour$fourmer, function(x) sum(x)))
-
-##     foo <- rowsum(cgfour[,1], cgfour$fourmer, reorder = TRUE)
-## }
-
-
-## remember to normalize!
+## aggregate(four[[ssample]][['ch']]$`000`, by=list(chem = four[[ssample]][['ch']]$chem), FUN=sum)
