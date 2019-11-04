@@ -1,5 +1,5 @@
 ---
-title: "CG contexts"
+title: "CG and CH contexts"
 output: html_document
 params:
   seed: 11
@@ -37,16 +37,18 @@ m2beta <- function(m) {
     return(beta)
 }
 
-opts_chunk$set(fig.width = 12, fig.height = 12, fig.path = file.path(WD, TASK, 'RmdFigs'),
+opts_chunk$set(fig.width = 12,
+               fig.height = 12,
+               fig.path = file.path(WD, TASK, 'RmdFigs'),
                output.dir = WD,
                root.dir = WD,
                cache = TRUE,
                include = TRUE,
                cache.lazy = FALSE,
-               warning = TRUE, message = TRUE)
+               warning = TRUE,
+               message = TRUE)
 
 dir.create(file.path(WD, TASK))
-## setwd(file.path(NFS, TASK))
 
 ```
         
