@@ -2,7 +2,6 @@
 ##
 ##
 ## 18th Dec 2018
-## An Rmd-based discretized_postprocessing.Rmd was started on nov the 4th
 
 library(pheatmap)
 library(reshape2)
