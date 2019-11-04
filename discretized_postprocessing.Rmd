@@ -1,8 +1,19 @@
-#!/usr/bin/env R
-##
-##
-## 18th Dec 2018
-## An Rmd-based discretized_postprocessing.Rmd was started on nov the 4th
+---
+title: "Discretized (2019)"
+output:
+  html_document:
+    keep_md: true
+    toc: true
+    toc_float: true
+    toc_depth: 4
+params:
+  seed: 11
+
+---
+    
+Adapted from `discretized_postprocessing.R`
+
+```{r}
 
 library(pheatmap)
 library(reshape2)
@@ -357,33 +368,17 @@ for (context in c('cg', 'ch')) {
 }
 
 
-## fourmer processing end
+
+```
 
 
 
-stop('till here')
 
-## still this maybe should be better normalized by overall dnameth level, or maybe comparing the statuses, more than 0.1 meth, more than 0.2 meth etc? for unmeth and meth statuses
+# Timestamp
 
+```{r sessionInfo}
+date()
+sessionInfo()
+devtools::session_info()
 
-## ## collapse to 4-mers
-## cgfour <- cg
-
-## cgfour$sixmer <- rownames(cgfour)
-## cgfour$fourmer <- substr(cgfour$sixmer, 2, 7)
-
-
-## ## for (ssample in samples$V1) {
-## ##     foo <- rowsum(cgfour[,1], cgfour$fourmer, reorder = TRUE)
-## ## }
-
-## unique(substr(mdict$cg$motif, 2, 7))
-
-## for (ssample in samples$V1) {
-##     foo <- as.data.frame(tapply(cgfour[,ssample], cgfour$fourmer, function(x) sum(x)))
-
-##     foo <- rowsum(cgfour[,1], cgfour$fourmer, reorder = TRUE)
-## }
-
-
-## remember to normalize!
+```
