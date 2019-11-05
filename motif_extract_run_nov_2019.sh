@@ -24,6 +24,8 @@ export BEDTOOLS="$SOFT"/bedtools/bin/bedtools
 
 export CONFIG_FILE=nov_2019.conf
 
+export EXTRACT_MOTIFS_FREQUENCY_FROM_BAM_BINARY=~/src/cg_context/extract_motifs_frequency_from_bam_binary.sh
+
 mkdir -p $WD
 
 cd $WD
@@ -84,6 +86,7 @@ wc -l $CONFIG_FILE
 
 # old location
 ln -s ~/mnt/nfs/cg_context
+ln -s ../neuro
 
 while IFS='' read -r line || [[ -n "$line" ]]
 do
@@ -102,13 +105,17 @@ while IFS='' read -r line || [[ -n "$line" ]]
 do
     sample=$(echo $line | cut -d"," -f1)
   
-    bam=$(find ~/mnt/nfs/cg_context -name "*bam" | fgrep "$sample"| head -1)
+    bam=$(find -L $WD -type f -name "*bam" | fgrep "$sample"| head -1)
 
+    echo $bam
+    
     mkdir "$sample"
     cd "$_"
+    
+    ln -s $bam
 
-    bash extract_motifs_frequency_from_bam_binary.sh \
-         -b $bam \
+    bash $EXTRACT_MOTIFS_FREQUENCY_FROM_BAM_BINARY \
+         -b $(basename $bam) \
          -t $NTHREADS \
          --bedtools $BEDTOOLS \
          --methyldackel $METHYLDACKEL
