@@ -72,14 +72,16 @@ qko+d3b1_merged,qko+d3b1,merged
 tko+d3a1_merged,tko+d3a1,merged
 tko+d3a2_merged,tko+d3a2,merged
 tko+d3b1_merged,tko+d3b1,merged
-20190524.A-TBWGBS_A_R1.fastq.gz,20190524.A-TBWGBS_A,bwa_hiseq2500_se
-20190524.A-TBWGBS_B_R1.fastq.gz,20190524.A-TBWGBS_B,bwa_hiseq2500_se
-20190524.A-TBWGBS_K_R1.fastq.gz,20190524.A-TBWGBS_K,bwa_hiseq2500_se
-20190524.A-TBWGBS_W_R1.fastq.gz,20190524.A-TBWGBS_W,bwa_hiseq2500_se",
+20190524.A-TBWGBS_A_R1,neuro_DNMT3A_addback,bwa_hiseq2500_se
+20190524.A-TBWGBS_B_R1,neuro_DNMT3B_addback,bwa_hiseq2500_se
+20190524.A-TBWGBS_K_R1,neuro_DNMT3A_KO,bwa_hiseq2500_se
+20190524.A-TBWGBS_W_R1,neuro_WT,bwa_hiseq2500_se",
 col.names = c('sample', 'id', 'tech'),
 sep = ',')
 ```
 
+
+                                 
 
 ```{r settings, include=FALSE}
 
@@ -308,6 +310,12 @@ log2ratio_proportion <- function(x){
 ## Normalized by covered/unmethylated
 
 Getting the nucleotide weights for all the methylated and unmethylated motifs as when building a PWM. Getting the log2 enrichment of the meth/unmeth ratio.
+
+
+
+```{r}
+print('qc here')
+```
 
 
 ```{r deviations_compared_to_unmeth, results = "asis"}
