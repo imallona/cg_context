@@ -797,6 +797,35 @@ for (context in names(d)) {
 
 ```
 
+# Clustering
+
+Simple approach: cluster the overall rate of meth/unmeth per motif
+
+```{r, fig.height = 6, fig.width = 6}
+ratios <- sapply(d$cg, function(x) return(x$meth$count))/
+    (sapply(d$cg, function(x) return(x$unmeth$count)) + sapply(d$cg, function(x) return(x$meth$count)) ) 
+
+rownames(ratios) <- d$cg[[1]]$unmeth$motif
+
+ratios <- ratios[,c(targets, grep('*merged*', colnames(ratios), value = TRUE))]
+    
+hc <- hclust(dist(t(ratios)))
+plot(hc)
+
+```
+
+```{r, fig.height =8, fig.width = 10}
+rownames(annot) <- annot$sample
+
+pheatmap(ratios, cluster.rows = TRUE, cluster.cols = TRUE, annotation_col = annot,
+         scale = 'none')
+
+## note the scaling and centering by column
+pheatmap(ratios, cluster.rows = TRUE, cluster.cols = TRUE, annotation_col = annot,
+         scale = 'column')
+
+```
+
 
 # Timestamp
 
