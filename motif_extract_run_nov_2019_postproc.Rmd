@@ -12,76 +12,15 @@ params:
 
 ---
 
-Per Baubec request (October 17th 2019)
-
-Largely based upon `cph_quickchanges_simpler.Rmd`
+Per Baubec request (October 17th 2019). Largely based upon `cph_quickchanges_simpler.Rmd`; older report available at [http://imlstaupo.uzh.ch/imallona/baubec/cg_context/cph_quickchanges.html](taupo).
 
 Requires `extract_motifs_frequency_from_bam_binary.sh` to be run first.
 
 Per request, should contain the data already here plus the following
 
-```
-annot <- data.frame(seq = c('20181207.A-WGBS_IL12',
-                            '20181207.A-WGBS_IL14',
-                            '20181207.A-WGBS_IL18',
-                            '20181207.A-WGBS_IL19'),
-                    genotype = c('WT_DNMT3A2_in_TKO',
-                                 'QC_DNMT3A2_in_TKO',
-                                 'WT_DNMT3A2_in_TKO',
-                                 'QC_DNMT3A2_in_TKO'))
-
-```
-
-# Data genotypes/annotations
-
-Please check/update annotations:
-
-```{r}
-annot <- read.table(text = "20181207.A-WGBS_IL12,WT_DNMT3A2_in_TKO,bwa_hiseq4k_pe
-20181207.A-WGBS_IL14,QC_DNMT3A2_in_TKO,bwa_hiseq4k_pe
-20181207.A-WGBS_IL18,WT_DNMT3A2_in_TKO,bwa_hiseq4k_pe
-20181207.A-WGBS_IL19,QC_DNMT3A2_in_TKO,bwa_hiseq4k_pe
-20180913.A-WGBS_3,DNMT3A2-mutant_in_TKO,bwa_hiseq4k_pe
-20180913.A-WGBS_4,DNMT3A2-mutant_in_TKO,bwa_hiseq4k_pe
-20151223.B-MmES_TKOD3A1c1-3_R,tko+d3a1,bwa_hiseq2k
-BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_6_ACAGTGA_L006_001,tko+d3a2,bwa_hiseq2k
-BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_001,tko+d3a2,bwa_hiseq2k
-BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_002,tko+d3a2,bwa_hiseq2k
-BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_003,tko+d3a2,bwa_hiseq2k
-SRR1274743,tko+d3a2,bwa_miseq_pe
-BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001,tko+d3b1,bwa_hiseq2k
-BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001,tko+d3b1,bwa_hiseq2k
-BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002,tko+d3b1,bwa_hiseq2k
-BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003,tko+d3b1,bwa_hiseq2k
-SRR1274744,tko+d3b1,bwa_miseq_pe
-SRR1274745,tko+d3b1,bwa_miseq_pe
-SRR1653150,qko+d3b1,bwa_hiseq2k
-SRR1653151,qko+d3b1,bwa_hiseq2k
-SRR1653152,qko+d3b1,bwa_hiseq2k
-SRR1653153,qko+d3b1,bwa_hiseq2k
-SRR1653154,qko+d3b1,bwa_hiseq2k
-SRR1653155,qko+d3b1,bwa_hiseq2k
-SRR1653156,qko+d3b1,bwa_hiseq2k
-SRR1653157,qko+d3b1,bwa_hiseq2k
-SRR1653158,qko+d3b1,bwa_hiseq2k
-SRR1653159,qko+d3b1,bwa_hiseq2k
-SRR1653160,qko+d3b1,bwa_hiseq2k
-SRR1653161,qko+d3b1,bwa_hiseq2k
-SRR1653162,qko+d3b1,bwa_miseq_pe
-qko+d3b1_merged,qko+d3b1,merged
-tko+d3a1_merged,tko+d3a1,merged
-tko+d3a2_merged,tko+d3a2,merged
-tko+d3b1_merged,tko+d3b1,merged
-20190524.A-TBWGBS_A_R1,neuro_DNMT3A_addback,bwa_hiseq2500_se
-20190524.A-TBWGBS_B_R1,neuro_DNMT3B_addback,bwa_hiseq2500_se
-20190524.A-TBWGBS_K_R1,neuro_DNMT3A_KO,bwa_hiseq2500_se
-20190524.A-TBWGBS_W_R1,neuro_WT,bwa_hiseq2500_se",
-col.names = c('sample', 'id', 'tech'),
-sep = ',')
-```
+# Config
 
 
-                                 
 
 ```{r settings, include=FALSE}
 
@@ -98,6 +37,7 @@ library(ggfortify)
 library(ggseqlogo)
 library(gridExtra)
 library(DT)
+library(naivebayes)
 
 TASK <- "cg_context"
 HOME <- '/home/imallona'
@@ -136,14 +76,103 @@ opts_chunk$set(fig.width = 12,
 
 ```
 
-# Aim
+## Data genotypes/annotations
+
+Please check/update annotations:
+
+```{r, include = FALSE}
+annot <- read.table(text = "20181207.A-WGBS_IL12,WT_DNMT3A2_in_TKO,bwa_hiseq4k_pe
+20181207.A-WGBS_IL14,QC_DNMT3A2_in_TKO,bwa_hiseq4k_pe
+20181207.A-WGBS_IL18,WT_DNMT3A2_in_TKO,bwa_hiseq4k_pe
+20181207.A-WGBS_IL19,QC_DNMT3A2_in_TKO,bwa_hiseq4k_pe
+20180913.A-WGBS_3,DNMT3A2-mutant_in_TKO,bwa_hiseq4k_pe
+20180913.A-WGBS_4,DNMT3A2-mutant_in_TKO,bwa_hiseq4k_pe
+20151223.B-MmES_TKOD3A1c1-3_R,tko+d3a1,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_6_ACAGTGA_L006_001,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_001,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_002,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_003,tko+d3a2,bwa_hiseq2k
+SRR1274743,tko+d3a2,bwa_miseq_pe
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001,tko+d3b1,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001,tko+d3b1,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002,tko+d3b1,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003,tko+d3b1,bwa_hiseq2k
+SRR1274744,tko+d3b1,bwa_miseq_pe
+SRR1274745,tko+d3b1,bwa_miseq_pe
+SRR1653150,qko+d3b1,bwa_hiseq2k
+SRR1653151,qko+d3b1,bwa_hiseq2k
+SRR1653152,qko+d3b1,bwa_hiseq2k
+SRR1653153,qko+d3b1,bwa_hiseq2k
+SRR1653154,qko+d3b1,bwa_hiseq2k
+SRR1653155,qko+d3b1,bwa_hiseq2k
+SRR1653156,qko+d3b1,bwa_hiseq2k
+SRR1653157,qko+d3b1,bwa_hiseq2k
+SRR1653158,qko+d3b1,bwa_hiseq2k
+SRR1653159,qko+d3b1,bwa_hiseq2k
+SRR1653160,qko+d3b1,bwa_hiseq2k
+SRR1653161,qko+d3b1,bwa_hiseq2k
+SRR1653162,qko+d3b1,bwa_miseq_pe
+qko+d3b1_merged,qko+d3b1,merged
+tko+d3a1_merged,tko+d3a1,merged
+tko+d3a2_merged,tko+d3a2,merged
+tko+d3b1_merged,tko+d3b1,merged
+20190524.A-TBWGBS_A,neuro_DNMT3A_addback,bwa_hiseq2500_se
+20190524.A-TBWGBS_B,neuro_DNMT3B_addback,bwa_hiseq2500_se
+20190524.A-TBWGBS_K,neuro_DNMT3A_KO,bwa_hiseq2500_se
+20190524.A-TBWGBS_W,neuro_WT,bwa_hiseq2500_se",
+col.names = c('sample', 'id', 'tech'),
+sep = ',')
+```
+
+Note thta the `merged` datasets correspond to:
+
+```
+20151223.B-MmES_TKOD3A1c1-3_R,tko+d3a1,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_6_ACAGTGA_L006_001,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_001,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_002,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_003,tko+d3a2,bwa_hiseq2k
+SRR1274743,tko+d3a2,bwa_miseq_pe
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001,tko+d3b1,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001,tko+d3b1,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002,tko+d3b1,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003,tko+d3b1,bwa_hiseq2k
+SRR1274744,tko+d3b1,bwa_miseq_pe
+SRR1274745,tko+d3b1,bwa_miseq_pe
+SRR1653150,qko+d3b1,bwa_hiseq2k
+SRR1653151,qko+d3b1,bwa_hiseq2k
+SRR1653152,qko+d3b1,bwa_hiseq2k
+SRR1653153,qko+d3b1,bwa_hiseq2k
+SRR1653154,qko+d3b1,bwa_hiseq2k
+SRR1653155,qko+d3b1,bwa_hiseq2k
+SRR1653156,qko+d3b1,bwa_hiseq2k
+SRR1653157,qko+d3b1,bwa_hiseq2k
+SRR1653158,qko+d3b1,bwa_hiseq2k
+SRR1653159,qko+d3b1,bwa_hiseq2k
+SRR1653160,qko+d3b1,bwa_hiseq2k
+SRR1653161,qko+d3b1,bwa_hiseq2k
+SRR1653162,qko+d3b1,bwa_miseq_pe
+```
+
+```{r, results = 'asis'}
+DT::datatable(as.data.frame(annot), 
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
+```
+
+                                 
+# Overview
+
+## Aim
 
 - Hypothesis: DNMTs (DNA meth transferases) show sequence specificity
--   Datasets: WGBS in three mouse cells lacking DNA meth (called
-    `triple KOs or TKOs`)
--   They have a different DNMT (DNA meth transferases) addback each
+- Test: check whether methylated/unmethylated motifs representation
 
-# Design
+## Design
 
 ```{r design, include = TRUE, cache = TRUE, fig.width = 20}
 knitr::include_graphics("/home/imallona/src/cg_context/stranded_dnameth.png")
@@ -157,29 +186,13 @@ knitr::include_graphics("/home/imallona/src/cg_context/stranded_dnameth.png")
     - Get nucleotide proportions for each position (i.e. 1 to 8) for methylated and unmethylated motifs separately
     - Get a log2 ratio
 
-  
-# Datasets load
 
-
+## Datasets load
 
 ```{r}
-## targets <- c('tko+d3a1_merged',
-##              'tko+d3a2_merged',
-##              'tko+d3b1_merged',
-##              'qko+d3b1_merged',
-##              '20181207.A-WGBS_IL12',
-##              '20181207.A-WGBS_IL14',
-##              '20181207.A-WGBS_IL18',
-##              '20181207.A-WGBS_IL19',
-##              '20151223.B-MmES_TKOD3A1c1-3_R',
-##              '20180913.A-WGBS_3',
-##              '20180913.A-WGBS_4')
 
 sources <- grep('cg_context|neuro', list.files(WD, recursive = TRUE, pattern = 'motif_counts_*'),
                 invert = TRUE, value = TRUE)
-
-## sources_targets <- unique (grep(paste(targets, collapse="|"), 
-##                                 sources, value = TRUE))
 
 ```
 
@@ -272,7 +285,7 @@ Saving the data as an R object with the following structure:
 - status (meth or unmeth)
 - dataframe the columns motif, number of instances
 
-[/home/Shared_s3it/imallona/cg_context/nov_2019/counts_nested_list.RData](Download RData).
+[Download ](counts_nested_list.RData)
 
 ```{r saving_r_data}
 
@@ -281,10 +294,11 @@ save(x = d, file = file.path(WD, 'counts_nested_list.RData'))
 
 ```
 
-# Deviations from 0.25
+# Seqlogo-based analysis
+
+Based in nucleotide deviations from the 0.25:0.25:0.25:0.25 expectations for each nucleotide for each position.
 
 ```{r deviations_functions}
-
 
 proportion <- function(x){
    rs <- sum(x);
@@ -307,24 +321,18 @@ log2ratio_proportion <- function(x){
 
 ```
 
-## Normalized by covered/unmethylated
+## Data processing
 
-Getting the nucleotide weights for all the methylated and unmethylated motifs as when building a PWM. Getting the log2 enrichment of the meth/unmeth ratio.
-
-
-
-```{r}
-print('qc here')
-```
+We get the nucleotide weights for all the methylated and unmethylated motifs as when building a PWM. Getting the log2 enrichment of the meth/unmeth ratio.
 
 
-```{r deviations_compared_to_unmeth, results = "asis"}
+```{r deviations_compared_to_unmeth, results = "asis", include = TRUE}
 
 outer <- list()
 for (context in names(d)) {
     melted <- list()
     for (genotype in names(d[[context]])) {
-        print(genotype)
+        ## print(genotype)
         
         selected <- d[[context]][[genotype]]$meth
 
@@ -343,16 +351,11 @@ for (context in names(d)) {
                 
             }
         }
-        pwm <- makePWM(apply(for_pwm, 1, proportion))
-
-        print(sprintf('meth proportions sample %s context %s', genotype, context))
-        print(kable(pwm@pwm))
-        cat("\n")
         
+        pwm <- makePWM(apply(for_pwm, 1, proportion))
         pwm_meth <- pwm
 
         ## same for unmeth
-
         selected <- d[[context]][[genotype]]$unmeth
 
         for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
@@ -366,54 +369,325 @@ for (context in names(d)) {
             for (nt in c('A', 'T', 'C', 'G')) {
                 tsum <- 0
                 tsum <- sum(selected[selected[,id] == nt,'count'])
-                for_pwm[i, nt] <- tsum 
-                
+                for_pwm[i, nt] <- tsum                 
             }
         }
-        pwm <- makePWM(apply(for_pwm, 1, proportion))
-        print(sprintf('unmeth proportions sample %s context %s', genotype, context))
         
-        print(kable(pwm@pwm))
-        cat("\n")
-        
+        pwm <- makePWM(apply(for_pwm, 1, proportion))   
         pwm_unmeth <- pwm
 
-        print(sprintf('log2 (meth/unmeth) sample %s context %s', genotype, context))
         deviations <- log2(pwm_meth@pwm /pwm_unmeth@pwm)
-
-        print(kable(deviations))
-        cat("\n")
-        
         data.m <- melt(deviations)
-        
         data.m$genotype <- genotype
         melted[[genotype]] <- data.m
-        outer[[context]] <- melted
+        outer[[context]] <- melted        
+    }
+}
+```
 
+## Processing steps in detail
+
+Let's visualize the calculations for sample `tko+d3a1_merged` and a context `CG`
+
+```{r}
+
+context <- 'cg' ; genotype <- 'tko+d3a1_merged'
+
+selected <- d[[context]][[genotype]]$meth
+
+for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
+                      C = NA, G = NA,  T = NA)
+
+for (i in 1:nchar(selected$motif[1])) {
+    id <- paste0('d',i)
+    selected[, id] <- substr(selected$motif, i, i)
+    for (nt in c('A', 'T', 'C', 'G')) {
+        tsum <- 0
+        tsum <- sum(selected[selected[,id] == nt,'count'])
+        for_pwm[i, nt] <- tsum 
         
     }
-    melted2 <- do.call(rbind.data.frame, melted)
+}
+
+pwm <- makePWM(apply(for_pwm, 1, proportion))
+
+cat(sprintf('First we calculate the nucleotide proportions for each nucleotide in methylated motifs\n'))
+print(kable(pwm@pwm))
+cat("\n")
+
+pwm_meth <- pwm
+
+## same for unmeth
+selected <- d[[context]][[genotype]]$unmeth
+
+for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
+                      C = NA,
+                      G = NA,
+                      T = NA)
+
+for (i in 1:nchar(selected$motif[1])) {
+    id <- paste0('d',i)
+    selected[, id] <- substr(selected$motif, i, i)
+    for (nt in c('A', 'T', 'C', 'G')) {
+        tsum <- 0
+        tsum <- sum(selected[selected[,id] == nt,'count'])
+        for_pwm[i, nt] <- tsum                 
+    }
+}
+pwm <- makePWM(apply(for_pwm, 1, proportion))
+        
+cat('We do the same for unmethylated motifs\n')
+
+print(kable(pwm@pwm))
+cat("\n")      
+pwm_unmeth <- pwm
+
+cat(sprintf('We finally calculate the log2 (meth/unmeth) ratios\n'))
+deviations <- log2(pwm_meth@pwm /pwm_unmeth@pwm)
+
+print(kable(deviations))    
+
+```
+
+## Coloring by annotations
+
+All experiments
+
+```{r, fig.height = 20, fig.width = 8}
+
+for (context in names(outer)) {
+    melted2 <- do.call(rbind.data.frame, outer[[context]])
     colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'sample')
+    melted2 <- merge(melted2, annot, by = 'sample', all.x = TRUE)
    
     print(ggplot(melted2, aes(position, deviation, fill=as.factor(sample)))+
           geom_bar(position="dodge",stat="identity") +
           scale_x_continuous(breaks = 1:8) +
-          facet_wrap(~nucleotide,nrow=4) + xlab("position") + ylab('log2fc meth/unmeth'))
+          facet_wrap(~id+nucleotide, ncol= 4) +
+          xlab("position") +          
+          ylab('log2fc meth/unmeth') +
+          theme(legend.position = 'none') + ggtitle(context))
+}
+```
 
-    print(ggplot(melted2, aes(position, deviation, fill=as.factor(nucleotide)))+
-          geom_bar(position="dodge",stat="identity") +
-          scale_x_continuous(breaks = 1:8) +
-          facet_wrap(~sample,nrow=4) + xlab("position") + ylab('log2fc meth/unmeth'))
+## Per sample quality checks
 
+Coverage (total number of methylated plus unmethylated motifs detected).
+
+
+```{r, fig.height = 8, fig.width=5}
+
+counts <- list()
+for (context in names(d)) {
+    tmp <- list()
+    for (sample in names(d[[context]])) {
+        meth <- d[[context]][[sample]]$meth
+        meth$sample <- sample
+        meth$context <- context
+        meth$status <- 'meth'
+        
+        unmeth <- d[[context]][[sample]]$unmeth
+
+        unmeth$sample <- sample
+        unmeth$context <- context
+        unmeth$status <- 'unmeth'
+        
+        tmp[[sample]] <- rbind(meth, unmeth)
+       
+        
+    }
+
+    counts[[context]] <- do.call(rbind.data.frame, tmp)
+  
 }
 
+```
+
+```{r, fig.height = 10, fig.width = 10}
+for (context in names(counts)) {
+    sums <- aggregate(counts[[context]]$count,
+                      by=list(counts[[context]]$sample,
+                              counts[[context]]$status), sum)
+    colnames(sums) <- c('sample', 'status', 'count')
+
+    sums <- merge(sums, annot, by ='sample')
+    print(ggplot(sums,
+           aes(x = sample, y = count , fill = factor(id)))+
+        geom_bar(stat="identity",position="dodge") +
+        scale_y_continuous(trans='log10') +
+        facet_wrap(~status , nrow = 1) + 
+        xlab("Sample") + ylab("Cum. number of motifs detected") +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+        ggtitle(context))
+}
+```
+
+And by sequencing technology
+
+```{r, fig.height = 10, fig.width = 10}
+for (context in names(counts)) {
+    sums <- aggregate(counts[[context]]$count,
+                      by=list(counts[[context]]$sample,
+                              counts[[context]]$status), sum)
+    colnames(sums) <- c('sample', 'status', 'count')
+
+    sums <- merge(sums, annot, by ='sample')
+    print(ggplot(sums,
+           aes(x = sample, y = count , fill = factor(id)))+
+        geom_bar(stat="identity",position="dodge") +
+        scale_y_continuous(trans='log10') +
+        facet_wrap(~status , nrow = 1) + 
+        xlab("Sample") + ylab("Cum. number of motifs detected") +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+        ggtitle(context))
+}
+```
+
+Total number of motifs detected at least once (methylated or unmethylated).
+
+Note that for CG we expect 4^6=4096, and for CH 4^6*3=12288.
+
+```{r fig.height = 10, fig.width = 10}
+for (context in names(counts)) {
+    detects <- aggregate(counts[[context]]$count,
+                      by=list(counts[[context]]$sample,
+                              counts[[context]]$status), function(x) sum(x >=1))
+    colnames(detects) <- c('sample', 'status', 'count')
+
+    detects <- merge(detects, annot, by ='sample')
+    print(ggplot(detects,
+           aes(x = sample, y = count , fill = factor(id)))+
+        geom_bar(stat="identity",position="dodge") +
+        scale_y_continuous(trans='log10') +
+        facet_wrap(~status , nrow = 1) + 
+        xlab("Sample") + ylab("Number of motifs detected (at least once)") +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+        ggtitle(context))
+}
 
 ```
 
 
+
+## Per nucleotide and sample
+
+```{r, fig.height = 10, fig.width = 8}
+for (context in names(d)) {
+    
+    melted2 <- do.call(rbind.data.frame, outer[[context]])
+    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'sample')
+    
+    print(ggplot(melted2, aes(position, deviation, fill=as.factor(sample)))+
+          geom_bar(position="dodge",stat="identity") +
+          scale_x_continuous(breaks = 1:8) +
+          facet_wrap(~nucleotide,nrow = 4) + xlab("position") +
+          ylab('log2fc meth/unmeth') +
+          ggtitle(context) +
+          guides(fill = guide_legend(nrow = 12)) + 
+          theme(legend.position="bottom", legend.title=element_text(size=5), 
+                legend.text=element_text(size=5), legend.key.size = unit(1,"line")))
+         
+}
+
+```
+
+
+## Per nucleotide and sample; sorted by log2FC in nucleotide C2
+
+```{r, fig.height = 20, fig.width = 10}
+
+for (context in names(d)) {
+    idx <- names(sort(sapply(outer[[context]], function(x)
+        return(x[x$Var1 == 'C' & x$Var2 == 2, 'value']))))
+
+    melted2 <- do.call(rbind.data.frame, outer[[context]])
+    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'sample')
+    melted2$sample <- factor(x = melted2$sample, levels = idx)
+
+    print(ggplot(melted2, aes(position, deviation, fill=as.factor(sample)))+
+          geom_bar(position="dodge",stat="identity") +
+          scale_x_continuous(breaks = 1:8) +
+          facet_wrap(~nucleotide,nrow = 4) + xlab("position") +
+          ylab('log2fc meth/unmeth') +
+          ggtitle(context) +
+          guides(fill = guide_legend(nrow = length(unique(melted2$sample)))) + 
+          theme(legend.position="bottom", legend.title=element_text(size=5), 
+                legend.text=element_text(size=8), legend.key.size = unit(0.7, "line")))
+    
+   
+}
+
+```
+
+## Per sample and nucleotide
+
+```{r, fig.height = 16, fig.width = 10}
+for (context in names(d)) {
+    print(ggplot(melted2, aes(position, deviation, fill=as.factor(nucleotide)))+
+          geom_bar(position="dodge",stat="identity") +
+          scale_x_continuous(breaks = 1:8) +
+          facet_wrap(~sample, nrow=12) + xlab("position") + ylab('log2fc meth/unmeth') +
+          ggtitle(context))
+
+    
+}
+
+```
+
+
+## Naive Bayes
+
+(ongoing)
+
+```{r, eval = FALSE, include = FALSE}
+
+counts <- list()
+for (context in names(d)) {
+    tmp <- list()
+    for (sample in names(d[[context]])) {
+        meth <- d[[context]][[sample]]$meth
+        meth$sample <- sample
+        meth$context <- context
+        meth$status <- 'meth'
+        
+        unmeth <- d[[context]][[sample]]$unmeth
+
+        unmeth$sample <- sample
+        unmeth$context <- context
+        unmeth$status <- 'unmeth'
+        
+        tmp[[sample]] <- rbind(meth, unmeth)
+       
+        
+    }
+
+    counts[[context]] <- do.call(rbind.data.frame, tmp)
+  
+}
+
+for (context in names(d)) {
+    melted <- counts[[context]]
+    ## colnames(melted) <- c('nucleotide', 'position', 'deviation', 'sample')
+    melted <- merge(melted, annot, by = 'sample', all.x = TRUE)
+
+    melted <- na.omit(melted)
+   
+
+    set.seed(1)
+    idx <- sample(nrow(melted), size = 500)
+    train <- melted[idx, ]
+    test <- melted[setdiff(1:nrow(melted), idx), c('motif', 'status', 'count')]
+    nb <- naive_bayes(id ~ motif + status + count, train)
+    predict(nb, test, type = "class")
+}
+
+```
+
 # Subset
 
-```{r, , results = "asis"}
+Plotting some genotypes only
+
+```{r, , results = "asis", echo = FALSE, fig.width = 10, fig.height= 10}
 
 targets <- unique(grep(paste(c('tko+d3a1_merged',
                                'tko+d3a2_merged',
@@ -425,11 +699,14 @@ targets <- unique(grep(paste(c('tko+d3a1_merged',
                                '20181207.A-WGBS_IL19',
                                '20151223.B-MmES_TKOD3A1c1-3_R',
                                '20180913.A-WGBS_3',
-                               '20180913.A-WGBS_4'),
+                               '20180913.A-WGBS_4',
+                               '20190524.A-TBWGBS_A',
+                               '20190524.A-TBWGBS_B',
+                               '20190524.A-TBWGBS_K',
+                               '20190524.A-TBWGBS_W'),
                              collapse = '|'),
                        names(d$cg),
                        value = TRUE))
-
 
 
 for (context in names(d)) {
@@ -504,36 +781,6 @@ for (context in names(d)) {
 }
 
 ```
-
-
-
-## Coloring by annotations
-
-```{r, fig.height = 12, fig.width = 4}
-
-for (context in names(outer)) {
-    melted2 <- do.call(rbind.data.frame, outer[[context]])
-    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'sample')
-    melted2 <- merge(melted2, annot, by = 'sample', all.x = TRUE)
-   
-    ## print(ggplot(melted2, aes(position, deviation, fill=as.factor(sample)))+
-    ##       geom_bar(position="dodge",stat="identity") +
-    ##       scale_x_continuous(breaks = 1:8) +
-    ##       facet_wrap(~nucleotide+id, ncol= length(unique(melted2$id))) +
-    ##       xlab("position") +          
-    ##       ylab('log2fc meth/unmeth') +
-    ##       theme(legend.position = 'none'))
-
-    print(ggplot(melted2, aes(position, deviation, fill=as.factor(sample)))+
-          geom_bar(position="dodge",stat="identity") +
-          scale_x_continuous(breaks = 1:8) +
-          facet_wrap(~id+nucleotide, ncol= 4) +
-          xlab("position") +          
-          ylab('log2fc meth/unmeth') +
-          theme(legend.position = 'none') + ggtitle(context))
-}
-```
-
 
 
 # Timestamp
