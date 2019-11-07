@@ -646,6 +646,90 @@ for (context in names(d)) {
 
 ```
 
+## Per nucleotide, celltype and annotation
+
+
+```{r, fig.height = 6, fig.width = 8}
+
+for (context in names(d)) {
+    tmp <- as.numeric(annot[names(outer$cg),'id_short'])
+    names(tmp) <- names(outer$cg)
+
+    ## actually this is not being used
+    idx <- names(sort(tmp))
+
+    melted2 <- do.call(rbind.data.frame, outer[[context]])
+    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'sample')
+
+    annot$sample <- rownames(annot)
+    melted2 <- merge(melted2, annot, by = 'sample')
+    
+    melted2$sample <- factor(x = melted2$sample, levels = idx)
+
+
+
+    print(ggplot(melted2, aes(position, deviation, fill=as.factor(id_short)))+
+          geom_bar(position="dodge",stat="identity") +
+          scale_x_continuous(breaks = 1:8) +
+          facet_wrap(~celltype + nucleotide, nrow = 2) + xlab("position") +
+          ylab('log2fc meth/unmeth') +
+          ggtitle(context))
+    
+    
+}
+
+```
+
+## Per celltype, annotation and nucleotide
+
+```{r, fig.height = 6, fig.width = 8}
+
+for (context in names(d)) {
+   
+    melted2 <- do.call(rbind.data.frame, outer[[context]])
+    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'sample')
+
+    annot$sample <- rownames(annot)
+    melted2 <- merge(melted2, annot, by = 'sample')
+    
+    melted2$sample <- factor(x = melted2$sample, levels = idx)
+
+    print(ggplot(melted2, aes(nucleotide, deviation, fill=as.factor(position)))+
+          geom_bar(position="dodge",stat="identity") +
+          facet_wrap(~celltype + id_short, nrow = 2) + xlab("genotype") +
+          ylab('log2fc meth/unmeth') +
+          ggtitle(context))
+
+
+}
+
+```
+
+
+```{r, fig.height = 6, fig.width = 8}
+
+for (context in names(d)) {
+   
+    melted2 <- do.call(rbind.data.frame, outer[[context]])
+    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'sample')
+
+    annot$sample <- rownames(annot)
+    melted2 <- merge(melted2, annot, by = 'sample')
+    
+    melted2$sample <- factor(x = melted2$sample, levels = idx)
+
+    print(ggplot(melted2, aes(nucleotide, deviation, fill=as.factor(position)))+
+          geom_bar(position="dodge",stat="identity") +
+          facet_wrap(~celltype + id_short, nrow = 2) + xlab("id") +
+          ylab('log2fc meth/unmeth') +
+          ggtitle(context))
+
+}
+```
+
+
+
+
 ## Per sample and nucleotide
 
 ```{r, fig.height = 16, fig.width = 10}
