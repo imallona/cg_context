@@ -38,6 +38,7 @@ library(ggseqlogo)
 library(gridExtra)
 library(DT)
 library(naivebayes)
+suppressPackageStartupMessages(library(dendextend))
 
 TASK <- "cg_context"
 HOME <- '/home/imallona'
@@ -66,7 +67,7 @@ opts_chunk$set(fig.width = 12,
                fig.path = file.path(WD, TASK, 'RmdFigs'),
                output.dir = WD,
                root.dir = WD,
-               cache = TRUE,
+               cache = FALSE,
                include = TRUE,
                cache.lazy = FALSE,
                warning = TRUE,
@@ -81,47 +82,49 @@ opts_chunk$set(fig.width = 12,
 Please check/update annotations:
 
 ```{r, include = FALSE}
-annot <- read.table(text = "20181207.A-WGBS_IL12,WT_DNMT3A2_in_TKO,bwa_hiseq4k_pe
-20181207.A-WGBS_IL14,QC_DNMT3A2_in_TKO,bwa_hiseq4k_pe
-20181207.A-WGBS_IL18,WT_DNMT3A2_in_TKO,bwa_hiseq4k_pe
-20181207.A-WGBS_IL19,QC_DNMT3A2_in_TKO,bwa_hiseq4k_pe
-20180913.A-WGBS_3,DNMT3A2-mutant_in_TKO,bwa_hiseq4k_pe
-20180913.A-WGBS_4,DNMT3A2-mutant_in_TKO,bwa_hiseq4k_pe
-20151223.B-MmES_TKOD3A1c1-3_R,tko+d3a1,bwa_hiseq2k
-BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_6_ACAGTGA_L006_001,tko+d3a2,bwa_hiseq2k
-BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_001,tko+d3a2,bwa_hiseq2k
-BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_002,tko+d3a2,bwa_hiseq2k
-BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_003,tko+d3a2,bwa_hiseq2k
-SRR1274743,tko+d3a2,bwa_miseq_pe
-BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001,tko+d3b1,bwa_hiseq2k
-BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001,tko+d3b1,bwa_hiseq2k
-BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002,tko+d3b1,bwa_hiseq2k
-BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003,tko+d3b1,bwa_hiseq2k
-SRR1274744,tko+d3b1,bwa_miseq_pe
-SRR1274745,tko+d3b1,bwa_miseq_pe
-SRR1653150,qko+d3b1,bwa_hiseq2k
-SRR1653151,qko+d3b1,bwa_hiseq2k
-SRR1653152,qko+d3b1,bwa_hiseq2k
-SRR1653153,qko+d3b1,bwa_hiseq2k
-SRR1653154,qko+d3b1,bwa_hiseq2k
-SRR1653155,qko+d3b1,bwa_hiseq2k
-SRR1653156,qko+d3b1,bwa_hiseq2k
-SRR1653157,qko+d3b1,bwa_hiseq2k
-SRR1653158,qko+d3b1,bwa_hiseq2k
-SRR1653159,qko+d3b1,bwa_hiseq2k
-SRR1653160,qko+d3b1,bwa_hiseq2k
-SRR1653161,qko+d3b1,bwa_hiseq2k
-SRR1653162,qko+d3b1,bwa_miseq_pe
-qko+d3b1_merged,qko+d3b1,merged
-tko+d3a1_merged,tko+d3a1,merged
-tko+d3a2_merged,tko+d3a2,merged
-tko+d3b1_merged,tko+d3b1,merged
-20190524.A-TBWGBS_A,neuro_DNMT3A_addback,bwa_hiseq2500_se
-20190524.A-TBWGBS_B,neuro_DNMT3B_addback,bwa_hiseq2500_se
-20190524.A-TBWGBS_K,neuro_DNMT3A_KO,bwa_hiseq2500_se
-20190524.A-TBWGBS_W,neuro_WT,bwa_hiseq2500_se",
-col.names = c('sample', 'id', 'tech'),
+annot <- read.table(text = "20181207.A-WGBS_IL12,WT_DNMT3A2_in_TKO,bwa_hiseq4k_pe,+a2,es
+20181207.A-WGBS_IL14,QC_DNMT3A2_in_TKO,bwa_hiseq4k_pe,+a2qc,es
+20181207.A-WGBS_IL18,WT_DNMT3A2_in_TKO,bwa_hiseq4k_pe,+a2,es
+20181207.A-WGBS_IL19,QC_DNMT3A2_in_TKO,bwa_hiseq4k_pe,+a2qc,es
+20180913.A-WGBS_3,DNMT3A2-mutant_in_TKO,bwa_hiseq4k_pe,+a2qc,es
+20180913.A-WGBS_4,DNMT3A2-mutant_in_TKO,bwa_hiseq4k_pe,+a2qc,es
+20151223.B-MmES_TKOD3A1c1-3_R,tko+d3a1,bwa_hiseq2k,+a1,es
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_6_ACAGTGA_L006_001,tko+d3a2,bwa_hiseq2k,+a2,es
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_001,tko+d3a2,bwa_hiseq2k,+a2,es
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_002,tko+d3a2,bwa_hiseq2k,+a2,es
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_003,tko+d3a2,bwa_hiseq2k,+a2,es
+SRR1274743,tko+d3a2,bwa_miseq_pe,+a2,es
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001,tko+d3b1,bwa_hiseq2k,+b1,es
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001,tko+d3b1,bwa_hiseq2k,+b1,es
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002,tko+d3b1,bwa_hiseq2k,+b1,es
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003,tko+d3b1,bwa_hiseq2k,+b1,es
+SRR1274744,tko+d3b1,bwa_miseq_pe,+b1,es
+SRR1274745,tko+d3b1,bwa_miseq_pe,+b1,es
+SRR1653150,qko+d3b1,bwa_hiseq2k,+b1,es
+SRR1653151,qko+d3b1,bwa_hiseq2k,+b1,es
+SRR1653152,qko+d3b1,bwa_hiseq2k,+b1,es
+SRR1653153,qko+d3b1,bwa_hiseq2k,+b1,es
+SRR1653154,qko+d3b1,bwa_hiseq2k,+b1,es
+SRR1653155,qko+d3b1,bwa_hiseq2k,+b1,es
+SRR1653156,qko+d3b1,bwa_hiseq2k,+b1,es
+SRR1653157,qko+d3b1,bwa_hiseq2k,+b1,es
+SRR1653158,qko+d3b1,bwa_hiseq2k,+b1,es
+SRR1653159,qko+d3b1,bwa_hiseq2k,+b1,es
+SRR1653160,qko+d3b1,bwa_hiseq2k,+b1,es
+SRR1653161,qko+d3b1,bwa_hiseq2k,+b1,es
+SRR1653162,qko+d3b1,bwa_miseq_pe,+b1,es
+qko+d3b1_merged,qko+d3b1,merged,+b1,es
+#tko+d3a1_merged,tko+d3a1,merged,+a1,es
+tko+d3a2_merged,tko+d3a2,merged,+a2,es
+tko+d3b1_merged,tko+d3b1,merged,+b1,es
+20190524.A-TBWGBS_A,neuro_DNMT3A_addback,bwa_hiseq2500_se,+a,neuro
+20190524.A-TBWGBS_B,neuro_DNMT3B_addback,bwa_hiseq2500_se,+b,neuro
+20190524.A-TBWGBS_K,neuro_DNMT3A_KO,bwa_hiseq2500_se,-a,neuro
+20190524.A-TBWGBS_W,neuro_WT,bwa_hiseq2500_se,wt,neuro",
+col.names = c('sample', 'id', 'tech', 'id_short', 'celltype'),
 sep = ',')
+
+row.names(annot) <- annot$sample
 ```
 
 
@@ -211,6 +214,14 @@ sources <- grep('cg_context|neuro', list.files(WD, recursive = TRUE, pattern = '
 
 ```
 
+Removing the merged 3a1, that only contains a single run
+
+```{r, cache = FALSE}
+
+sources <- grep('d3a1_merged', sources, value = TRUE, invert = TRUE)
+
+```
+
 ```{r data_import, include = TRUE, echo = FALSE, cache = TRUE, cache.lazy = FALSE}
 
 ## meth and unmeth separately
@@ -241,6 +252,7 @@ for (context in c('cg', 'ch')) {
 }
 
 ```
+
 
 
 ``` {r preproc_countings}
@@ -402,11 +414,11 @@ for (context in names(d)) {
 
 ## Processing steps in detail
 
-Let's visualize the calculations for sample `tko+d3a1_merged` and a context `CG`
+Let's visualize the calculations for sample `tko+d3a2_merged` and a context `CG`
 
 ```{r}
 
-context <- 'cg' ; genotype <- 'tko+d3a1_merged'
+context <- 'cg' ; genotype <- 'tko+d3a2_merged'
 
 selected <- d[[context]][[genotype]]$meth
 
@@ -799,7 +811,7 @@ for (context in names(d)) {
 
 # Clustering
 
-Simple approach: cluster the overall rate of meth/unmeth per motif
+Simple approach: cluster the overall rate of meth/unmeth per motif (this is biased by methylation level).
 
 ```{r, fig.height = 6, fig.width = 6}
 ratios <- sapply(d$cg, function(x) return(x$meth$count))/
@@ -809,20 +821,48 @@ rownames(ratios) <- d$cg[[1]]$unmeth$motif
 
 ratios <- ratios[,c(targets, grep('*merged*', colnames(ratios), value = TRUE))]
     
-hc <- hclust(dist(t(ratios)))
+hc <- hclust(dist(t(ratios)), method = 'ward.D')
 plot(hc)
+
+```
+
+Annotated clustering
+
+
+```{r, fig.width=8, fig.height=5}
+## hc2 <- hc
+
+## hc2$labels <- sprintf('%s\n(%s)', hc$labels, annot[hc$labels,'id'])
+dend <- as.dendrogram(hc)
+
+## labels_colors(dend) <- as.numeric(as.factor( annot[hc$labels,'id']))
+par(mar = c(4,10,1,22), xpd=TRUE)
+plot(dend, horiz = TRUE)
+colored_bars(cbind(as.numeric(as.factor(annot[hc$labels,c('id_short')])),
+                   as.numeric(as.factor(annot[hc$labels,c('tech')])),
+                   as.numeric(as.factor(annot[hc$labels,c('celltype')]))), dend, horiz = TRUE,
+             rowLabels = c('id', 'tech','celltype'))
+
+legend("bottomleft",inset=c(-0.5,0), title ='id',
+       legend = levels(as.factor(annot[hc$labels,'id_short'])),
+       fill = 1:nlevels(as.factor(annot[hc$labels,'id'])))
+
+legend("topleft", inset=c(-0.5,0), title = 'tech',
+       legend = levels(as.factor(annot[hc$labels,'tech'])),
+       fill = 1:nlevels(as.factor(annot[hc$labels,'tech'])))
 
 ```
 
 ```{r, fig.height =8, fig.width = 10}
 rownames(annot) <- annot$sample
+annot <- annot[,-1]
 
 pheatmap(ratios, cluster.rows = TRUE, cluster.cols = TRUE, annotation_col = annot,
-         scale = 'none')
+         scale = 'none', show_rownames = FALSE)
 
 ## note the scaling and centering by column
 pheatmap(ratios, cluster.rows = TRUE, cluster.cols = TRUE, annotation_col = annot,
-         scale = 'column')
+         scale = 'column', show_rownames = FALSE)
 
 ```
 
