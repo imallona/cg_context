@@ -38,6 +38,7 @@ library(ggseqlogo)
 library(gridExtra)
 library(DT)
 library(naivebayes)
+library(viridis)
 suppressPackageStartupMessages(library(dendextend))
 
 TASK <- "cg_context"
@@ -67,7 +68,7 @@ opts_chunk$set(fig.width = 12,
                fig.path = file.path(WD, TASK, 'RmdFigs'),
                output.dir = WD,
                root.dir = WD,
-               cache = FALSE,
+               cache = TRUE,
                include = TRUE,
                cache.lazy = FALSE,
                warning = TRUE,
@@ -619,9 +620,9 @@ for (context in names(d)) {
 ```
 
 
-## Per nucleotide and sample; sorted by log2FC in nucleotide C2
+<!-- ## Per nucleotide and sample; sorted by log2FC in nucleotide C2 -->
 
-```{r, fig.height = 12, fig.width = 8}
+```{r, fig.height = 12, fig.width = 8, eval = FALSE}
 
 for (context in names(d)) {
     idx <- names(sort(sapply(outer[[context]], function(x)
@@ -665,8 +666,6 @@ for (context in names(d)) {
     melted2 <- merge(melted2, annot, by = 'sample')
     
     melted2$sample <- factor(x = melted2$sample, levels = idx)
-
-
 
     print(ggplot(melted2, aes(position, deviation, fill=as.factor(id_short)))+
           geom_bar(position="dodge",stat="identity") +
@@ -734,6 +733,16 @@ for (context in names(d)) {
 
 ```{r, fig.height = 16, fig.width = 10}
 for (context in names(d)) {
+    
+    melted2 <- do.call(rbind.data.frame, outer[[context]])
+    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'sample')
+
+    annot$sample <- rownames(annot)
+    melted2 <- merge(melted2, annot, by = 'sample')
+    
+    melted2$sample <- factor(x = melted2$sample, levels = idx)
+
+        
     print(ggplot(melted2, aes(position, deviation, fill=as.factor(nucleotide)))+
           geom_bar(position="dodge",stat="identity") +
           scale_x_continuous(breaks = 1:8) +
@@ -950,10 +959,45 @@ pheatmap(ratios, cluster.rows = TRUE, cluster.cols = TRUE, annotation_col = anno
 
 ```
 
+# Heatmap representations
+
+Per Tuncay request 11 Nov 2019
+
+```{r, results='asis', fig.width = 3, fig.height = 2}
+for (context in names(d)) {
+    
+    melted2 <- do.call(rbind.data.frame, outer[[context]])
+    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'sample')
+
+    annot$sample <- rownames(annot)
+    melted2 <- merge(melted2, annot, by = 'sample')
+    
+    melted2$sample <- factor(x = melted2$sample, levels = idx)
+
+    for (sample in levels(melted2$sample)) {
+        tmp <- melted2[melted2$sample == sample,]
+
+        wide <- dcast(tmp[,c('deviation', 'nucleotide', 'position')],  nucleotide ~ position,
+                      value.var = 'deviation')
+        rownames(wide) <- wide$nucleotide
+        wide <- wide[,-1]
+
+        ## while (!is.null(dev.list())) dev.off()
+        ## cat(sprintf('\n%s %s\n\n\n', context, sample))
+        cat('\n\n\n\n')
+        pheatmap(wide, cluster_rows = FALSE, cluster_cols = FALSE,
+                       color = colorRampPalette(c('red', 'white', 'blue'))(60),
+                       breaks = seq(-3, 3, 0.1), main = sprintf('%s\n%s', context, sample))
+       
+    }
+}
+
+
+```
 
 # Timestamp
 
-```{r sessionInfo}
+```{r sessionInfo, cache = 0}
 date()
 sessionInfo()
 devtools::session_info()
