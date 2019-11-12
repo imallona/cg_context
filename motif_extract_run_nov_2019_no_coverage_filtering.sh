@@ -118,7 +118,7 @@ do
     bash $EXTRACT_MOTIFS_FREQUENCY_FROM_BAM_BINARY \
          -b $(basename $bam) \
          -t $NTHREADS \
-         -c 0 \
+         -c 1 \
          --bedtools $BEDTOOLS \
          --methyldackel $METHYLDACKEL | tee -a no_filtering.log
 

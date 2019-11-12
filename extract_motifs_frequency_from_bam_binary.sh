@@ -45,13 +45,14 @@ process(){
 
     report="$bam"_ch_d.cytosine_report.txt
 
+    pigz --processes $NTHREADS $report
+    
     ## mincov
-    awk -v mincov="$mincov" '{
+    zcat "$report".gz | awk -v mincov="$mincov" '{
 FS=OFS="\t"; 
 if ($4+$5 >= mincov)
  print $0
-}' \
-        "$report" > tmp_covered_"$sample"
+}' > tmp_covered_"$sample"
 
     mv -f tmp_covered_"$sample" "$report"
 
@@ -70,35 +71,20 @@ if ($4+$5 >= mincov)
                     -fo "$report"_cytosine_report_slop.fa \
                     -tab \
                     -s
-    paste "$report" \
-          "$report"_cytosine_report_slop.fa > tmp_"$sample"
+    
+    zcat $report | paste - "$report"_cytosine_report_slop.fa > tmp_"$sample"
+
+    pigz --processes $NTHREADS tmp_"$sample"
 
     rm -rf "$report"_cytosine_report_slop.fa
 
     ## iterate over diff meth states
     mkdir -p discretized
 
-    
-    # split into cg and non cg
-
-    # ## old start
-    # awk '{OFS=FS="\t"; if ($6 == "CG") print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9)}' \
-    #     tmp_"$sample" > cg_"$sample"
-    # awk '{OFS=FS="\t"; if ($6 != "CG") print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9)}' \
-    #     tmp_"$sample" > ch_"$sample"
-    
-    # # split into meth and unmeth
-    # awk '{OFS=FS="\t"; if ($4 > 0) print $0 }' cg_"$sample" > cg_meth_"$sample"
-    # awk '{OFS=FS="\t"; if ($4 == 0) print $0 }' cg_"$sample" > cg_unmeth_"$sample"
-    
-    # awk '{OFS=FS="\t"; if ($4 > 0) print $0 }' ch_"$sample" > ch_meth_"$sample"
-    # awk '{OFS=FS="\t"; if ($4 == 0) print $0 }' ch_"$sample" > ch_unmeth_"$sample"
-
-    # ## old end  
-    
     ## split into cg and non cg, meth and unmeth in one run
-    awk -v cgmeth=cg_meth_"$sample" -v chmeth=ch_meth_"$sample" \
-        -v cgunmeth=cg_unmeth_"$sample" -v chunmeth=ch_unmeth_"$sample" '{
+    zcat tmp_"$sample".gz | \   
+        awk -v cgmeth=cg_meth_"$sample" -v chmeth=ch_meth_"$sample" \
+            -v cgunmeth=cg_unmeth_"$sample" -v chunmeth=ch_unmeth_"$sample" '{
 OFS=FS="\t"; 
 if ($6 == "CG" && $4 > 0) {
   print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > cgmeth}
@@ -110,7 +96,7 @@ else if ($6 != "CG" && $4 == 0) {
   print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > chunmeth}
 else
   print
-}' tmp_"$sample"
+}' 
 
     wc -l cg_meth_"$sample" cg_unmeth_"$sample" ch_meth_"$sample" ch_unmeth_"$sample"    
 
@@ -124,8 +110,10 @@ else
     rm -f cg_"$sample" ch_"$sample" cg_meth_"$sample" cg_unmeth_"$sample" \
        ch_meth_"$sample" ch_unmeth_"$sample"
 
-    mv tmp_"$sample" "$sample"_raw_report.txt
-    rm -f "$sample"_raw_report.txt
+    mv -f tmp_"$sample".gz "$sample"_raw_report.txt.gz
+    rm -f "$sample"_raw_report.txt.gz
+
+    pgiz --processes $NTHREADS *motif_counts*
 
 }
 
