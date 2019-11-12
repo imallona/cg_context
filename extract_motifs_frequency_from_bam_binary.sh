@@ -29,9 +29,10 @@ process(){
     mincov="$3"
     BEDTOOLS="$4"
     METHYLDACKEL="$5"
-    
+
+    bam=$(basename $bam)
     sample=$(basename $bam .bam)
-    samtools index -@ $nthreads "$bam" "$bam".bai
+    samtools index -@ $nthreads "$(basename $bam)" "$(basename $bam)".bai
 
     ## mind the mapq40 filtering was done before
     $METHYLDACKEL extract \
@@ -39,30 +40,30 @@ process(){
                   --cytosine_report \
                   --CHH \
                   --CHG \
-                  -o "$bam"_ch_d \
+                  -o "$(basename $bam)"_ch_d \
                   $MM9 \
-                  "$bam"
+                  "$(basename $bam)"
 
     report="$bam"_ch_d.cytosine_report.txt
 
-    pigz --processes $NTHREADS $report
+    pigz --processes $nthreads $report
     
     ## mincov
     zcat "$report".gz | awk -v mincov="$mincov" '{
 FS=OFS="\t"; 
 if ($4+$5 >= mincov)
  print $0
-}' > tmp_covered_"$sample"
+}' | gzip > tmp_covered_"$sample"
 
-    mv -f tmp_covered_"$sample" "$report"
+    mv -f tmp_covered_"$sample" "$report".gz
 
     ## motif retrieval
-    awk '
+    zcat "$report".gz | awk '
 { 
   OFS=FS="\t";
    print $1,$2-1,$2,$4,$5,$3,$7;
 }
-' "$report"  |
+'  |
         "$BEDTOOLS" slop -i - \
                     -g mm9.genome \
                     -l 3 -r 4 -s | \
@@ -72,18 +73,14 @@ if ($4+$5 >= mincov)
                     -tab \
                     -s
     
-    zcat $report | paste - "$report"_cytosine_report_slop.fa > tmp_"$sample"
+    zcat "$report".gz | paste - "$report"_cytosine_report_slop.fa > tmp_"$sample"
 
-    pigz --processes $NTHREADS tmp_"$sample"
+    pigz --processes $nthreads tmp_"$sample"
 
     rm -rf "$report"_cytosine_report_slop.fa
 
-    ## iterate over diff meth states
-    mkdir -p discretized
-
     ## split into cg and non cg, meth and unmeth in one run
-    zcat tmp_"$sample".gz | \   
-        awk -v cgmeth=cg_meth_"$sample" -v chmeth=ch_meth_"$sample" \
+    zcat tmp_"$sample".gz | awk -v cgmeth=cg_meth_"$sample" -v chmeth=ch_meth_"$sample" \
             -v cgunmeth=cg_unmeth_"$sample" -v chunmeth=ch_unmeth_"$sample" '{
 OFS=FS="\t"; 
 if ($6 == "CG" && $4 > 0) {
@@ -104,7 +101,7 @@ else
     for item in  cg_meth_"$sample" cg_unmeth_"$sample" ch_meth_"$sample" ch_unmeth_"$sample"
     do
         cut -f9 "$item" | sort | uniq -c | sed 's/^ *//' > \
-                                               "$sample"_motif_counts_"$item".txt
+                                               motif_counts_"$item".txt
     done
 
     rm -f cg_"$sample" ch_"$sample" cg_meth_"$sample" cg_unmeth_"$sample" \
@@ -112,8 +109,9 @@ else
 
     mv -f tmp_"$sample".gz "$sample"_raw_report.txt.gz
     rm -f "$sample"_raw_report.txt.gz
-
-    pgiz --processes $NTHREADS *motif_counts*
+    rm -f "$bam".bai mm9.genome
+    
+    pigz --processes $nthreads *motif_counts*
 
 }
 
