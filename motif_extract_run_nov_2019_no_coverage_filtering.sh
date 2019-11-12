@@ -87,7 +87,7 @@ EOF
 
 # old location
 ln -s ~/mnt/nfs/cg_context
-ln -s ../neuro
+ln -s /home/Shared_s3it/imallona/cg_context/neuro
 
 while IFS='' read -r line || [[ -n "$line" ]]
 do
