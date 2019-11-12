@@ -1,10 +1,13 @@
 #!/bin/bash
 ##
 ## 04 nov 2019
-## meth vs unmethy only
+## Extracts meth and un meth motifs from bisulfite bam files, and counts them
+## 
+## Assumes is mm9! hardcoded
 ##
 ## Izaskun Mallona
 
+MM9=/home/Shared/data/annotation/Mouse/mm9/mm9.fa
 
 usage(){
     echo ""
@@ -13,6 +16,7 @@ usage(){
     echo "Params"
     echo " -b --bam        WGBS bamfile          [mandatory]"
     echo " -t --threads    number of cores       [defaults to 4]"
+    echo " -c --coverage   min num reads         [defaults to 10 nonstrandspecific]"
     echo " --bedtools      path to bedtools      [defaults to bedtools]"
     echo " --methyldackel  path to methyldackel  [defaults to MethylDackel]"
     echo ""
@@ -22,8 +26,9 @@ usage(){
 process(){
     bam="$1"
     nthreads="$2"
-    BEDTOOLS="$3"
-    METHYLDACKEL="$4"
+    mincov="$3"
+    BEDTOOLS="$4"
+    METHYLDACKEL="$5"
     
     sample=$(basename $bam .bam)
     samtools index -@ $nthreads "$bam" "$bam".bai
@@ -40,10 +45,10 @@ process(){
 
     report="$bam"_ch_d.cytosine_report.txt
 
-    ## min coverage 10, @todo better not hardcoded
-    awk '{
+    ## mincov
+    awk -v mincov="$mincov" '{
 FS=OFS="\t"; 
-if ($4+$5 >= 10)
+if ($4+$5 >= mincov)
  print $0
 }' \
         "$report" > tmp_covered_"$sample"
@@ -73,23 +78,43 @@ if ($4+$5 >= 10)
     ## iterate over diff meth states
     mkdir -p discretized
 
+    
+    # split into cg and non cg
 
+    # ## old start
+    # awk '{OFS=FS="\t"; if ($6 == "CG") print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9)}' \
+    #     tmp_"$sample" > cg_"$sample"
+    # awk '{OFS=FS="\t"; if ($6 != "CG") print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9)}' \
+    #     tmp_"$sample" > ch_"$sample"
     
-    # split into cg and non cg 
-    awk '{OFS=FS="\t"; if ($6 == "CG") print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9)}' \
-        tmp_"$sample" > cg_"$sample"
-    awk '{OFS=FS="\t"; if ($6 != "CG") print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9)}' \
-        tmp_"$sample" > ch_"$sample"
+    # # split into meth and unmeth
+    # awk '{OFS=FS="\t"; if ($4 > 0) print $0 }' cg_"$sample" > cg_meth_"$sample"
+    # awk '{OFS=FS="\t"; if ($4 == 0) print $0 }' cg_"$sample" > cg_unmeth_"$sample"
     
-    # split into meth and unmeth
-    awk '{OFS=FS="\t"; if ($4 > 0) print $0 }' cg_"$sample" > cg_meth_"$sample"
-    awk '{OFS=FS="\t"; if ($4 == 0) print $0 }' cg_"$sample" > cg_unmeth_"$sample"
-    
-    awk '{OFS=FS="\t"; if ($4 > 0) print $0 }' ch_"$sample" > ch_meth_"$sample"
-    awk '{OFS=FS="\t"; if ($4 == 0) print $0 }' ch_"$sample" > ch_unmeth_"$sample"
-    wc -l cg_meth_"$sample" cg_unmeth_"$sample" ch_meth_"$sample" ch_unmeth_"$sample"
+    # awk '{OFS=FS="\t"; if ($4 > 0) print $0 }' ch_"$sample" > ch_meth_"$sample"
+    # awk '{OFS=FS="\t"; if ($4 == 0) print $0 }' ch_"$sample" > ch_unmeth_"$sample"
 
-    # count instancees by motif
+    # ## old end  
+    
+    ## split into cg and non cg, meth and unmeth in one run
+    awk -v cgmeth=cg_meth_"$sample" -v chmeth=ch_meth_"$sample" \
+        -v cgunmeth=cg_unmeth_"$sample" -v chunmeth=ch_unmeth_"$sample" '{
+OFS=FS="\t"; 
+if ($6 == "CG" && $4 > 0) {
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > cgmeth}
+else if ($6 == "CG" && $4 == 0) {
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > cgunmeth}
+else if ($6 != "CG" && $4 > 0) {
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > chmeth}
+else if ($6 != "CG" && $4 == 0) {
+  print $1,$2,$3,$4,$5,$6,$7,$8,toupper($9) > chunmeth}
+else
+  print
+}' tmp_"$sample"
+
+    wc -l cg_meth_"$sample" cg_unmeth_"$sample" ch_meth_"$sample" ch_unmeth_"$sample"    
+
+    # count instances by motif
     for item in  cg_meth_"$sample" cg_unmeth_"$sample" ch_meth_"$sample" ch_unmeth_"$sample"
     do
         cut -f9 "$item" | sort | uniq -c | sed 's/^ *//' > \
@@ -102,7 +127,6 @@ if ($4+$5 >= 10)
     mv tmp_"$sample" "$sample"_raw_report.txt
     rm -f "$sample"_raw_report.txt
 
-    
 }
 
 if [[ $# -eq 0 ]] ; then
@@ -112,6 +136,7 @@ fi
 
 bam=
 nthreads=4
+mincov=10
 BEDTOOLS=bedtools
 METHYLDACKEL=MethylDackel
 while [ "$1" != "" ]; do
@@ -125,10 +150,13 @@ while [ "$1" != "" ]; do
         -s | --sample)         shift
                                sample=$1
                                ;;
-         --bedtools)           shift
+        -c | --coverage)       shift
+                               mincov=$1
+                               ;;
+        --bedtools)            shift
                                BEDTOOLS=$1
                                ;;
-         --methyldackel)       shift
+        --methyldackel)        shift
                                METHYLDACKEL=$1
                                ;;
         -h | --help )          usage
@@ -146,11 +174,11 @@ if [[ "$bam" == "" ]] ; then
 fi
 
 
-echo "$(date)" Processing sample $sample from "$bam" with "$nthreads" threads start 
+echo "$(date)" Processing $sample from "$bam" with "$nthreads" threads and mincov "$mincov" start
 
 mysql --user=genome \
       --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from mm9.chromInfo" > mm9.genome
 
-process $bam $nthreads $BEDTOOLS $METHYLDACKEL
+process $bam $nthreads $mincov $BEDTOOLS $METHYLDACKEL
 
-echo "$(date)" Processing sample $sample from "$bam" with "$nthreads" threads end
+echo "$(date)" Processing $sample from "$bam" with "$nthreads" threads and mincov "$mincov" end
