@@ -177,7 +177,8 @@ fi
 echo "$(date)" Processing $sample from "$bam" with "$nthreads" threads and mincov "$mincov" start
 
 mysql --user=genome \
-      --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from mm9.chromInfo" > mm9.genome
+      --host=genome-euro-mysql.soe.ucsc.edu -A -P 3306 \
+      -e "select chrom, size from mm9.chromInfo" > mm9.genome
 
 process $bam $nthreads $mincov $BEDTOOLS $METHYLDACKEL
 

@@ -24,7 +24,7 @@ export BEDTOOLS="$SOFT"/bedtools/bin/bedtools
 
 export EXTRACT_MOTIFS_FREQUENCY_FROM_BAM_BINARY=~/src/cg_context/extract_motifs_frequency_from_bam_binary.sh
 
-export WD='/home/Shared_s3it/imallona/cg_context/nov_2019_no_coverage_filtering'
+export WD='/home/imallona/cg_context/nov_2019_no_coverage_filtering'
 
 export CONFIG_FILE=nov_2019_no_coverage_filtering.conf
 
