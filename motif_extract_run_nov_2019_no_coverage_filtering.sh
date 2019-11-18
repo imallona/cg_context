@@ -77,10 +77,10 @@ EOF
 ## and these from june_2019_wgbs.sh
 
 cat << EOF  >> "$CONFIG_FILE"
-20190524.A-TBWGBS_A_R1.fastq.gz,bwa_hiseq2500_se
-20190524.A-TBWGBS_B_R1.fastq.gz,bwa_hiseq2500_se
-20190524.A-TBWGBS_K_R1.fastq.gz,bwa_hiseq2500_se
-20190524.A-TBWGBS_W_R1.fastq.gz,bwa_hiseq2500_se
+20190524.A-TBWGBS_A,bwa_hiseq2500_se
+20190524.A-TBWGBS_B,bwa_hiseq2500_se
+20190524.A-TBWGBS_K,bwa_hiseq2500_se
+20190524.A-TBWGBS_W,bwa_hiseq2500_se
 EOF
 
 
