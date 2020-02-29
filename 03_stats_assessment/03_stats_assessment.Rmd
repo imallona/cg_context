@@ -89,6 +89,11 @@ permute_motifs <- function(fd, n = 1000) {
         res[[i]] <- data.frame(motif = fd$motif,
                                meth = fd[idx, 'meth'],
                                unmeth = fd[idx, 'unmeth'])
+
+        rownames(res[[i]]) <- res[[i]]$motif
+
+        res[[i]]$score <- res[[i]]$meth / (res[[i]]$meth  + res[[i]]$unmeth)
+
     }
     return(res)
 }
@@ -103,30 +108,128 @@ permute_2d <- function(fd, n = 1000) {
                                meth = fd[idx, 'meth'],
                                unmeth = fd[idx2, 'unmeth'])
 
-        res[[i]]$score <- 
+        rownames(res[[i]]) <- res[[i]]$motif
+
+        res[[i]]$score <- res[[i]]$meth / (res[[i]]$meth  + res[[i]]$unmeth)
     }
+    
     return(res)
 }
 
-
-run_permutation_test <- function(fd, permutation_type, n = 1000) {
-    if (permutation_type == 'motifs')
+## note that permutation p-values should never be 0;
+## we add `1` to the one-tailed test to include the observation on top to the
+##   number of permutations
+run_permutation_test <- function(fd, permutation_type, n = 1000, adjust.FDR = TRUE) {
+    if (permutation_type == 'motifs') {
         res <- permute_motifs(fd, n)
-    else if (permutation_type = '2d')
-        res <- permute_2d(fd, n)
-    else
-        stop('wrong permutation type')
-
-    for (motif in rownames(fd){
-        apply(fd, 1, function(x) x$meth/(x$meth + x$unmeth) > fd$meth/(fd$meth + fd$unmeth))
-        
     }
-     
+    else if (permutation_type == '2d') {
+        res <- permute_2d(fd, n)
+    }
+    else {
+        stop('wrong permutation type')
+    }
+
+    fd$pval <- NA
+    fd$qval <- NA
+    
+    for (motif in rownames(fd)){
+        fd[motif, 'pval'] <- (sum(
+            sapply(res,
+                   function(x) fd[motif,]$score <= x[motif,]$score)) + 1) / (n + 1)
+        if(fd[motif, 'pval'] > 1) stop()
+       
+    }
+
+    if (adjust.FDR) {
+        fd$qval <- p.adjust(fd$pval, method = 'BH')
+    }
+
+    return(fd)     
 }
 
-```    
 
-Permute independently meth and unmeth tuples to remove conversion biases?
+```
+
+Permuting in DNMT D3A2
+
+```{r}
+stopifnot(all(d$cg$`tko+d3a2_merged`$meth$motif == d$cg$`tko+d3a2_merged`$unmeth$motif))
+
+a <- data.frame(motif = d$cg$`tko+d3a2_merged`$meth$motif,
+                meth = d$cg$`tko+d3a2_merged`$meth$count,
+                unmeth = d$cg$`tko+d3a2_merged`$unmeth$count)
+
+rownames(a) <- a$motif
+a$score <- a$meth / (a$meth + a$unmeth)
+head(a$score)
+
+a_motif_perm <- run_permutation_test(fd = a,
+                                     n = 200,
+                                     permutation_type = 'motifs',
+                                     adjust.FDR = TRUE)
+
+
+summary(a_motif_perm)
+
+a_all_perm <- run_permutation_test(fd = a,
+                                   n = 200,
+                                   permutation_type = '2d',
+                                   adjust.FDR = TRUE)
+
+summary(a_all_perm)
+
+par(mfrow = c(2,2))
+hist(a_motif_perm$pval)
+hist(a_all_perm$pval)
+
+plot(a_motif_perm$pval, a_all_perm$pval)
+
+plot(a_motif_perm$pval[a_motif_perm$pval < 0.05 | a_all_perm$pval < 0.05 ],
+     a_all_perm$pval[a_motif_perm$pval < 0.05 | a_all_perm$pval < 0.05 ])
+```
+
+
+Permuting in tko+d3b1
+
+
+```{r}
+b <- data.frame(motif = d$cg$`tko+d3b1_merged`$meth$motif,
+                meth = d$cg$`tko+d3b1_merged`$meth$count,
+                unmeth = d$cg$`tko+d3b1_merged`$unmeth$count)
+
+rownames(b) <- b$motif
+b$score <- b$meth / (b$meth + b$unmeth)
+head(b$score)
+
+b_motif_perm <- run_permutation_test(fd = b,
+                                     n = 200,
+                                     permutation_type = 'motifs',
+                                     adjust.FDR = TRUE)
+
+
+summary(b_motif_perm)
+
+b_all_perm <- run_permutation_test(fd = b,
+                                   n = 200,
+                                   permutation_type = '2d',
+                                   adjust.FDR = TRUE)
+
+summary(b_all_perm)
+
+par(mfrow = c(2,2))
+hist(b_motif_perm$pval)
+hist(b_all_perm$pval)
+
+plot(b_motif_perm$pval, b_all_perm$pval)
+
+plot(b_motif_perm$pval[b_motif_perm$pval < 0.05 | b_all_perm$pval < 0.05 ],
+     b_all_perm$pval[b_motif_perm$pval < 0.05 | b_all_perm$pval < 0.05 ])
+```
+
+
+     
+
 
 # Prop test?
 
@@ -154,6 +257,7 @@ a <- data.frame(motif = d$cg$`tko+d3a2_merged`$meth$motif,
                 unmeth = d$cg$`tko+d3a2_merged`$unmeth$count)
 
 rownames(a) <- a$motif
+a$score <- a$meth / (a$meth + a$unmeth)
 
 stopifnot(all(d$cg$`tko+d3b1_merged`$meth$motif == d$cg$`tko+d3b1_merged`$unmeth$motif))
 
@@ -191,15 +295,72 @@ prop_test_to_iterate(a = a, b = b, motif = 'AAACGCGC')
 
 ```{r}
 
-res <- list()
+prop.tests <- list()
 
 for (motif in a$motif) {
-    res[[motif]] <- prop_test_to_iterate(a = a, b = b, motif = motif)
+    prop.tests[[motif]] <- prop_test_to_iterate(a = a, b = b, motif = motif)
 }
 
-print('padjust FDR correct')
+
+prop.tests <- data.frame(motif = names(sapply(prop.tests, function(x) return(x$test$p.value))),
+                  pval = as.numeric(sapply(prop.tests, function(x) return(x$test$p.value))))
+
+rownames(prop.tests) <- prop.tests$motif
+
+prop.tests$qval <- p.adjust(prop.tests$pval, method = 'BH')
+
+table(prop.tests$qval < 0.05)
+
+par(mfrow = c(2,2))
+hist(prop.tests$pval)
+hist(prop.tests$qval)
+
 ```
 
+Get zscore and plot the delta A-B as well to grasp the extent of the change.
+
+
+
+```{r zscores}
+
+## modified from gCMAP::zScores
+zscore_from_pval <- function (pval, direction = NULL, tails = 1, limit = .Machine$double.xmin){ 
+    if (!is.null(limit)) {
+        pval[which(pval < limit)] <- limit
+    }
+    if (tails == 2) {
+        z <- qnorm(pval/2, lower.tail = FALSE)
+    }
+    else if (tails == 1) {
+        z <- qnorm(pval, lower.tail = FALSE)
+    }
+    else {
+        stop("Parameter 'tails' must be set to either 1 or 2.")
+    }
+    if (!is.null(direction)) {
+        z <- z * sign(direction)
+    }
+    z
+}
+
+
+```
+
+
+```{r}
+prop.tests$delta <- a[rownames(prop.tests), 'score'] - b[rownames(prop.tests), 'score']
+prop.tests$ascore <-  a[rownames(prop.tests), 'score']
+prop.tests$bscore <- b[rownames(prop.tests), 'score']
+prop.tests$zscore <- zscore_from_pval(prop.tests$pval, direction = prop.tests$delta, tails = 2)
+
+summary(prop.tests)
+
+plot(prop.tests)
+par(mfrow = c(2,2))
+
+plot(prop.tests$delta, prop.tests$zscore, pch = 19)
+
+```
 
 # Timestamp
 
