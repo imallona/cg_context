@@ -151,7 +151,9 @@ run_permutation_test <- function(fd, permutation_type, n = 1000, adjust.FDR = TR
 
 ```
 
-Permuting in DNMT D3A2
+# Permutation analysis on `tko+d3a2_merged`
+
+Permuting motifs in DNMT D3A2 
 
 ```{r}
 stopifnot(all(d$cg$`tko+d3a2_merged`$meth$motif == d$cg$`tko+d3a2_merged`$unmeth$motif))
@@ -171,6 +173,13 @@ a_motif_perm <- run_permutation_test(fd = a,
 
 
 summary(a_motif_perm)
+table(a_motif_perm$pval < 0.05)
+table(a_motif_perm$qval < 0.05)
+```
+
+Permuting meth and unmeth counts in DNMT D3A2
+
+```
 
 a_all_perm <- run_permutation_test(fd = a,
                                    n = 200,
@@ -178,6 +187,14 @@ a_all_perm <- run_permutation_test(fd = a,
                                    adjust.FDR = TRUE)
 
 summary(a_all_perm)
+table(a_all_perm$pval < 0.05)
+table(a_all_perm$qval < 0.05)
+
+```
+
+Comparing both permutation strategies.
+
+```{r}
 
 par(mfrow = c(2,2))
 hist(a_motif_perm$pval)
@@ -190,7 +207,9 @@ plot(a_motif_perm$pval[a_motif_perm$pval < 0.05 | a_all_perm$pval < 0.05 ],
 ```
 
 
-Permuting in tko+d3b1
+## Permutation analysis on `tko+d3b1_merged`
+
+Data reshaping for tko+d3b1
 
 
 ```{r}
@@ -202,6 +221,12 @@ rownames(b) <- b$motif
 b$score <- b$meth / (b$meth + b$unmeth)
 head(b$score)
 
+```
+
+
+Permuting motifs in tko+d3b1
+
+```{r}
 b_motif_perm <- run_permutation_test(fd = b,
                                      n = 200,
                                      permutation_type = 'motifs',
@@ -209,6 +234,13 @@ b_motif_perm <- run_permutation_test(fd = b,
 
 
 summary(b_motif_perm)
+table(b_motif_perm$pval < 0.05)
+table(b_motif_perm$qval < 0.05)
+```
+
+Permuting meth and unmeth counts for tko+d3b1
+
+```{r}
 
 b_all_perm <- run_permutation_test(fd = b,
                                    n = 200,
@@ -216,8 +248,14 @@ b_all_perm <- run_permutation_test(fd = b,
                                    adjust.FDR = TRUE)
 
 summary(b_all_perm)
+table(b_all_perm$pval < 0.05)
+table(b_all_perm$qval < 0.05)
+```
 
-par(mfrow = c(2,2))
+Comparing both permutation strategies.
+
+```{r}
+par(mfrow = c(2,2), pty = 's')
 hist(b_motif_perm$pval)
 hist(b_all_perm$pval)
 
@@ -227,46 +265,28 @@ plot(b_motif_perm$pval[b_motif_perm$pval < 0.05 | b_all_perm$pval < 0.05 ],
      b_all_perm$pval[b_motif_perm$pval < 0.05 | b_all_perm$pval < 0.05 ])
 ```
 
+## Comparing DNMT3A and DNMT3B meth preferences according to the permutation outputs
 
+```{r}
+par(mfrow = c(1,2), pty = 's')
+
+plot(a_motif_perm$pval, b_motif_perm$pval)
+plot(a_all_perm$qval, b_all_perm$qval)
+
+```
      
-
-
-# Prop test?
+# By proportion tests
 
 
 ##  CG
 
 
-We'll check the methylation success per motif according to the enzyme added back.
+We'll check the methylation success per motif according to the enzyme added back. We'll directly compare DNMT3A and DNMT3B.
 
-G test and not Chisq-test due to the moderately high events (meth or unmeth counts)?
-
-Prop test?
-
-Binom test with just successes?
-
-@Mark 
+Because of the upper plot (section `Comparing DNMT3A and DNMT3B meth preferences according to the permutation outputs`) it's expected that success rate (proportion of methylated vs unmethylated) for most of the motifs will be different. The H0 (null of proportions being the same in DNMT3A and DNMT3B) will most probably be rejected for most cases.
 
 
 ```{r}
-
-stopifnot(all(d$cg$`tko+d3a2_merged`$meth$motif == d$cg$`tko+d3a2_merged`$unmeth$motif))
-
-a <- data.frame(motif = d$cg$`tko+d3a2_merged`$meth$motif,
-                meth = d$cg$`tko+d3a2_merged`$meth$count,
-                unmeth = d$cg$`tko+d3a2_merged`$unmeth$count)
-
-rownames(a) <- a$motif
-a$score <- a$meth / (a$meth + a$unmeth)
-
-stopifnot(all(d$cg$`tko+d3b1_merged`$meth$motif == d$cg$`tko+d3b1_merged`$unmeth$motif))
-
-b <- data.frame(motif = d$cg$`tko+d3b1_merged`$meth$motif,
-                meth = d$cg$`tko+d3b1_merged`$meth$count,
-                unmeth = d$cg$`tko+d3b1_merged`$unmeth$count)
-
-rownames(b) <- b$motif
-
 stopifnot(all(d$cg$`tko+da3a2_merged`$meth$motif == d$cg$`tko+d3b1_merged`$unmeth$motif))
 ```
 
@@ -284,40 +304,43 @@ prop_test_to_iterate <- function(a, b, motif) {
     rownames(curr) <- sprintf('%s_%s', motif, c('a', 'b'))
     
     return(list(table = curr,
-                test = prop.test(x = curr$meth, n = curr$meth + curr$unmeth)))
+                test = prop.test(x = curr$meth, n = curr$meth + curr$unmeth, correct = TRUE)))
 }
 
-prop_test_to_iterate(a = a, b = b, motif = 'AAACGAAA')
-prop_test_to_iterate(a = a, b = b, motif = 'AAACGAAT')
-prop_test_to_iterate(a = a, b = b, motif = 'AAACGCGC')
+## reto <-prop_test_to_iterate(a = a, b = b, motif = 'AAACGAAA')
+## prop_test_to_iterate(a = a, b = b, motif = 'AAACGAAT')
+## prop_test_to_iterate(a = a, b = b, motif = 'AAACGCGC')
 
 ```
 
 ```{r}
 
-prop.tests <- list()
+ptests_list <- list()
 
 for (motif in a$motif) {
-    prop.tests[[motif]] <- prop_test_to_iterate(a = a, b = b, motif = motif)
+    ptests_list[[motif]] <- prop_test_to_iterate(a = a, b = b, motif = motif)
 }
 
 
-prop.tests <- data.frame(motif = names(sapply(prop.tests, function(x) return(x$test$p.value))),
-                  pval = as.numeric(sapply(prop.tests, function(x) return(x$test$p.value))))
+ptests <- data.frame(motif = names(sapply(ptests_list, function(x) return(x$test$p.value))),
+                  pval = as.numeric(sapply(ptests_list, function(x) return(x$test$p.value))))
 
-rownames(prop.tests) <- prop.tests$motif
+rownames(ptests) <- ptests$motif
 
-prop.tests$qval <- p.adjust(prop.tests$pval, method = 'BH')
+ptests$qval <- p.adjust(ptests$pval, method = 'BH')
 
-table(prop.tests$qval < 0.05)
+table(ptests$qval < 0.05)
 
-par(mfrow = c(2,2))
+```
+
+```{r}
+par(mfrow = c(1,2), pty = 's')
 hist(prop.tests$pval)
 hist(prop.tests$qval)
 
 ```
 
-Get zscore and plot the delta A-B as well to grasp the extent of the change.
+## Plot z-scores and plot the delta A-B as well to grasp the extent of the change.
 
 
 
@@ -337,17 +360,19 @@ zscore_from_pval <- function (pval, direction = NULL, tails = 1, limit = .Machin
     else {
         stop("Parameter 'tails' must be set to either 1 or 2.")
     }
+
+    ## direction of change
     if (!is.null(direction)) {
         z <- z * sign(direction)
     }
-    z
+    return(z)
 }
 
 
 ```
 
 
-```{r}
+```{r, eval = TRUE}
 prop.tests$delta <- a[rownames(prop.tests), 'score'] - b[rownames(prop.tests), 'score']
 prop.tests$ascore <-  a[rownames(prop.tests), 'score']
 prop.tests$bscore <- b[rownames(prop.tests), 'score']
@@ -355,10 +380,28 @@ prop.tests$zscore <- zscore_from_pval(prop.tests$pval, direction = prop.tests$de
 
 summary(prop.tests)
 
-plot(prop.tests)
-par(mfrow = c(2,2))
+## plot(prop.tests)
+par(mfrow = c(2,2), pty = 's')
 
 plot(prop.tests$delta, prop.tests$zscore, pch = 19)
+plot(prop.tests$ascore, prop.tests$zscore, pch = 19)
+plot(prop.tests$bscore, prop.tests$zscore, pch = 19)
+
+```
+
+Sort the motifs by their zscore and then the delta of the scores, and plot the trends
+
+
+```{r}
+prop.tests <- prop.tests[order(abs(prop.tests$zscore), prop.tests$delta,
+                               decreasing = TRUE),]
+prop.tests$zscore_rank <- 1:nrow(prop.tests)
+
+par(mfrow = c(2,2), pty = 's')
+plot(y = abs(prop.tests$zscore), x = prop.tests$zscore_rank)
+plot(y = abs(prop.tests$delta), x = prop.tests$zscore_rank)
+plot(y = abs(prop.tests$bscore), x = prop.tests$zscore_rank)
+plot(y = abs(prop.tests$ascore), x = prop.tests$zscore_rank)
 
 ```
 
