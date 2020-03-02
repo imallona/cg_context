@@ -39,7 +39,7 @@ library(DT)
 ## library(naivebayes)
 ## library(viridis)
 ## suppressPackageStartupMessages(library(dendextend))
-library(AMR) # gtest
+## library(AMR) # gtest
 ```
 
 ```{r}
@@ -53,6 +53,12 @@ opts_chunk$set(fig.width = 5,
                message = TRUE)
 
 
+
+```
+
+
+```{r}
+options(bitmapType="cairo")
 
 ```
 
