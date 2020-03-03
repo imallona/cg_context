@@ -40,6 +40,8 @@ library(DT)
 ## library(viridis)
 ## suppressPackageStartupMessages(library(dendextend))
 ## library(AMR) # gtest
+library(doParallel)
+
 ```
 
 ```{r}
@@ -64,6 +66,7 @@ options(bitmapType="cairo")
 
 ```{r}
 NUM_PERM = 1000
+NTHREADS <- 30
 
 ```
 # Data retrieval
@@ -98,10 +101,13 @@ The first approach is the soundest to detect motifs that deviate from the observ
 ##                 unmeth = d$cg$`tko+d3a2_merged`$unmeth$count)
 
 ## keeping_meth_and_unmeth_blocks
-permute_motifs <- function(fd, n = 1000) {
+permute_motifs <- function(fd, n = 1000, nthreads = 2) {
 
     res <- list()
-    for (i in 1: n) {
+
+    cl <- makeCluster(nthreads)
+
+    foreach(i = 1:n) %do% {
         idx <- sample(x = rownames(fd), size = nrow(fd), replace = FALSE)
         res[[i]] <- data.frame(motif = fd$motif,
                                meth = fd[idx, 'meth'],
@@ -110,15 +116,21 @@ permute_motifs <- function(fd, n = 1000) {
         rownames(res[[i]]) <- res[[i]]$motif
 
         res[[i]]$score <- res[[i]]$meth / (res[[i]]$meth  + res[[i]]$unmeth)
-
     }
+
+    stopCluster(cl)
+    
     return(res)
 }
 
 
-permute_2d <- function(fd, n = 1000) {
+permute_2d <- function(fd, n = 1000, nthreads = 2) {
+
     res <- list()
-    for (i in 1: n) {
+
+    cl <- makeCluster(nthreads)
+    
+    foreach(i = 1:n) %do% {
         idx <- sample(x = rownames(fd), size = nrow(fd), replace = FALSE)
         idx2 <- sample(x = rownames(fd), size = nrow(fd), replace = FALSE)
         res[[i]] <- data.frame(motif = fd$motif,
@@ -129,6 +141,8 @@ permute_2d <- function(fd, n = 1000) {
 
         res[[i]]$score <- res[[i]]$meth / (res[[i]]$meth  + res[[i]]$unmeth)
     }
+
+    stopCluster(cl)
     
     return(res)
 }
@@ -136,12 +150,13 @@ permute_2d <- function(fd, n = 1000) {
 ## note that permutation p-values should never be 0;
 ## we add `1` to the one-tailed test to include the observation on top to the
 ##   number of permutations
-run_permutation_test <- function(fd, permutation_type, n = 1000, adjust.FDR = TRUE) {
+run_permutation_test <- function(fd, permutation_type, n = 1000, adjust.FDR = TRUE,
+                                 nthreads = 2) {
     if (permutation_type == 'motifs') {
-        res <- permute_motifs(fd, n)
+        res <- permute_motifs(fd = fd, n = n, nthreads = nthreads)
     }
     else if (permutation_type == '2d') {
-        res <- permute_2d(fd, n)
+        res <- permute_2d(fd, n = n, nthreads = nthreads)
     }
     else {
         stop('wrong permutation type')
@@ -149,14 +164,20 @@ run_permutation_test <- function(fd, permutation_type, n = 1000, adjust.FDR = TR
 
     fd$pval <- NA
     fd$qval <- NA
+
+
+    cl <- makeCluster(nthreads)
     
-    for (motif in rownames(fd)){
+    foreach (i = 1:nrow(fd)) %do% {
+        motif <- rownames(fd)[i]
         fd[motif, 'pval'] <- (sum(
             sapply(res,
                    function(x) fd[motif,]$score <= x[motif,]$score)) + 1) / (n + 1)
         if(fd[motif, 'pval'] > 1) stop()
        
     }
+
+    stopCluster(cl)
 
     if (adjust.FDR) {
         fd$qval <- p.adjust(fd$pval, method = 'BH')
@@ -186,7 +207,8 @@ head(a$score)
 a_motif_perm <- run_permutation_test(fd = a,
                                      n = NUM_PERM,
                                      permutation_type = 'motifs',
-                                     adjust.FDR = TRUE)
+                                     adjust.FDR = TRUE,
+                                     nthreads = NTHREADS)
 
 
 summary(a_motif_perm)
@@ -196,12 +218,13 @@ table(a_motif_perm$qval < 0.05)
 
 Permuting meth and unmeth counts in DNMT D3A2
 
-```
+```{r}
 
 a_all_perm <- run_permutation_test(fd = a,
                                    n = NUM_PERM,
                                    permutation_type = '2d',
-                                   adjust.FDR = TRUE)
+                                   adjust.FDR = TRUE,
+                                   nthreads = NTHREADS)
 
 summary(a_all_perm)
 table(a_all_perm$pval < 0.05)
@@ -255,23 +278,6 @@ ggMarginal(p, type = "histogram", bins = 10, colour = 'black')
 
 
 
-```{r}
-p <- ggplot(data = data.frame(pval_a = a_motif_perm$pval,
-                              pval_b = b_motif_perm$pval),
-                aes(x=pval_a, y = pval_b)) +
-    geom_point() +
-    theme_classic(base_size = 20) +
-    ylab('pval d3a2') +
-    xlab ('pval d3b1') + ggtitle('permuted motifs')
-
-
-ggMarginal(p, type = "histogram", bins = 10, colour = 'black')
-    
-
-```
-
-
-
 ## Permutation analysis on `tko+d3b1_merged`
 
 Data reshaping for tko+d3b1
@@ -295,7 +301,8 @@ Permuting motifs in tko+d3b1
 b_motif_perm <- run_permutation_test(fd = b,
                                      n = NUM_PERM,
                                      permutation_type = 'motifs',
-                                     adjust.FDR = TRUE)
+                                     adjust.FDR = TRUE,
+                                     nthreads = NTHREADS)
 
 
 summary(b_motif_perm)
@@ -310,7 +317,8 @@ Permuting meth and unmeth counts for tko+d3b1
 b_all_perm <- run_permutation_test(fd = b,
                                    n = NUM_PERM,
                                    permutation_type = '2d',
-                                   adjust.FDR = TRUE)
+                                   adjust.FDR = TRUE,
+                                   nthreads = NTHREADS)
 
 summary(b_all_perm)
 table(b_all_perm$pval < 0.05)
@@ -331,6 +339,25 @@ plot(b_motif_perm$pval[b_motif_perm$pval < 0.05 | b_all_perm$pval < 0.05 ],
 ```
 
 ## Comparing DNMT3A and DNMT3B meth preferences according to the permutation outputs
+
+
+
+
+```{r}
+p <- ggplot(data = data.frame(pval_a = a_motif_perm$pval,
+                              pval_b = b_motif_perm$pval),
+                aes(x=pval_a, y = pval_b)) +
+    geom_point() +
+    theme_classic(base_size = 20) +
+    ylab('pval d3a2') +
+    xlab ('pval d3b1') + ggtitle('permuted motifs')
+
+
+ggMarginal(p, type = "histogram", bins = 10, colour = 'black')
+    
+
+```
+
 
 ```{r}
 par(mfrow = c(1,2), pty = 's')
@@ -486,6 +513,9 @@ plot(y = abs(prop.tests$bscore), x = prop.tests$zscore_rank)
 plot(y = abs(prop.tests$ascore), x = prop.tests$zscore_rank)
 
 ```
+
+
+Compare ptests and permutation results?
 
 # Timestamp
 
