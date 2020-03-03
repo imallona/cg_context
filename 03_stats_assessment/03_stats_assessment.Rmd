@@ -23,23 +23,9 @@ Started 27 Feb 2020
 
 ```{r settings, include=FALSE}
 library(knitr)
-## library(devtools)
-## library(reshape2)
-## library(lattice)
-## library(pheatmap)
-## library(seqLogo)
-## library(margins)
-## library(data.table)
 library(ggplot2)
 library(ggExtra)
-## library(ggfortify)
-## library(ggseqlogo)
-## library(gridExtra)
 library(DT)
-## library(naivebayes)
-## library(viridis)
-## suppressPackageStartupMessages(library(dendextend))
-## library(AMR) # gtest
 library(doParallel)
 
 ```
@@ -93,12 +79,6 @@ We do this in two ways.
 The first approach is the soundest to detect motifs that deviate from the observations.
 
 ```{r, d3acg}
-
-## stopifnot(all(d$cg$`tko+d3a2_merged`$meth$motif == d$cg$`tko+d3a2_merged`$unmeth$motif))
-
-## a <- data.frame(motif = d$cg$`tko+d3a2_merged`$meth$motif,
-##                 meth = d$cg$`tko+d3a2_merged`$meth$count,
-##                 unmeth = d$cg$`tko+d3a2_merged`$unmeth$count)
 
 ## keeping_meth_and_unmeth_blocks
 permute_motifs <- function(fd, n = 1000, nthreads = 2) {
@@ -163,8 +143,7 @@ run_permutation_test <- function(fd, permutation_type, n = 1000, adjust.FDR = TR
     }
 
     fd$pval <- NA
-    fd$qval <- NA
-
+    fd$qval <- NA ## Benjamini Hochberg corrected p-val
 
     cl <- makeCluster(nthreads)
     
@@ -172,7 +151,7 @@ run_permutation_test <- function(fd, permutation_type, n = 1000, adjust.FDR = TR
         motif <- rownames(fd)[i]
         fd[motif, 'pval'] <- (sum(
             sapply(res,
-                   function(x) fd[motif,]$score <= x[motif,]$score)) + 1) / (n + 1)
+                   function(x) fd[motif,]$score > x[motif,]$score)) + 1) / (n + 1)
         if(fd[motif, 'pval'] > 1) stop()
        
     }
@@ -190,6 +169,8 @@ run_permutation_test <- function(fd, permutation_type, n = 1000, adjust.FDR = TR
 ```
 
 # Permutation analysis on `tko+d3a2_merged`
+
+## Permuted motifs
 
 Permuting motifs in DNMT D3A2 
 
@@ -216,6 +197,48 @@ table(a_motif_perm$pval < 0.05)
 table(a_motif_perm$qval < 0.05)
 ```
 
+```{r}
+DT::datatable(a_motif_perm %>% as.data.frame() %>% 
+              dplyr::mutate_if(is.numeric, funs(round(., 2))), 
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
+```    
+
+Plots with marginals
+
+
+```{r}
+p <- ggplot(a_motif_perm, aes(y = score, x = pval)) +
+    geom_point() +
+    theme_classic(base_size = 20) +
+    ylab('methylation score') +
+    xlab('p-value (permuted motifs)') +
+    ggtitle('DNMT3A2')
+
+ggMarginal(p, type = "histogram", bins = 10, colour = 'black')#, groupColour = TRUE)
+
+```
+
+
+```{r}
+p <- ggplot(a_motif_perm, aes(x=qval, y=score)) +
+    geom_point() +
+    theme_classic(base_size = 20) +
+    ylab('methylation score') +
+    xlab ('FDR (permuted motifs)') +
+    ggtitle('DNMT3A2')
+
+ggMarginal(p, type = "histogram", bins = 10, colour = 'black')
+
+```
+
+
+## Permuting both meth and unmeth counts
+
 Permuting meth and unmeth counts in DNMT D3A2
 
 ```{r}
@@ -232,31 +255,25 @@ table(a_all_perm$qval < 0.05)
 
 ```
 
-Comparing both permutation strategies.
-
 ```{r}
-
-par(mfrow = c(2,2))
-hist(a_motif_perm$pval)
-hist(a_all_perm$pval)
-
-plot(a_motif_perm$pval, a_all_perm$pval)
-
-plot(a_motif_perm$pval[a_motif_perm$pval < 0.05 | a_all_perm$pval < 0.05 ],
-     a_all_perm$pval[a_motif_perm$pval < 0.05 | a_all_perm$pval < 0.05 ])
+DT::datatable(a_all_perm %>% as.data.frame() %>% 
+              dplyr::mutate_if(is.numeric, funs(round(., 2))), 
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
 ```
 
 
-Plots with marginals
-
-
 ```{r}
-p <- ggplot(a_motif_perm, aes(y = score, x = pval)) +
+p <- ggplot(a_all_perm, aes(y = score, x = pval)) +
     geom_point() +
     theme_classic(base_size = 20) +
     ylab('methylation score') +
-    xlab('p-value') +
-    ggtitle('permuted motifs DNMT3A2')
+    xlab('p-value (permuted counts)') +
+    ggtitle('DNMT3A2')
 
 ggMarginal(p, type = "histogram", bins = 10, colour = 'black')#, groupColour = TRUE)
 
@@ -264,14 +281,30 @@ ggMarginal(p, type = "histogram", bins = 10, colour = 'black')#, groupColour = T
 
 
 ```{r}
-p <- ggplot(a_motif_perm, aes(x=qval, y=score)) +
+p <- ggplot(a_all_perm, aes(x=qval, y=score)) +
     geom_point() +
     theme_classic(base_size = 20) +
     ylab('methylation score') +
-    xlab ('FDR') +
-    ggtitle('permuted motifs DNMT3A2')
+    xlab ('FDR (permuted counts)') +
+    ggtitle('DNMT3A2')
 
 ggMarginal(p, type = "histogram", bins = 10, colour = 'black')
+
+```
+
+
+
+## Comparison of both strategies
+
+Comparing both permutation strategies.
+
+```{r, fig.width = 8, fig.height = 4}
+
+par(mfrow = c(3,1))
+hist(a_motif_perm$pval)
+hist(a_all_perm$pval)
+
+plot(a_motif_perm$pval, a_all_perm$pval)
 
 ```
 
@@ -294,6 +327,7 @@ head(b$score)
 
 ```
 
+## Permuting motifs
 
 Permuting motifs in tko+d3b1
 
@@ -310,6 +344,46 @@ table(b_motif_perm$pval < 0.05)
 table(b_motif_perm$qval < 0.05)
 ```
 
+
+```{r}
+DT::datatable(b_motif_perm %>% as.data.frame() %>% 
+              dplyr::mutate_if(is.numeric, funs(round(., 2))), 
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
+```
+
+```{r}
+p <- ggplot(b_motif_perm, aes(y = score, x = pval)) +
+    geom_point() +
+    theme_classic(base_size = 20) +
+    ylab('methylation score') +
+    xlab('p-value (permuted motifs)') +
+    ggtitle('DNMT3B1')
+
+ggMarginal(p, type = "histogram", bins = 10, colour = 'black')#, groupColour = TRUE)
+
+```
+
+
+```{r}
+p <- ggplot(b_motif_perm, aes(x=qval, y=score)) +
+    geom_point() +
+    theme_classic(base_size = 20) +
+    ylab('methylation score') +
+    xlab ('FDR (permuted motifs)') +
+    ggtitle('DNMT3B1')
+
+ggMarginal(p, type = "histogram", bins = 10, colour = 'black')
+
+```
+
+
+## Permuting both meth and unmeth counts
+
 Permuting meth and unmeth counts for tko+d3b1
 
 ```{r}
@@ -325,7 +399,47 @@ table(b_all_perm$pval < 0.05)
 table(b_all_perm$qval < 0.05)
 ```
 
-Comparing both permutation strategies.
+
+
+```{r}
+DT::datatable(b_all_perm %>% as.data.frame() %>% 
+              dplyr::mutate_if(is.numeric, funs(round(., 2))), 
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
+```
+
+```{r}
+p <- ggplot(b_all_perm, aes(y = score, x = pval)) +
+    geom_point() +
+    theme_classic(base_size = 20) +
+    ylab('methylation score') +
+    xlab('p-value (permuted counts)') +
+    ggtitle('DNMT3A2')
+
+ggMarginal(p, type = "histogram", bins = 10, colour = 'black')#, groupColour = TRUE)
+
+```
+
+
+```{r}
+p <- ggplot(b_all_perm, aes(x=qval, y=score)) +
+    geom_point() +
+    theme_classic(base_size = 20) +
+    ylab('methylation score') +
+    xlab ('FDR (permuted counts)') +
+    ggtitle('DNMT3A2')
+
+ggMarginal(p, type = "histogram", bins = 10, colour = 'black')
+
+```
+
+
+
+## Comparing both permutation strategies.
 
 ```{r}
 par(mfrow = c(2,2), pty = 's')
@@ -338,9 +452,7 @@ plot(b_motif_perm$pval[b_motif_perm$pval < 0.05 | b_all_perm$pval < 0.05 ],
      b_all_perm$pval[b_motif_perm$pval < 0.05 | b_all_perm$pval < 0.05 ])
 ```
 
-## Comparing DNMT3A and DNMT3B meth preferences according to the permutation outputs
-
-
+# Comparing DNMT3A and DNMT3B meth preferences according to the permutation outputs
 
 
 ```{r}
@@ -349,8 +461,8 @@ p <- ggplot(data = data.frame(pval_a = a_motif_perm$pval,
                 aes(x=pval_a, y = pval_b)) +
     geom_point() +
     theme_classic(base_size = 20) +
-    ylab('pval d3a2') +
-    xlab ('pval d3b1') + ggtitle('permuted motifs')
+    ylab('pval D3A2') +
+    xlab ('pval D3B1') + ggtitle('permuted motifs')
 
 
 ggMarginal(p, type = "histogram", bins = 10, colour = 'black')
@@ -360,35 +472,55 @@ ggMarginal(p, type = "histogram", bins = 10, colour = 'black')
 
 
 ```{r}
-par(mfrow = c(1,2), pty = 's')
-
-plot(a_motif_perm$pval, b_motif_perm$pval)
-plot(a_all_perm$qval, b_all_perm$qval)
-
-```
-
-
-
-```{r}
 p <- ggplot(data = data.frame(qval_a = a_motif_perm$qval,
                               qval_b = b_motif_perm$qval),
                 aes(x=qval_a, y = qval_b)) +
     geom_point() +
     theme_classic(base_size = 20) +
-    ylab('FDR d3a2') +
-    xlab ('FDR d3b1') +
-    ggtitle('permuted motifs')
+    ylab('FDR D3A2') +
+    xlab ('FDR D3B1') + ggtitle('permuted motifs')
 
-ggMarginal(p, type = "histogram", bins = 10, colour = 'black')#, groupColour = TRUE)
+
+ggMarginal(p, type = "histogram", bins = 10, colour = 'black')
+    
 
 ```
 
 
-# By proportion tests
+```{r}
+p <- ggplot(data = data.frame(pval_a = a_all_perm$pval,
+                              pval_b = b_all_perm$pval),
+                aes(x=pval_a, y = pval_b)) +
+    geom_point() +
+    theme_classic(base_size = 20) +
+    ylab('pval D3A2') +
+    xlab ('pval D3B1') + ggtitle('permuted counts')
 
 
-##  CG
+ggMarginal(p, type = "histogram", bins = 10, colour = 'black')
+    
 
+```
+
+
+```{r}
+p <- ggplot(data = data.frame(qval_a = a_all_perm$qval,
+                              qval_b = b_all_perm$qval),
+                aes(x=qval_a, y = qval_b)) +
+    geom_point() +
+    theme_classic(base_size = 20) +
+    ylab('FDR D3A2') +
+    xlab ('FDR D3B1') + ggtitle('permuted counts')
+
+
+ggMarginal(p, type = "histogram", bins = 10, colour = 'black')
+    
+
+```
+
+
+
+# DNMT3A vs DNMT3B by proportion tests
 
 We'll check the methylation success per motif according to the enzyme added back. We'll directly compare DNMT3A and DNMT3B.
 
@@ -416,8 +548,6 @@ prop_test_to_iterate <- function(a, b, motif) {
                 test = prop.test(x = curr$meth, n = curr$meth + curr$unmeth, correct = TRUE)))
 }
 
-## reto <-prop_test_to_iterate(a = a, b = b, motif = 'AAACGAAA')
-## prop_test_to_iterate(a = a, b = b, motif = 'AAACGAAT')
 ## prop_test_to_iterate(a = a, b = b, motif = 'AAACGCGC')
 
 ```
@@ -438,18 +568,36 @@ rownames(ptests) <- ptests$motif
 
 ptests$qval <- p.adjust(ptests$pval, method = 'BH')
 
+```
+
+Almost all proportion tests are different
+
+```{r}
 table(ptests$qval < 0.05)
 
 ```
 
+
+
 ```{r}
+DT::datatable(ptests %>% as.data.frame() %>% 
+              dplyr::mutate_if(is.numeric, funs(round(., 2))), 
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
+```
+
+```{r, fig.height = 4, fig.width = 8}
 par(mfrow = c(1,2), pty = 's')
-hist(prop.tests$pval)
-hist(prop.tests$qval)
+hist(ptests$pval)
+hist(ptests$qval)
 
 ```
 
-## Plot z-scores and plot the delta A-B as well to grasp the extent of the change.
+## Plot z-scores and plot the score difference DNMTA- DNMTB 
 
 
 
@@ -482,19 +630,22 @@ zscore_from_pval <- function (pval, direction = NULL, tails = 1, limit = .Machin
 
 
 ```{r, eval = TRUE}
-prop.tests$delta <- a[rownames(prop.tests), 'score'] - b[rownames(prop.tests), 'score']
-prop.tests$ascore <-  a[rownames(prop.tests), 'score']
-prop.tests$bscore <- b[rownames(prop.tests), 'score']
-prop.tests$zscore <- zscore_from_pval(prop.tests$pval, direction = prop.tests$delta, tails = 2)
+ptests$delta <- a[rownames(ptests), 'score'] - b[rownames(ptests), 'score']
+ptests$score_dnmt3a <-  a[rownames(ptests), 'score']
+ptests$score_in_dnmt3b <- b[rownames(ptests), 'score']
+ptests$zscore <- zscore_from_pval(ptests$pval, direction = ptests$delta, tails = 2)
 
-summary(prop.tests)
+summary(ptests)
 
-## plot(prop.tests)
-par(mfrow = c(2,2), pty = 's')
+```
 
-plot(prop.tests$delta, prop.tests$zscore, pch = 19)
-plot(prop.tests$ascore, prop.tests$zscore, pch = 19)
-plot(prop.tests$bscore, prop.tests$zscore, pch = 19)
+```{r, fig.width = 8, fig.height = 8}
+## plot(ptests)
+par(mfrow = c(3,1), pty = 's')
+
+plot(ptests$delta, ptests$zscore, pch = 19)
+plot(ptests$score_dnmt3a, ptests$zscore, pch = 19)
+plot(ptests$score_in_dnmt3b, ptests$zscore, pch = 19)
 
 ```
 
@@ -502,15 +653,19 @@ Sort the motifs by their zscore and then the delta of the scores, and plot the t
 
 
 ```{r}
-prop.tests <- prop.tests[order(abs(prop.tests$zscore), prop.tests$delta,
+ptests <- ptests[order(abs(ptests$zscore), ptests$delta,
                                decreasing = TRUE),]
-prop.tests$zscore_rank <- 1:nrow(prop.tests)
+ptests$zscore_rank <- 1:nrow(ptests)
+```
+
+
+```{r, fig.width = 8, fig.weight = 8}
 
 par(mfrow = c(2,2), pty = 's')
-plot(y = abs(prop.tests$zscore), x = prop.tests$zscore_rank)
-plot(y = abs(prop.tests$delta), x = prop.tests$zscore_rank)
-plot(y = abs(prop.tests$bscore), x = prop.tests$zscore_rank)
-plot(y = abs(prop.tests$ascore), x = prop.tests$zscore_rank)
+plot(y = abs(ptests$zscore), x = ptests$zscore_rank)
+plot(y = abs(ptests$delta), x = ptests$zscore_rank)
+plot(y = abs(ptests$score_in_dnmt3b), x = ptests$zscore_rank)
+plot(y = abs(ptests$score_dnmt3a), x = ptests$zscore_rank)
 
 ```
 
