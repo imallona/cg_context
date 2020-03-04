@@ -37,7 +37,7 @@ library(dplyr)
 ```{r}
 opts_chunk$set(fig.width = 5,
                fig.height = 5,
-               dpi = 300,
+               dpi = 200,
                cache = TRUE,
                include = TRUE,
                cache.lazy = FALSE,
@@ -55,7 +55,7 @@ options(bitmapType="cairo")
 ```
 
 ```{r}
-NUM_PERM = 1000
+NUM_PERM = 10000
 NTHREADS <- 20
 
 ```
@@ -748,13 +748,43 @@ ptests$zscore_rank <- 1:nrow(ptests)
 ```
 
 
-```{r, fig.width = 14, fig.weight = 14}
+```{r}
 
-par(mfrow = c(2,2), pty = 's')
-plot(y = abs(ptests$zscore), x = ptests$zscore_rank)
-plot(y = abs(ptests$delta), x = ptests$zscore_rank)
-plot(y = abs(ptests$score_dnmt3b), x = ptests$zscore_rank)
-plot(y = abs(ptests$score_dnmt3a), x = ptests$zscore_rank)
+p <- ggplot(ptests, aes(y = zscore, x = zscore_rank)) +
+    geom_point() +
+    theme_classic(base_size = 20)
+
+ggMarginal(p, type = "histogram", bins = 10, colour = 'black')
+```
+
+
+
+```{r}
+p <- ggplot(ptests, aes(y = delta, x = zscore_rank)) +
+    geom_point() +
+    theme_classic(base_size = 20)
+
+ggMarginal(p, type = "histogram", bins = 10, colour = 'black')
+
+```
+
+```{r}
+p <- ggplot(ptests, aes(y = score_dnmt3a, x = zscore_rank)) +
+    geom_point() +
+    theme_classic(base_size = 20)
+
+ggMarginal(p, type = "histogram", bins = 10, colour = 'black')
+    
+```
+
+
+```{r}
+
+p <- ggplot(ptests, aes(y = score_dnmt3b, x = zscore_rank)) +
+    geom_point() +
+    theme_classic(base_size = 20)
+
+ggMarginal(p, type = "histogram", bins = 10, colour = 'black')
 
 ```
 
