@@ -174,9 +174,10 @@ run_permutation_test <- function(fd, permutation_type, numperm = 1000, adjust.FD
     fd$pval <- NA
     fd$qval <- NA ## Benjamini Hochberg corrected p-val
 
-    cl <- makeCluster(nthreads, outfile = sprintf('%s_%s',
-                                                  format(Sys.time(), "%a_%b_%d_%Hh_%Mmin"),
-                                                  'log_run_permutation_test.txt'))
+    cl <- makeCluster(nthreads, nthreads = nthreads,
+                      outfile = sprintf('%s_%s',
+                                        format(Sys.time(), "%a_%b_%d_%Hh_%Mmin"),
+                                        'log_run_permutation_test.txt'))
 
     doParallel::registerDoParallel(cl)
     
