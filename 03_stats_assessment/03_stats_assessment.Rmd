@@ -31,6 +31,7 @@ library(ggExtra)
 library(DT)
 library(doParallel)
 library(dplyr)
+library(EnsCat)
 
 ```
 
@@ -56,7 +57,7 @@ options(bitmapType="cairo")
 
 ```{r}
 NUM_PERM = 10000
-NTHREADS <- 20
+NTHREADS <- 50
 
 ```
 
@@ -79,7 +80,7 @@ To check whether the proportion of methylated sites versus the unmethylated site
 We do this in two ways.
 
 - (permute motifs strategy) First, permuting the motifs a certain number of times.
-- (permute 2d strategy) Or permuting both the methylated and the unmethylated counts a certain number of times.
+- (permute 2d strategy) (Indepently) permute both the methylated and the unmethylated counts a certain number of times.
 
 The first approach is the soundest to detect motifs that deviate from the observations.
 
@@ -88,48 +89,61 @@ The first approach is the soundest to detect motifs that deviate from the observ
 ```{r, d3acg}
 
 ## keeping_meth_and_unmeth_blocks
-permute_motifs <- function(fd, n = 1000, nthreads = 2) {
+permute_motifs <- function(fd, numperm = 1000, nthreads = 2) {
 
     res <- list()
 
     cl <- makeCluster(nthreads)
 
-    foreach(i = 1:n) %do% {
+    res <- foreach(i = 1:numperm) %dopar% {
         idx <- sample(x = rownames(fd), size = nrow(fd), replace = FALSE)
-        res[[i]] <- data.frame(motif = fd$motif,
+        tmp  <- data.frame(motif = fd$motif,
                                meth = fd[idx, 'meth'],
                                unmeth = fd[idx, 'unmeth'])
 
-        rownames(res[[i]]) <- res[[i]]$motif
+        rownames(tmp) <- tmp$motif
 
-        res[[i]]$score <- res[[i]]$meth / (res[[i]]$meth  + res[[i]]$unmeth)
+        ## tmp$score <-
+        data.frame(motif = tmp$motif,
+                   meth = tmp$meth,
+                   unmeth = tmp$unmeth,                   
+                   score = tmp$meth / (tmp$meth  + tmp$unmeth))
+        
+ 
     }
 
     stopCluster(cl)
+    rm(cl)
     
     return(res)
 }
 
 
-permute_2d <- function(fd, n = 1000, nthreads = 2) {
+permute_2d <- function(fd, numperm = 1000, nthreads = 2) {
 
-    res <- list()
+    ## res <- list()
 
-    cl <- makeCluster(nthreads)
+    cl <- makeCluster(nthreads = nthreads)
     
-    foreach(i = 1:n) %do% {
+    res <- foreach(i = 1:numperm) %dopar% {
         idx <- sample(x = rownames(fd), size = nrow(fd), replace = FALSE)
         idx2 <- sample(x = rownames(fd), size = nrow(fd), replace = FALSE)
-        res[[i]] <- data.frame(motif = fd$motif,
+        tmp <- data.frame(motif = fd$motif,
                                meth = fd[idx, 'meth'],
                                unmeth = fd[idx2, 'unmeth'])
 
-        rownames(res[[i]]) <- res[[i]]$motif
+        rownames(tmp) <- tmp$motif
 
-        res[[i]]$score <- res[[i]]$meth / (res[[i]]$meth  + res[[i]]$unmeth)
+        ## tmp$score <-
+        ## tmp$meth / (tmp$meth  + tmp$unmeth)
+        data.frame(motif = tmp$motif,
+                   meth = tmp$meth,
+                   unmeth = tmp$unmeth,                   
+                   score = tmp$meth / (tmp$meth  + tmp$unmeth))
     }
 
     stopCluster(cl)
+    rm(cl)
     
     return(res)
 }
@@ -137,13 +151,13 @@ permute_2d <- function(fd, n = 1000, nthreads = 2) {
 ## note that permutation p-values should never be 0;
 ## we add `1` to the one-tailed test to include the observation on top to the
 ##   number of permutations
-run_permutation_test <- function(fd, permutation_type, n = 1000, adjust.FDR = TRUE,
+run_permutation_test <- function(fd, permutation_type, numperm = 1000, adjust.FDR = TRUE,
                                  nthreads = 2) {
     if (permutation_type == 'motifs') {
-        res <- permute_motifs(fd = fd, n = n, nthreads = nthreads)
+        res <- permute_motifs(fd = fd, numperm = numperm, nthreads = nthreads)
     }
     else if (permutation_type == '2d') {
-        res <- permute_2d(fd, n = n, nthreads = nthreads)
+        res <- permute_2d(fd, numperm = numperm, nthreads = nthreads)
     }
     else {
         stop('wrong permutation type')
@@ -154,22 +168,38 @@ run_permutation_test <- function(fd, permutation_type, n = 1000, adjust.FDR = TR
 
     cl <- makeCluster(nthreads)
     
-    foreach (i = 1:nrow(fd)) %do% {
-        motif <- rownames(fd)[i]
-        fd[motif, 'pval'] <- (sum(
-            sapply(res,
-                   function(x) fd[motif,]$score < x[motif,]$score)) + 1) / (n + 1)
-        if(fd[motif, 'pval'] > 1) stop()
+    ## foreach (i = 1:nrow(fd)) %dopar% {
+    ##     motif <- rownames(fd)[i]
+    ##     fd[motif, 'pval'] <- (sum(
+    ##         sapply(res,
+    ##                function(x) fd[motif,]$score < x[motif,]$score)) + 1) / (numperm)
+    ##      ## because the + 1 added above not to have 0 p-values
+    ##     if(fd[motif, 'pval'] > 1) fd[motif, 'pval'] <- 1
        
+    ## }
+
+    foo <- foreach(i = 1:nrow(fd))  %dopar% {
+        motif <- rownames(fd)[i]
+        tmp = data.frame (pval = (sum(
+            sapply(res,
+                   function(x) fd[motif,]$score < x[motif,]$score)) + 1) / (numperm),
+            motif = motif)
+        tmp
+
     }
 
+    fd$pval <- sapply(foo, function(x) return (x$pval))
+    fd$pval[fd$pval > 1] <- 1
+    
     stopCluster(cl)
+    rm(cl)
 
     if (adjust.FDR) {
         fd$qval <- p.adjust(fd$pval, method = 'BH')
     }
 
-    return(fd)     
+    return(fd)
+      
 }
 
 
@@ -193,7 +223,7 @@ rownames(a) <- a$motif
 a$score <- a$meth / (a$meth + a$unmeth)
 
 a_motif_perm <- run_permutation_test(fd = a,
-                                     n = NUM_PERM,
+                                     numperm = NUM_PERM,
                                      permutation_type = 'motifs',
                                      adjust.FDR = TRUE,
                                      nthreads = NTHREADS)
@@ -261,7 +291,7 @@ Permuting meth and unmeth counts in DNMT D3A2 instead of motifs.
 ```{r}
 
 a_all_perm <- run_permutation_test(fd = a,
-                                   n = NUM_PERM,
+                                   numperm = NUM_PERM,
                                    permutation_type = '2d',
                                    adjust.FDR = TRUE,
                                    nthreads = NTHREADS)
@@ -357,7 +387,7 @@ Permuting motifs in tko+d3b1
 
 ```{r}
 b_motif_perm <- run_permutation_test(fd = b,
-                                     n = NUM_PERM,
+                                     numperm = NUM_PERM,
                                      permutation_type = 'motifs',
                                      adjust.FDR = TRUE,
                                      nthreads = NTHREADS)
@@ -422,7 +452,7 @@ Permuting meth and unmeth counts for tko+d3b1
 ```{r}
 
 b_all_perm <- run_permutation_test(fd = b,
-                                   n = NUM_PERM,
+                                   numperm = NUM_PERM,
                                    permutation_type = '2d',
                                    adjust.FDR = TRUE,
                                    nthreads = NTHREADS)
@@ -808,12 +838,12 @@ summarized <- data.frame(motif = ptests$motif,
                          meth_dnmt3a = a_motif_perm$meth,
                          unmeth_dnmt3a = a_motif_perm$unmeth,
                          pval_permut_motifs_dnmt3a =  a_motif_perm$pval,
-                         pval_permut_motifs_dnmt3a =  a_motif_perm$qval,
+                         qval_permut_motifs_dnmt3a =  a_motif_perm$qval,
                          score_dnmt3b = ptests$score_dnmt3b,
                          meth_dnmt3b = b_motif_perm$meth,
                          unmeth_dnmt3b = b_motif_perm$unmeth,
                          pval_permut_motifs_dnmt3b =  b_motif_perm$pval,
-                         pval_permut_motifs_dnmt3b =  b_motif_perm$qval)
+                         qval_permut_motifs_dnmt3b =  b_motif_perm$qval)
                          
                          
 
@@ -828,6 +858,318 @@ DT::datatable(summarized %>% as.data.frame() %>%
                              buttons = c("csv", "excel")))
 ```
 
+# Clustering-based
+
+
+```{r testsclust, eval = FALSE}
+## ## Levenshtein distance ??
+## library(stringdist)
+## ## library(seq_dist)
+## ## if (!requireNamespace("BiocManager", quietly = TRUE))
+## ##     install.packages("BiocManager")
+
+## ## BiocManager::install("DECIPHER")
+
+## library(DECIPHER)
+
+
+## m <- matrix(0,8,8) # only the lower triangle is used
+## m[2:8,1] <- c(7, 8, 11, 13, 16, 13, 17)
+## m[3:8,2] <- c(5, 8, 10, 13, 10, 14)
+## m[4:8,3] <- c(5, 7, 10, 7, 11)
+## m[5:8,4] <- c(8, 11, 8, 12)
+## m[6:8,5] <- c(5, 6, 10)
+## m[7:8,6] <- c(9, 13)
+## m[8,7] <- c(8)
+
+## m
+## # returns an object of class "dendrogram"
+## tree <- IdClusters(m, cutoff=10, method="NJ", showPlot=TRUE, type="dendrogram")
+
+## # example of specifying multiple cutoffs
+## clusters <- IdClusters(m, type="clusters", cutoff=c(2,6,10,20)) # returns a data frame
+## head(clusters)
+
+
+
+
+## a <- lapply(c("foo","bar","baz"),utf8ToInt)
+## seq_distmatrix(a)
+
+
+## hd <- hammingD(as.character(a$motif))
+
+## REDIST<-as.dist(dis0)
+## Run a hierarchical clustering using average linkage
+## hc0 <- hclust(REDIST,method = "average")
+## plot the dendrogram
+## plot(hc0,label=xlab1,hang =-1)
+```
+
+Build a tree based in adist, regardless of the nucleotide position
+
+```{r}
+
+a_dist <- as.data.frame(adist(a_motif_perm$motif, a_motif_perm$motif, counts = TRUE))
+colnames(a_dist) <- a_motif_perm$motif
+rownames(a_dist) <- a_motif_perm$motif
+
+a_dist[1:10, 1:10]
+
+a_hc <- hclust(d = as.dist(a_dist), method = 'ward.D')
+
+## getting a direction of the pvalue using scores above or below the average
+a_motif_perm$direction <- ifelse(a_motif_perm$score >= mean(a_motif_perm$score),
+                                 yes = +1,
+                                 no = -1)
+
+table(a_motif_perm$direction)
+
+```
+
+treeclimbeR
+
+```{r, eval = TRUE}
+## BiocManager::install(c("TreeSummarizedExperiment", "edgeR", "dirmult", "ggtree", "diffcyt"))
+
+
+## ## devtools::install_git("/home/imallona/src/treeclimbeR/")
+
+## install.packages('/home/imallona/src/treeclimbR/', repos = NULL, type="source")
+
+
+library(ggplot2)
+library(ggtree)
+library(dplyr)
+library(treeclimbR)  
+library(ape)
+library(diffcyt)
+
+## devtools::install_github('fionarhuang/TreeSummarizedExperiment', ref = 'master')
+library(TreeSummarizedExperiment, lib.loc = '/home/imallona/R/x86_64-pc-linux-gnu-library/3.6')
+
+## inputs for treeclimbR are a tree (phylo class) + outW (a data frame)
+a_phylo <- as.phylo(a_hc)
+
+## row_tse <- TreeSummarizedExperiment(assays = list(a_motif_perm),
+##                                 rowData = NULL,
+##                                 colData = NULL,
+##                                 rowTree = lse,
+##                                 rowNodeLab = a_motif_perm$motif)
+
+```
+
+```{r}
+## a summarized experiment
+
+assay_data <- data.frame(score_dnmt3a = summarized$score_dnmt3a,
+                         score_dnmt3b = summarized$score_dnmt3b)
+
+rownames(assay_data) <- summarized$motif
+
+row_data <- DataFrame(motif = a_motif_perm$motif,
+                      row.names = rownames(assay_data))
+
+# column data
+col_data <- DataFrame(group = c('dnmt3a', 'dnm3b'),
+                      measurement = 'methylation_score',
+                      row.names = colnames(assay_data))
+
+tse <- TreeSummarizedExperiment(assays = list(assay_data),
+                                rowData = row_data,
+                                colData = col_data,
+                                rowTree = a_phylo,
+                                rowNodeLab = as.character(summarized$motif))
+
+```
+
+Aggregate
+
+```{r}
+all_node <- showNode(tree = rowTree(tse), only.leaf = FALSE)
+tse <- aggValue(x = tse, rowLevel = all_node)
+
+```
+
+Wilcox test
+
+
+```{r}
+# wilcox.test
+test.func <- function (X, Y) {  
+    Y <- as.numeric(factor(Y))
+    obj <- apply(X, 1, function(x) {                
+        p.value <- suppressWarnings(wilcox.test(x ~ Y)$p.value)
+        e.sign <- sign(mean(x[Y == 2]) - mean(x[Y == 1]))
+        c(p.value, e.sign)          
+    })
+    return(list(p.value=obj[1, ], e.sign=obj[2, ])) 
+}
+Y <- colData(tse)$group
+X <- assays(tse)[[1]]
+resW <- test.func(X,Y)
+
+```
+
+```{r}
+
+## outW <- data.frame(node = a_motif_perm$motif,
+##                    pvalue = a_motif_perm$pval,
+##                    sign = a_motif_perm$direction)
+
+## outW <- data.frame(node = rowLinks(tse)$nodeNum,
+##                    pvalue = resW$p.value,
+##                    sign = resW$e.sign)
+                   
+
+
+## cand <- getCand(tree = a_phylo, score_data = outW, 
+##                 node_column = "node", p_column = "pvalue",
+##                 sign_column = "sign", message = TRUE)
+
+## best <- evalCand(tree = a_phylo, levels = cand$candidate_list, 
+##                  score_data = outW,
+##                  node_column = "node",
+##                  sign_column = "sign",
+##                  p_column = "pvalue")
+
+## outW <- data.frame(node = rowLinks(tse)$nodeNum,
+##                    pvalue = resW$p.value,
+##                    sign = resW$e.sign)
+
+
+outW <- data.frame(node = rowLinks(tse)$nodeNum,
+                   pvalue = resW$p.value,
+                   sign = resW$e.sign)
+
+cand <- getCand(tree = rowTree(tse), score_data = outW, 
+                node_column = "node", p_column = "pvalue",
+                sign_column = "sign", message = TRUE)
+
+# evaluate candidates
+best <- evalCand(tree = rowTree(tse), levels = cand$candidate_list, 
+                 score_data = outW, node_column = "node",
+                 p_column = "pvalue", sign_column = "sign")
+best$level_info
+
+# the detected nodes
+loc <- best$output[best$output$signal.node, ][["node"]]
+loc
+
+```
+let's try differently
+
+```{r continuethisway, eval = FALSE}
+
+
+assay_data2 <- data.frame(score= a_motif_perm$score,
+                          meth = a_motif_perm$meth,
+                          unmeth = a_motif_perm$unmeth)
+
+rownames(assay_data2) <- summarized$motif
+
+row_data2 <- DataFrame(motif = a_motif_perm$motif,
+                       row.names = rownames(assay_data2))
+
+col_data2 <-  DataFrame(group = rep('dnmt3a', 3),
+                        measurement = c('score', 'meth', 'unmeth'),
+                        row.names = colnames(assay_data2))
+
+tse2 <- TreeSummarizedExperiment(assays = list(assay_data2),
+                                 rowData = row_data2,
+                                 colData = col_data2,
+                                 rowTree = a_phylo,
+                                 rowNodeLab = as.character(summarized$motif))
+
+all_node2 <- showNode(tree = rowTree(tse2), only.leaf = FALSE)
+tse2 <- aggValue(x = tse2, rowLevel = all_node, FUN = 'sum')
+
+
+## permute here!!
+
+cl <- makeCluster(NTHREADS)
+registerDoParallel(cl)
+
+fd <- data.frame(motif = rownames(as.data.frame(assays(tse2)[[1]])),
+                 score = as.data.frame(assays(tse2)[[1]])$score,
+                 meth = as.data.frame(assays(tse2)[[1]])$meth,
+                 unmeth = as.data.frame(assays(tse2)[[1]])$unmeth)
+
+# res <- permute_motifs(fd = fd, n = 100, nthreads = NTHREADS, cl = cl)
+
+res <- list()
+numperm <- 10000
+
+## cl <- makeCluster(nthreads)
+
+res <- foreach(i = 1:numperm) %dopar% {
+    idx <- sample(x = rownames(fd), size = nrow(fd), replace = FALSE)
+    res[[i]] <- data.frame(motif = fd$motif,
+                           meth = fd[idx, 'meth'],
+                           unmeth = fd[idx, 'unmeth'])
+
+    rownames(res[[i]]) <- res[[i]]$motif
+
+    data.frame(motif = res[[i]]$motif,
+                   meth = res[[i]]$meth,
+                   unmeth = res[[i]]$unmeth,                   
+                   score = res[[i]]$meth / (res[[i]]$meth  + res[[i]]$unmeth))
+}
+
+stopCluster(cl)
+rm(cl)
+
+```
+
+```{r}
+fd$pval <- NA
+fd$qval <- NA ## Benjamini Hochberg corrected p-val
+
+foo <- NULL
+
+cl <- makeCluster(NTHREADS)
+registerDoParallel(cl)
+
+foo <- foreach(i = 1:nrow(fd))  %dopar% {
+    motif <- rownames(fd)[i]
+    tmp = data.frame (pval = (sum(
+            sapply(res,
+                   function(x) fd[motif,]$score < x[motif,]$score)) + 1) / (numperm),
+            motif = motif)
+    tmp
+
+}
+
+stopCluster(cl)
+rm(cl)
+
+
+## stopCluster(cl) ### UNCOMMENT! ------------------------------- 
+
+## sign as being over or above the average for that sample
+resP2 <- list(motif = sapply(foo, function(x) return(x$motif)),
+              p.value = sapply(foo, function(x) return(x$pval)),
+              e.sign = ifelse(as.data.frame(assays(tse2)[[1]])$score >= mean(a_motif_perm$score),
+                              yes = +1,
+                              no = -1))
+
+outW2 <- data.frame(node = rowLinks(tse2)$nodeNum,
+                   pvalue = resP2$p.value,
+                   sign = resP2$e.sign)
+
+cand2 <- getCand(tree = rowTree(tse2), score_data = outW2, 
+                node_column = "node", p_column = "pvalue",
+                sign_column = "sign", message = TRUE)
+
+# evaluate candidates
+best2 <- evalCand(tree = rowTree(tse2), levels = cand2$candidate_list, 
+                 score_data = outW2, node_column = "node",
+                 p_column = "pvalue", sign_column = "sign")
+best2$level_info
+
+best2$output[best2$output$signal.node, ][["node"]]
+
+```
 
 # Timestamp
 
