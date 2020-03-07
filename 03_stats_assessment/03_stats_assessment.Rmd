@@ -57,7 +57,7 @@ options(bitmapType="cairo")
 
 ```{r}
 NUM_PERM = 10000
-NTHREADS <- 30
+NTHREADS <- 80
 
 ```
 
@@ -106,10 +106,14 @@ permute_motifs <- function(fd, numperm = 1000, nthreads = 2) {
         rownames(tmp) <- tmp$motif
 
         ## tmp$score <-
-        data.frame(motif = tmp$motif,
+        tmp <- data.frame(motif = as.character(tmp$motif),
                    meth = tmp$meth,
                    unmeth = tmp$unmeth,                   
-                   score = tmp$meth / (tmp$meth  + tmp$unmeth))
+                   score = tmp$meth / (tmp$meth  + tmp$unmeth),
+		   stringsAsFactors = FALSE)
+          rownames(tmp) <- tmp$motif
+	tmp
+
         
  
     }
@@ -136,14 +140,17 @@ registerDoParallel(cl)
                                meth = fd[idx, 'meth'],
                                unmeth = fd[idx2, 'unmeth'])
 
-        rownames(tmp) <- tmp$motif
 
         ## tmp$score <-
         ## tmp$meth / (tmp$meth  + tmp$unmeth)
-        data.frame(motif = tmp$motif,
+	tmp <- data.frame(motif = tmp$motif,
                    meth = tmp$meth,
                    unmeth = tmp$unmeth,                   
-                   score = tmp$meth / (tmp$meth  + tmp$unmeth))
+                   score = tmp$meth / (tmp$meth  + tmp$unmeth),
+		   stringsAsFactors = FALSE)
+        rownames(tmp) <- tmp$motif
+	tmp
+
     }
 
     stopCluster(cl)
@@ -173,7 +180,8 @@ run_permutation_test <- function(fd, permutation_type, numperm = 1000, adjust.FD
     cl <- makeCluster(nthreads)
    
     doParallel::registerDoParallel(cl)
-    
+
+    save(res, file = 'res.RData')
     ## foreach (i = 1:nrow(fd)) %dopar% {
     ##     motif <- rownames(fd)[i]
     ##     fd[motif, 'pval'] <- (sum(
@@ -186,13 +194,15 @@ run_permutation_test <- function(fd, permutation_type, numperm = 1000, adjust.FD
 
     foo <- foreach(i = 1:nrow(fd))  %dopar% {
         motif <- rownames(fd)[i]
-        tmp = data.frame (pval = (sum(
+        tmp <- data.frame (pval = (sum(
             sapply(res,
                    function(x) fd[motif,]$score < x[motif,]$score)) + 1) / (numperm),
             motif = motif)
         tmp
 
     }
+
+    save(foo, file = 'foo.Rdata')
 
     fd$pval <- sapply(foo, function(x) return (x$pval))
     fd$pval[fd$pval > 1] <- 1
