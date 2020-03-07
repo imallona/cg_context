@@ -57,7 +57,7 @@ options(bitmapType="cairo")
 
 ```{r}
 NUM_PERM = 10000
-NTHREADS <- 20
+NTHREADS <- 30
 
 ```
 
@@ -86,18 +86,16 @@ The first approach is the soundest to detect motifs that deviate from the observ
 
 <details><summary>Expand the permutation test implementation</summary>
 
-```{r, d3acg}
+```{r, d3acg, cache = FALSE}
 
 ## keeping_meth_and_unmeth_blocks
 permute_motifs <- function(fd, numperm = 1000, nthreads = 2) {
 
     res <- list()
 
-    cl <- parallel::makeCluster(nthreads,
-                      outfile = sprintf('%s_%s',
-                                        format(Sys.time(), "%a_%b_%d_%Hh_%Mmin"),
-                                        'log_permute_motifs.txt'))
-    doParallel::registerDoParallel(cl)
+    cl <- makeCluster(nthreads) #,
+
+    registerDoParallel(cl)
 
     res <- foreach(i = 1:numperm) %dopar% {
         idx <- sample(x = rownames(fd), size = nrow(fd), replace = FALSE)
@@ -127,11 +125,9 @@ permute_2d <- function(fd, numperm = 1000, nthreads = 2) {
 
     ## res <- list()
 
-    cl <- makeCluster(nthreads = nthreads,
-                      outfile = sprintf('%s_%s',
-                                        format(Sys.time(), "%a_%b_%d_%Hh_%Mmin"),
-                                        'log_permute2d.txt'))
-    doParallel::registerDoParallel(cl)
+    cl <- makeCluster(nthreads) #,
+
+registerDoParallel(cl)
     
     res <- foreach(i = 1:numperm) %dopar% {
         idx <- sample(x = rownames(fd), size = nrow(fd), replace = FALSE)
@@ -174,11 +170,8 @@ run_permutation_test <- function(fd, permutation_type, numperm = 1000, adjust.FD
     fd$pval <- NA
     fd$qval <- NA ## Benjamini Hochberg corrected p-val
 
-    cl <- makeCluster(nthreads, nthreads = nthreads,
-                      outfile = sprintf('%s_%s',
-                                        format(Sys.time(), "%a_%b_%d_%Hh_%Mmin"),
-                                        'log_run_permutation_test.txt'))
-
+    cl <- makeCluster(nthreads)
+   
     doParallel::registerDoParallel(cl)
     
     ## foreach (i = 1:nrow(fd)) %dopar% {
