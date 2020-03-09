@@ -32,6 +32,15 @@ library(DT)
 library(doParallel)
 library(dplyr)
 library(EnsCat)
+library(ggtree)
+library(dplyr)
+library(treeclimbR)  
+library(ape)
+library(diffcyt)
+library(ggnewscale)
+library(treeio)
+## devtools::install_github('fionarhuang/TreeSummarizedExperiment', ref = 'master')
+library(TreeSummarizedExperiment, lib.loc = '/home/imallona/R/x86_64-pc-linux-gnu-library/3.6')
 
 ```
 
@@ -57,7 +66,7 @@ options(bitmapType="cairo")
 
 ```{r}
 NUM_PERM = 10000
-NTHREADS <- 30
+NTHREADS <- 40
 
 ```
 
@@ -89,7 +98,7 @@ The first approach is the soundest to detect motifs that deviate from the observ
 ```{r, d3acg, cache = FALSE}
 
 ## keeping_meth_and_unmeth_blocks
-permute_motifs <- function(fd, numperm = 1000, nthreads = 2) {
+permute_motifs <- function(fd, numperm = 1000, nthreads = NTHREADS) {
 
     res <- list()
 
@@ -125,7 +134,7 @@ permute_motifs <- function(fd, numperm = 1000, nthreads = 2) {
 }
 
 
-permute_2d <- function(fd, numperm = 1000, nthreads = 2) {
+permute_2d <- function(fd, numperm = 1000, nthreads = NTHREADS) {
 
     ## res <- list()
 
@@ -163,7 +172,7 @@ registerDoParallel(cl)
 ## we add `1` to the one-tailed test to include the observation on top to the
 ##   number of permutations
 run_permutation_test <- function(fd, permutation_type, numperm = 1000, adjust.FDR = TRUE,
-                                 nthreads = 2) {
+                                 nthreads = NTHREADS) {
     if (permutation_type == 'motifs') {
         res <- permute_motifs(fd = fd, numperm = numperm, nthreads = nthreads)
     }
@@ -944,214 +953,84 @@ table(a_motif_perm$direction)
 
 ```
 
-treeclimbeR
+## treeclimbeR
 
 ```{r, eval = TRUE}
-## BiocManager::install(c("TreeSummarizedExperiment", "edgeR", "dirmult", "ggtree", "diffcyt"))
-
-
-## ## devtools::install_git("/home/imallona/src/treeclimbeR/")
-
-## install.packages('/home/imallona/src/treeclimbR/', repos = NULL, type="source")
-
-
-library(ggplot2)
-library(ggtree)
-library(dplyr)
-library(treeclimbR)  
-library(ape)
-library(diffcyt)
-library(ggnewscale)
-library(treeio)
-
-## devtools::install_github('fionarhuang/TreeSummarizedExperiment', ref = 'master')
-library(TreeSummarizedExperiment, lib.loc = '/home/imallona/R/x86_64-pc-linux-gnu-library/3.6')
-
-## inputs for treeclimbR are a tree (phylo class) + outW (a data frame)
 a_phylo <- as.phylo(a_hc)
 
-## row_tse <- TreeSummarizedExperiment(assays = list(a_motif_perm),
-##                                 rowData = NULL,
-##                                 colData = NULL,
-##                                 rowTree = lse,
-##                                 rowNodeLab = a_motif_perm$motif)
+```
+
+## DNMT3A
+
+```{r dnmt3a_tree, eval = TRUE}
+
+assay_data_dnmt3a <- data.frame(score= a_motif_perm$score,
+                                meth = a_motif_perm$meth,
+                                unmeth = a_motif_perm$unmeth)
+
+rownames(assay_data_dnmt3a) <- a_motif_perm$motif
+
+row_data_dnmt3a <- DataFrame(motif = a_motif_perm$motif,
+                             row.names = rownames(assay_data_dnmt3a))
+
+col_data_dnmt3a <-  DataFrame(group = rep('dnmt3a', 3),
+                              measurement = c('score', 'meth', 'unmeth'),
+                              row.names = colnames(assay_data_dnmt3a))
+
+tse_dnmt3a <- TreeSummarizedExperiment(assays = list(assay_data_dnmt3a),
+                                       rowData = row_data_dnmt3a,
+                                       colData = col_data_dnmt3a,
+                                       rowTree = a_phylo,
+                                       rowNodeLab = as.character(summarized$motif))
+
+all_node_dnmt3a <- showNode(tree = rowTree(tse_dnmt3a), only.leaf = FALSE)
+tse_dnmt3a <- aggValue(x = tse_dnmt3a, rowLevel = all_node_dnmt3a, FUN = 'sum')
+
+fd_dnmt3a <- data.frame(motif = rownames(as.data.frame(assays(tse_dnmt3a)[[1]])),
+                        score = as.data.frame(assays(tse_dnmt3a)[[1]])$score,
+                        meth = as.data.frame(assays(tse_dnmt3a)[[1]])$meth,
+                        unmeth = as.data.frame(assays(tse_dnmt3a)[[1]])$unmeth)
+
+fd_dnmt3a <- run_permutation_test(fd = fd_dnmt3a,
+                                  numperm = NUM_PERM,
+                                  permutation_type = 'motifs',
+                                  adjust.FDR = TRUE)
+
 
 ```
 
 ```{r}
-## a summarized experiment
+## sign as being over or above the median for that sample
 
-assay_data <- data.frame(score_dnmt3a = summarized$score_dnmt3a,
-                         score_dnmt3b = summarized$score_dnmt3b)
+resP_dnmt3a <- list(node = fd$motif,
+                    p.value = fd$pval,
+                    e.sign = ifelse(as.data.frame(
+                        assays(tse_dnmt3a)[[1]])$score >= median(a_motif_perm$score),
+                        yes = +1,
+                        no = -1))
 
-rownames(assay_data) <- summarized$motif
+outW_dnmt3a <- data.frame(node = rowLinks(tse_dnmt3a)$nodeNum,
+                          pvalue = resP_dnmt3a$p.value,
+                          sign = resP_dnmt3a$e.sign)
 
-row_data <- DataFrame(motif = a_motif_perm$motif,
-                      row.names = rownames(assay_data))
+cand_dnmt3a <- getCand(tree = rowTree(tse_dnmt3a), score_data = outW_dnmt3a, 
+                       node_column = "node", p_column = "pvalue",
+                       sign_column = "sign", message = TRUE)
 
-# column data
-col_data <- DataFrame(group = c('dnmt3a', 'dnm3b'),
-                      measurement = 'methylation_score',
-                      row.names = colnames(assay_data))
+                                        # evaluate candidates
+best_dnmt3a <- evalCand(tree = rowTree(tse_dnmt3a), levels = cand_dnmt3a$candidate_list, 
+                        score_data = outW_dnmt3a, node_column = "node",
+                        p_column = "pvalue", sign_column = "sign")
+best_dnmt3a$level_info
 
-tse <- TreeSummarizedExperiment(assays = list(assay_data),
-                                rowData = row_data,
-                                colData = col_data,
-                                rowTree = a_phylo,
-                                rowNodeLab = as.character(summarized$motif))
+loc_dnmt3a <- best_dnmt3a$output[best_dnmt3a$output$signal.node, ][["node"]]
 
-```
-
-Aggregate
-
-```{r}
-all_node <- showNode(tree = rowTree(tse), only.leaf = FALSE)
-tse <- aggValue(x = tse, rowLevel = all_node)
-
-```
-
-Wilcox test
-
-
-```{r}
-# wilcox.test
-test.func <- function (X, Y) {  
-    Y <- as.numeric(factor(Y))
-    obj <- apply(X, 1, function(x) {                
-        p.value <- suppressWarnings(wilcox.test(x ~ Y)$p.value)
-        e.sign <- sign(mean(x[Y == 2]) - mean(x[Y == 1]))
-        c(p.value, e.sign)          
-    })
-    return(list(p.value=obj[1, ], e.sign=obj[2, ])) 
-}
-Y <- colData(tse)$group
-X <- assays(tse)[[1]]
-resW <- test.func(X,Y)
 
 ```
 
 ```{r}
 
-## outW <- data.frame(node = a_motif_perm$motif,
-##                    pvalue = a_motif_perm$pval,
-##                    sign = a_motif_perm$direction)
-
-## outW <- data.frame(node = rowLinks(tse)$nodeNum,
-##                    pvalue = resW$p.value,
-##                    sign = resW$e.sign)
-                   
-
-
-## cand <- getCand(tree = a_phylo, score_data = outW, 
-##                 node_column = "node", p_column = "pvalue",
-##                 sign_column = "sign", message = TRUE)
-
-## best <- evalCand(tree = a_phylo, levels = cand$candidate_list, 
-##                  score_data = outW,
-##                  node_column = "node",
-##                  sign_column = "sign",
-##                  p_column = "pvalue")
-
-## outW <- data.frame(node = rowLinks(tse)$nodeNum,
-##                    pvalue = resW$p.value,
-##                    sign = resW$e.sign)
-
-
-outW <- data.frame(node = rowLinks(tse)$nodeNum,
-                   pvalue = resW$p.value,
-                   sign = resW$e.sign)
-
-cand <- getCand(tree = rowTree(tse), score_data = outW, 
-                node_column = "node", p_column = "pvalue",
-                sign_column = "sign", message = TRUE)
-
-# evaluate candidates
-best <- evalCand(tree = rowTree(tse), levels = cand$candidate_list, 
-                 score_data = outW, node_column = "node",
-                 p_column = "pvalue", sign_column = "sign")
-best$level_info
-
-# the detected nodes
-loc <- best$output[best$output$signal.node, ][["node"]]
-loc
-
-```
-let's try differently
-
-```{r continuethisway, eval = TRUE}
-
-
-assay_data2 <- data.frame(score= a_motif_perm$score,
-                          meth = a_motif_perm$meth,
-                          unmeth = a_motif_perm$unmeth)
-
-rownames(assay_data2) <- a_motif_perm$motif
-
-row_data2 <- DataFrame(motif = a_motif_perm$motif,
-                       row.names = rownames(assay_data2))
-
-col_data2 <-  DataFrame(group = rep('dnmt3a', 3),
-                        measurement = c('score', 'meth', 'unmeth'),
-                        row.names = colnames(assay_data2))
-
-tse2 <- TreeSummarizedExperiment(assays = list(assay_data2),
-                                 rowData = row_data2,
-                                 colData = col_data2,
-                                 rowTree = a_phylo,
-                                 rowNodeLab = as.character(summarized$motif))
-
-all_node2 <- showNode(tree = rowTree(tse2), only.leaf = FALSE)
-tse2 <- aggValue(x = tse2, rowLevel = all_node, FUN = 'sum')
-
-fd <- data.frame(motif = rownames(as.data.frame(assays(tse2)[[1]])),
-                 score = as.data.frame(assays(tse2)[[1]])$score,
-                 meth = as.data.frame(assays(tse2)[[1]])$meth,
-                 unmeth = as.data.frame(assays(tse2)[[1]])$unmeth)
-
-on_tree <- run_permutation_test(fd = fd,
-                                numperm = NUM_PERM,
-                                   permutation_type = 'motifs',
-                                   adjust.FDR = TRUE,
- 
-class(on_tree)
-fd <- on_tree
-
-## assign the motif names back?
-## all_node2?
-```
-
-```{r}
-## sign as being over or above the average for that sample
-
-resP2 <- list(node = fd$motif,
-              p.value = fd$pval,
-              e.sign = ifelse(as.data.frame(assays(tse2)[[1]])$score >= mean(a_motif_perm$score),
-                              yes = +1,
-                              no = -1))
-
-outW2 <- data.frame(node = rowLinks(tse2)$nodeNum,
-                   pvalue = resP2$p.value,
-                   sign = resP2$e.sign)
-
-cand2 <- getCand(tree = rowTree(tse2), score_data = outW2, 
-                node_column = "node", p_column = "pvalue",
-                sign_column = "sign", message = TRUE)
-
-# evaluate candidates
-best2 <- evalCand(tree = rowTree(tse2), levels = cand2$candidate_list, 
-                 score_data = outW2, node_column = "node",
-                 p_column = "pvalue", sign_column = "sign")
-best2$level_info
-
-loc2 <- best2$output[best2$output$signal.node, ][["node"]]
-
-```
-
-Check results
-
-```{r}
-
-tr <-  rowTree(tse2)
+tr <-  rowTree(tse_dnmt3a)
 fig_0 <- ggtree(tr, branch.length = "none", layout = "circular", size = 1) +
     new_scale_fill()
 
@@ -1175,21 +1054,148 @@ ggsave(fig_2, file = 'fig2.png', height = 100, width = 10, limitsize = FALSE)
 print(fig_2)
 ```
 
-Subsetting the tree (does not work)
+Subsetting the tree 
 
-```{r,e val = FALSE}
-library(ape)
-library(tidytree)
+```{r, eval = TRUE}
+## library(ape)
+## library(tidytree)
 
-tr_subset <- tree_subset(tr, loc2, levels_back = 0)
+## tr_subset <- tree_subset(tr, loc2, levels_back = 0)
 
-tr_subset %>% 
-  ggtree(aes(color = group)) + 
-  geom_tiplab() + 
-  theme_tree2() + 
-  scale_color_manual(values = c(`1` = "red", `0` = "black")) +
-  xlim(0, 4)
+## tr_subset %>% 
+##   ggtree(aes(color = group)) + 
+##   geom_tiplab() + 
+##   theme_tree2() + 
+##   scale_color_manual(values = c(`1` = "red", `0` = "black")) +
+##   xlim(0, 4)
 
+for (node in loc_dnmt3a) {
+    curr <- extract.clade(tr, node, root.edge = 0, collapse.singles = TRUE,
+                          interactive = FALSE)
+
+    ggtree(curr, branch.length = "none", layout = "circular", size = 1) +
+        ggtitle(sprintf('DNMT3A node %s', node)
+}
+
+```
+
+## DNMT3B
+
+
+```{r dnmt3b_tree, eval = TRUE}
+
+assay_data_dnmt3b <- data.frame(score= b_motif_perm$score,
+                                meth = b_motif_perm$meth,
+                                unmeth = b_motif_perm$unmeth)
+
+rownames(assay_data_dnmt3b) <- b_motif_perm$motif
+
+row_data_dnmt3b <- DataFrame(motif = b_motif_perm$motif,
+                             row.names = rownames(assay_data_dnmt3b))
+
+col_data_dnmt3b <-  DataFrame(group = rep('dnmt3b', 3),
+                              measurement = c('score', 'meth', 'unmeth'),
+                              row.names = colnames(assay_data_dnmt3b))
+
+tse_dnmt3b <- TreeSummarizedExperiment(assays = list(assay_data_dnmt3b),
+                                       rowData = row_data_dnmt3b,
+                                       colData = col_data_dnmt3b,
+                                       rowTree = a_phylo,
+                                       rowNodeLab = as.character(summarized$motif))
+
+all_node_dnmt3b <- showNode(tree = rowTree(tse_dnmt3b), only.leaf = FALSE)
+tse_dnmt3b <- aggValue(x = tse_dnmt3b, rowLevel = all_node_dnmt3b, FUN = 'sum')
+
+fd_dnmt3b <- data.frame(motif = rownames(as.data.frame(assays(tse_dnmt3b)[[1]])),
+                        score = as.data.frame(assays(tse_dnmt3b)[[1]])$score,
+                        meth = as.data.frame(assays(tse_dnmt3b)[[1]])$meth,
+                        unmeth = as.data.frame(assays(tse_dnmt3b)[[1]])$unmeth)
+
+fd_dnmt3b <- run_permutation_test(fd = fd_dnmt3b,
+                                  numperm = NUM_PERM,
+                                  permutation_type = 'motifs',
+                                  adjust.FDR = TRUE)
+
+
+```
+
+```{r}
+## sign as being over or above the median for that sample
+
+resP_dnmt3b <- list(node = fd$motif,
+                    p.value = fd$pval,
+                    e.sign = ifelse(as.data.frame(
+                        assays(tse_dnmt3b)[[1]])$score >= median(b_motif_perm$score),
+                        yes = +1,
+                        no = -1))
+
+outW_dnmt3b <- data.frame(node = rowLinks(tse_dnmt3b)$nodeNum,
+                          pvalue = resP_dnmt3b$p.value,
+                          sign = resP_dnmt3b$e.sign)
+
+cand_dnmt3b <- getCand(tree = rowTree(tse_dnmt3b), score_data = outW_dnmt3b, 
+                       node_column = "node", p_column = "pvalue",
+                       sign_column = "sign", message = TRUE)
+
+                                        # evaluate candidates
+best_dnmt3b <- evalCand(tree = rowTree(tse_dnmt3b), levels = cand_dnmt3b$candidate_list, 
+                        score_data = outW_dnmt3b, node_column = "node",
+                        p_column = "pvalue", sign_column = "sign")
+best_dnmt3b$level_info
+
+loc_dnmt3b <- best_dnmt3b$output[best_dnmt3b$output$signal.node, ][["node"]]
+
+
+```
+
+```{r}
+
+tr <-  rowTree(tse_dnmt3b)
+fig_0 <- ggtree(tr, branch.length = "none", layout = "circular", size = 1) +
+    new_scale_fill()
+
+fig_1 <- fig_0 +
+    geom_point2(aes(subset = (node %in% loc2)), color = "red", size = 5) +
+    geom_tiplab(size=0.9)
+
+print(fig_1)
+
+ggsave(fig_1, file = 'fig1.png', height = 30, width = 30, limitsize = FALSE)
+
+```
+
+```{r}
+fig_2 <- ggtree(tr, branch.length = "none") +
+    geom_point2(aes(subset = (node %in% loc2)), color = "red", size = 5) +
+    geom_tiplab(size = 0.9)
+
+ggsave(fig_2, file = 'fig2.png', height = 100, width = 10, limitsize = FALSE)
+
+print(fig_2)
+```
+
+Subsetting the tree 
+
+```{r, eval = TRUE}
+## library(ape)
+## library(tidytree)
+
+## tr_subset <- tree_subset(tr, loc2, levels_back = 0)
+
+## tr_subset %>% 
+##   ggtree(aes(color = group)) + 
+##   geom_tiplab() + 
+##   theme_tree2() + 
+##   scale_color_manual(values = c(`1` = "red", `0` = "black")) +
+##   xlim(0, 4)
+
+for (node in loc_dnmt3b) {
+    curr <- extract.clade(tr, node, root.edge = 0, collapse.singles = TRUE,
+                          interactive = FALSE)
+
+    ggtree(curr, branch.length = "none", layout = "circular", size = 1) +
+        ggtitle(sprintf('DNMT3B node %s', node)
+}
 
 ```
 
