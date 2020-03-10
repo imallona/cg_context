@@ -109,22 +109,18 @@ permute_motifs <- function(fd, numperm = 1000, nthreads = NTHREADS) {
     res <- foreach(i = 1:numperm) %dopar% {
         idx <- sample(x = rownames(fd), size = nrow(fd), replace = FALSE)
         tmp  <- data.frame(motif = fd$motif,
-                               meth = fd[idx, 'meth'],
-                               unmeth = fd[idx, 'unmeth'])
+                           meth = fd[idx, 'meth'],
+                           unmeth = fd[idx, 'unmeth'])
 
         rownames(tmp) <- tmp$motif
 
-        ## tmp$score <-
         tmp <- data.frame(motif = as.character(tmp$motif),
-                   meth = tmp$meth,
-                   unmeth = tmp$unmeth,                   
-                   score = tmp$meth / (tmp$meth  + tmp$unmeth),
-		   stringsAsFactors = FALSE)
-          rownames(tmp) <- tmp$motif
+                          meth = tmp$meth,
+                          unmeth = tmp$unmeth,                   
+                          score = tmp$meth / (tmp$meth  + tmp$unmeth),
+                          stringsAsFactors = FALSE)
+        rownames(tmp) <- tmp$motif
 	tmp
-
-        
- 
     }
 
     stopCluster(cl)
@@ -140,26 +136,24 @@ permute_2d <- function(fd, numperm = 1000, nthreads = NTHREADS) {
 
     cl <- makeCluster(nthreads) #,
 
-registerDoParallel(cl)
+    registerDoParallel(cl)
     
     res <- foreach(i = 1:numperm) %dopar% {
         idx <- sample(x = rownames(fd), size = nrow(fd), replace = FALSE)
         idx2 <- sample(x = rownames(fd), size = nrow(fd), replace = FALSE)
         tmp <- data.frame(motif = fd$motif,
-                               meth = fd[idx, 'meth'],
-                               unmeth = fd[idx2, 'unmeth'])
+                          meth = fd[idx, 'meth'],
+                          unmeth = fd[idx2, 'unmeth'])
 
 
-        ## tmp$score <-
-        ## tmp$meth / (tmp$meth  + tmp$unmeth)
 	tmp <- data.frame(motif = tmp$motif,
-                   meth = tmp$meth,
-                   unmeth = tmp$unmeth,                   
-                   score = tmp$meth / (tmp$meth  + tmp$unmeth),
-		   stringsAsFactors = FALSE)
+                          meth = tmp$meth,
+                          unmeth = tmp$unmeth,                   
+                          score = tmp$meth / (tmp$meth  + tmp$unmeth),
+                          stringsAsFactors = FALSE)
         rownames(tmp) <- tmp$motif
+        
 	tmp
-
     }
 
     stopCluster(cl)
@@ -190,17 +184,8 @@ run_permutation_test <- function(fd, permutation_type, numperm = 1000, adjust.FD
    
     doParallel::registerDoParallel(cl)
 
-    save(res, file = 'res.RData')
-    ## foreach (i = 1:nrow(fd)) %dopar% {
-    ##     motif <- rownames(fd)[i]
-    ##     fd[motif, 'pval'] <- (sum(
-    ##         sapply(res,
-    ##                function(x) fd[motif,]$score < x[motif,]$score)) + 1) / (numperm)
-    ##      ## because the + 1 added above not to have 0 p-values
-    ##     if(fd[motif, 'pval'] > 1) fd[motif, 'pval'] <- 1
-       
-    ## }
-
+    ## save(res, file = 'res.RData')
+   
     foo <- foreach(i = 1:nrow(fd))  %dopar% {
         motif <- rownames(fd)[i]
         tmp <- data.frame (pval = (sum(
@@ -211,7 +196,7 @@ run_permutation_test <- function(fd, permutation_type, numperm = 1000, adjust.FD
 
     }
 
-    save(foo, file = 'foo.Rdata')
+    ## save(foo, file = 'foo.Rdata')
 
     fd$pval <- sapply(foo, function(x) return (x$pval))
     fd$pval[fd$pval > 1] <- 1
@@ -224,8 +209,7 @@ run_permutation_test <- function(fd, permutation_type, numperm = 1000, adjust.FD
         fd$qval <- p.adjust(fd$pval, method = 'BH')
     }
 
-    return(fd)
-      
+    return(fd)      
 }
 
 
@@ -392,7 +376,7 @@ plot(a_motif_perm$pval, a_all_perm$pval)
 
 
 
-## Permutation analysis on `tko+d3b1_merged`
+# Permutation analysis on `tko+d3b1_merged`
 
 Data reshaping for tko+d3b1
 
@@ -884,7 +868,7 @@ DT::datatable(summarized %>% as.data.frame() %>%
                              buttons = c("csv", "excel")))
 ```
 
-# Clustering-based
+# treeclimbR - Clustering-based
 
 
 ```{r testsclust, eval = FALSE}
