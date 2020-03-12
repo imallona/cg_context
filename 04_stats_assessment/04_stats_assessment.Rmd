@@ -67,7 +67,7 @@ options(bitmapType="cairo")
 
 ```{r}
 NUM_PERM = 10000
-NTHREADS <- 40
+NTHREADS <- 20
 ```
 
 </details>
@@ -721,8 +721,7 @@ a_phylo <- as.phylo(a_hc)
 <details><summary>Expand</summary>
 ```{r dnmt3a_tree, eval = TRUE}
 
-assay_data_dnmt3a <- data.frame(score= a_motif_perm$score,
-                                meth = a_motif_perm$meth,
+assay_data_dnmt3a <- data.frame(meth = a_motif_perm$meth,
                                 unmeth = a_motif_perm$unmeth)
 
 rownames(assay_data_dnmt3a) <- a_motif_perm$motif
@@ -730,8 +729,8 @@ rownames(assay_data_dnmt3a) <- a_motif_perm$motif
 row_data_dnmt3a <- DataFrame(motif = a_motif_perm$motif,
                              row.names = rownames(assay_data_dnmt3a))
 
-col_data_dnmt3a <-  DataFrame(group = rep('dnmt3a', 3),
-                              measurement = c('score', 'meth', 'unmeth'),
+col_data_dnmt3a <-  DataFrame(group = rep('dnmt3a', 2),
+                              measurement = c('meth', 'unmeth'),
                               row.names = colnames(assay_data_dnmt3a))
 
 tse_dnmt3a <- TreeSummarizedExperiment(assays = list(assay_data_dnmt3a),
@@ -743,10 +742,12 @@ tse_dnmt3a <- TreeSummarizedExperiment(assays = list(assay_data_dnmt3a),
 all_node_dnmt3a <- showNode(tree = rowTree(tse_dnmt3a), only.leaf = FALSE)
 tse_dnmt3a <- aggValue(x = tse_dnmt3a, rowLevel = all_node_dnmt3a, FUN = 'sum')
 
+
 fd_dnmt3a <- data.frame(motif = rownames(as.data.frame(assays(tse_dnmt3a)[[1]])),
-                        score = as.data.frame(assays(tse_dnmt3a)[[1]])$score,
                         meth = as.data.frame(assays(tse_dnmt3a)[[1]])$meth,
                         unmeth = as.data.frame(assays(tse_dnmt3a)[[1]])$unmeth)
+
+fd_dnmt3a$score <- fd_dnmt3a$meth / (fd_dnmt3a$meth + fd_dnmt3a$unmeth)
 
 fd_dnmt3a <- run_permutation_test(fd = fd_dnmt3a,
                                   numperm = NUM_PERM,
@@ -756,15 +757,14 @@ fd_dnmt3a <- run_permutation_test(fd = fd_dnmt3a,
 
 ```
 
-```{r}
+```{r, cache = FALSE}
 ## sign as being over or above the median for that sample
 
 fd <- fd_dnmt3a
 
 resP_dnmt3a <- list(node = fd$motif,
                     p.value = fd$pval,
-                    e.sign = ifelse(as.data.frame(
-                        assays(tse_dnmt3a)[[1]])$score >= median(a_motif_perm$score),
+                    e.sign = ifelse( fd$score >= median(a_motif_perm$score),
                         yes = +1,
                         no = -1))
 
@@ -788,7 +788,7 @@ loc_dnmt3a <- best_dnmt3a$output[best_dnmt3a$output$signal.node, ][["node"]]
 ```
 </details>
 
-```{r, fig.width = 20, fig.height = 20}
+```{r, fig.width = 20, fig.height = 20, cache = FALSE}
 
 tr <-  rowTree(tse_dnmt3a)
 fig_0 <- ggtree(tr, branch.length = "none", layout = "circular", size = 0.5) 
@@ -803,7 +803,7 @@ ggsave(fig_1, file = 'fig1.png', height = 30, width = 30, limitsize = FALSE)
 
 ```
 
-```{r, fig.width = 3, fig.height = 20}
+```{r, fig.width = 3, fig.height = 20, cache = FALSE}
 fig_2 <- ggtree(tr, branch.length = "none", size = 0.1) +
     geom_point2(aes(subset = (node %in% loc_dnmt3a)), color = "red", size = 3) +
     geom_tiplab(size = 0.8)
@@ -817,7 +817,7 @@ Subsetting the tree and plotting subtrees with at least 10 leaves.
 
 <details><summary>Expand</summary>
 
-```{r, eval = TRUE, fig.width = 8, fig.height = 2}
+```{r, eval = TRUE, fig.width = 8, fig.height = 2, cache = FALSE}
 
 for (node in loc_dnmt3a) {
     curr <- extract.clade(tr, node, root.edge = 0, collapse.singles = TRUE,
@@ -861,10 +861,9 @@ print(ggseqlogo(data = extract.clade(tr, loc_dnmt3a,
 
 <details><summary>Expand</summary>
 
-```{r dnmt3b_tree, eval = TRUE}
+```{r dnmt3b_tree, eval = TRUE, cache = FALSE}
 
-assay_data_dnmt3b <- data.frame(score= b_motif_perm$score,
-                                meth = b_motif_perm$meth,
+assay_data_dnmt3b <- data.frame(meth = b_motif_perm$meth,
                                 unmeth = b_motif_perm$unmeth)
 
 rownames(assay_data_dnmt3b) <- b_motif_perm$motif
@@ -872,8 +871,8 @@ rownames(assay_data_dnmt3b) <- b_motif_perm$motif
 row_data_dnmt3b <- DataFrame(motif = b_motif_perm$motif,
                              row.names = rownames(assay_data_dnmt3b))
 
-col_data_dnmt3b <-  DataFrame(group = rep('dnmt3b', 3),
-                              measurement = c('score', 'meth', 'unmeth'),
+col_data_dnmt3b <-  DataFrame(group = rep('dnmt3b', 2),
+                              measurement = c('meth', 'unmeth'),
                               row.names = colnames(assay_data_dnmt3b))
 
 tse_dnmt3b <- TreeSummarizedExperiment(assays = list(assay_data_dnmt3b),
@@ -885,10 +884,12 @@ tse_dnmt3b <- TreeSummarizedExperiment(assays = list(assay_data_dnmt3b),
 all_node_dnmt3b <- showNode(tree = rowTree(tse_dnmt3b), only.leaf = FALSE)
 tse_dnmt3b <- aggValue(x = tse_dnmt3b, rowLevel = all_node_dnmt3b, FUN = 'sum')
 
+
 fd_dnmt3b <- data.frame(motif = rownames(as.data.frame(assays(tse_dnmt3b)[[1]])),
-                        score = as.data.frame(assays(tse_dnmt3b)[[1]])$score,
                         meth = as.data.frame(assays(tse_dnmt3b)[[1]])$meth,
                         unmeth = as.data.frame(assays(tse_dnmt3b)[[1]])$unmeth)
+
+fd_dnmt3b$score <- fd_dnmt3b$meth / (fd_dnmt3b$meth + fd_dnmt3b$unmeth)
 
 fd_dnmt3b <- run_permutation_test(fd = fd_dnmt3b,
                                   numperm = NUM_PERM,
@@ -898,14 +899,14 @@ fd_dnmt3b <- run_permutation_test(fd = fd_dnmt3b,
 ```
 
 
-```{r}
+```{r, cache = FALSE}
 ## sign as being over or above the median for that sample
 
 fd <- fd_dnmt3b
 resP_dnmt3b <- list(node = fd$motif,
                     p.value = fd$pval,
                     e.sign = ifelse(as.data.frame(
-                        assays(tse_dnmt3b)[[1]])$score >= median(b_motif_perm$score),
+                        fd$score >= median(b_motif_perm$score),
                         yes = +1,
                         no = -1))
 
@@ -932,7 +933,7 @@ loc_dnmt3b <- best_dnmt3b$output[best_dnmt3b$output$signal.node, ][["node"]]
 
 
 
-```{r, fig.width = 20, fig.height = 20}
+```{r, fig.width = 20, fig.height = 20, cache = FALSE}
 
 tr <-  rowTree(tse_dnmt3b)
 fig_0 <- ggtree(tr, branch.length = "none", layout = "circular", size = 0.5) 
@@ -961,7 +962,7 @@ Subsetting the tree and plotting subtrees with at least 10 leaves.
 
 <details><summary>Expand</summary>
 
-```{r, eval = TRUE, fig.width = 8, fig.height = 2}
+```{r, eval = TRUE, fig.width = 8, fig.height = 2, cache = FALSE}
 
 for (node in loc_dnmt3b) {
     curr <- extract.clade(tr, node, root.edge = 0, collapse.singles = TRUE,
@@ -984,7 +985,7 @@ for (node in loc_dnmt3b) {
 
 Plus a logo of all significant enrichments of all subtrees
 
-```{r, fig.height = 6, fig.width = 6}
+```{r, fig.height = 6, fig.width = 6, cache = FALSE}
 print(ggseqlogo(data = extract.clade(tr, loc_dnmt3b,
                                      root.edge = 0, collapse.singles = TRUE,
                                      interactive = FALSE)$tip.label,
@@ -992,7 +993,7 @@ print(ggseqlogo(data = extract.clade(tr, loc_dnmt3b,
       ggtitle(sprintf('DNMT3B (tree aggregation FDR < 0.05)')))
 ```
 
-```{r, fig.height = 6, fig.width = 6}
+```{r, fig.height = 6, fig.width = 6, cache = FALSE}
 print(ggseqlogo(data = extract.clade(tr, loc_dnmt3b,
                                      root.edge = 0, collapse.singles = TRUE,
                                      interactive = FALSE)$tip.label,
@@ -1064,7 +1065,7 @@ print(ggseqlogo(data = extract.clade(tr, loc_dnmt3b,
 
 ## Trying to plot all at once, including the signal sign
 
-```{r, fig.width = 4, fig.height = 20}
+```{r, fig.width = 4, fig.height = 20, cache = FALSE}
 
 tr <- rowTree(tse_dnmt3a) ## actually it would be the same with tse_dnmt3b
 
@@ -1123,7 +1124,7 @@ ggsave(fig_int2, file = 'fig_int2.png', height = 100, width = 12, limitsize = FA
 
 Fiona Huang suggestion start
 
-```{r}
+```{r, cache = FALSE}
 set.seed(45)
 a_phylorandom <- rtree(4096)
 
@@ -1154,7 +1155,7 @@ loc_random_dnmt3a <- best_random_dnmt3a$output[best_random_dnmt3a$output$signal.
 ```
 
 
-```{r, fig.width = 20, fig.height = 20}
+```{r, fig.width = 20, fig.height = 20, cache = FALSE}
 
 
 fig_0 <- ggtree(a_phylorandom, branch.length = "none", layout = "circular", size = 0.5) 
@@ -1181,7 +1182,7 @@ save(tse_dnmt3a, file = 'tse_dnmt3a_fiona.Rdata')
 Witout leaves randomization, only topology (randomizing twice might result in clustering again).
 
 
-```{r}
+```{r, cache = FALSE}
 set.seed(45)
 a_phylorandom <- rtree(4096)
 
@@ -1192,7 +1193,7 @@ a_phylorandom$tip.label <- rownames(a_motif_perm)
 
 And run the method
 
-```{r, fig.height = 20, fig.width = 4}
+```{r, fig.height = 20, fig.width = 4, cache = FALSE}
 
 cand_random_dnmt3a <- getCand(tree = a_phylorandom, score_data = outW_dnmt3a, 
                        node_column = "node", p_column = "pvalue",
@@ -1212,7 +1213,7 @@ loc_random_dnmt3a <- best_random_dnmt3a$output[best_random_dnmt3a$output$signal.
 ```
 
 
-```{r, fig.width = 20, fig.height = 20}
+```{r, fig.width = 20, fig.height = 20, cache = FALSE}
 
 
 fig_0 <- ggtree(a_phylorandom, branch.length = "none", layout = "circular", size = 0.5) 
