@@ -706,7 +706,7 @@ names(a_dist[1,a_dist[1,] == 2])
 ```
 
 
-```{r, fig.height = 4, fig.width = 30}
+```{r, fig.height = 5, fig.width = 20}
 plot(a_hc)
 ```
 
@@ -788,13 +788,13 @@ loc_dnmt3a <- best_dnmt3a$output[best_dnmt3a$output$signal.node, ][["node"]]
 ```
 </details>
 
-```{r, fig.width = 10, fig.height = 10}
+```{r, fig.width = 20, fig.height = 20}
 
 tr <-  rowTree(tse_dnmt3a)
 fig_0 <- ggtree(tr, branch.length = "none", layout = "circular", size = 0.5) 
 
 fig_1 <- fig_0 +
-    geom_point2(aes(subset = (node %in% loc_dnmt3a)), color = "red", size = 5) +
+    geom_point2(aes(subset = (node %in% loc_dnmt3a)), color = "red", size = 3) +
     geom_tiplab(size=0.8)
 
 print(fig_1)
@@ -803,10 +803,9 @@ ggsave(fig_1, file = 'fig1.png', height = 30, width = 30, limitsize = FALSE)
 
 ```
 
-```{r}
-fig_2 <- ggtree(tr, branch.length = "none") +
-    geom_treescale(linesize= 0.1, offset=1) +
-    geom_point2(aes(subset = (node %in% loc_dnmt3a)), color = "red", size = 5) +
+```{r, fig.width = 3, fig.height = 20}
+fig_2 <- ggtree(tr, branch.length = "none", size = 0.1) +
+    geom_point2(aes(subset = (node %in% loc_dnmt3a)), color = "red", size = 3) +
     geom_tiplab(size = 0.8)
 
 ggsave(fig_2, file = 'fig2.png', height = 100, width = 10, limitsize = FALSE)
@@ -828,7 +827,7 @@ for (node in loc_dnmt3a) {
         geom_tiplab(size=5) +
         ggtitle(sprintf('DNMT3A\nnode %s', node)) +
         theme(plot.title = element_text(size = 0.5)) +
-        ggplot2::xlim(0, 0.06) # room for the leaves
+        ggplot2::xlim(0, 10) # room for the leaves
 
     p2 <- ggseqlogo(data = curr$tip.label, method ='probability') +
         ggtitle(sprintf('DNMT3A\nnode %s', node)) +
@@ -858,6 +857,7 @@ print(ggseqlogo(data = extract.clade(tr, loc_dnmt3a,
 ```
 
 ## DNMT3B
+
 
 <details><summary>Expand</summary>
 
@@ -931,13 +931,14 @@ loc_dnmt3b <- best_dnmt3b$output[best_dnmt3b$output$signal.node, ][["node"]]
 </details>
 
 
-```{r}
+
+```{r, fig.width = 20, fig.height = 20}
 
 tr <-  rowTree(tse_dnmt3b)
-fig_0 <- ggtree(tr, branch.length = "none", layout = "circular", size = 0.5)
+fig_0 <- ggtree(tr, branch.length = "none", layout = "circular", size = 0.5) 
 
 fig_1 <- fig_0 +
-    geom_point2(aes(subset = (node %in% loc_dnmt3b)), color = "red", size = 1) +
+    geom_point2(aes(subset = (node %in% loc_dnmt3b)), color = "red", size = 3) +
     geom_tiplab(size=0.8)
 
 print(fig_1)
@@ -946,9 +947,9 @@ ggsave(fig_1, file = 'fig1b.png', height = 30, width = 30, limitsize = FALSE)
 
 ```
 
-```{r}
-fig_2 <- ggtree(tr, branch.length = "none", size = 0.5) +
-    geom_point2(aes(subset = (node %in% loc_dnmt3b)), color = "red", size = 5) +
+```{r, fig.width = 3, fig.height = 20}
+fig_2 <- ggtree(tr, branch.length = "none", size = 0.1) +
+    geom_point2(aes(subset = (node %in% loc_dnmt3b)), color = "red", size = 3) +
     geom_tiplab(size = 0.8)
 
 ggsave(fig_2, file = 'fig2b.png', height = 100, width = 10, limitsize = FALSE)
@@ -956,40 +957,110 @@ ggsave(fig_2, file = 'fig2b.png', height = 100, width = 10, limitsize = FALSE)
 print(fig_2)
 ```
 
-
 Subsetting the tree and plotting subtrees with at least 10 leaves.
 
 <details><summary>Expand</summary>
 
-```{r, fig.width = 1, fig.height = 1, eval = TRUE}
+```{r, eval = TRUE, fig.width = 8, fig.height = 2}
 
 for (node in loc_dnmt3b) {
     curr <- extract.clade(tr, node, root.edge = 0, collapse.singles = TRUE,
                           interactive = FALSE)
 
-        print(ggtree(curr, branch.length = "none", layout = "circular", size = 0.5) +
-              geom_tiplab(size=0.8) + 
-              ggtitle(sprintf('DNMT3A node %s', node)))
+    p1 <- ggtree(curr, branch.length = "none",  size = 0.5) +
+        geom_tiplab(size=5) +
+        ggtitle(sprintf('DNMT3B\nnode %s', node)) +
+        theme(plot.title = element_text(size = 0.5)) +
+        ggplot2::xlim(0, 10) # room for the leaves
 
-        ## seqlogo
+    p2 <- ggseqlogo(data = curr$tip.label, method ='probability') +
+        ggtitle(sprintf('DNMT3B\nnode %s', node)) +
+        theme(plot.title = element_text(size = 0.5))
+
+    print(grid.arrange(p1, p2, ncol = 2))
+          
 }
-
 ```
 
-```{r}
-library(ggseqlogo)
-for (node in loc_dnmt3b) {
-    curr <- extract.clade(tr, node, root.edge = 0, collapse.singles = TRUE,
-                          interactive = FALSE)
+Plus a logo of all significant enrichments of all subtrees
 
-    print(ggseqlogo(data = curr$tip.label, method ='probability'))
-
-        ## seqlogo
-}
-
+```{r, fig.height = 6, fig.width = 6}
+print(ggseqlogo(data = extract.clade(tr, loc_dnmt3b,
+                                     root.edge = 0, collapse.singles = TRUE,
+                                     interactive = FALSE)$tip.label,
+                method = 'probability') +
+      ggtitle(sprintf('DNMT3B (tree aggregation FDR < 0.05)')))
 ```
 
-</details>
+```{r, fig.height = 6, fig.width = 6}
+print(ggseqlogo(data = extract.clade(tr, loc_dnmt3b,
+                                     root.edge = 0, collapse.singles = TRUE,
+                                     interactive = FALSE)$tip.label,
+                method = 'bits') +
+      ggtitle(sprintf('DNMT3B (tree aggregation FDR < 0.05)')))
+```
+
+
+
+<!-- ```{r} -->
+
+<!-- tr <-  rowTree(tse_dnmt3b) -->
+<!-- fig_0 <- ggtree(tr, branch.length = "none", layout = "circular", size = 0.5) -->
+
+<!-- fig_1 <- fig_0 + -->
+<!--     geom_point2(aes(subset = (node %in% loc_dnmt3b)), color = "red", size = 1) + -->
+<!--     geom_tiplab(size=0.8) -->
+
+<!-- print(fig_1) -->
+
+<!-- ggsave(fig_1, file = 'fig1b.png', height = 30, width = 30, limitsize = FALSE) -->
+
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- fig_2 <- ggtree(tr, branch.length = "none", size = 0.5) + -->
+<!--     geom_point2(aes(subset = (node %in% loc_dnmt3b)), color = "red", size = 5) + -->
+<!--     geom_tiplab(size = 0.8) -->
+
+<!-- ggsave(fig_2, file = 'fig2b.png', height = 100, width = 10, limitsize = FALSE) -->
+
+<!-- print(fig_2) -->
+<!-- ``` -->
+
+
+<!-- Subsetting the tree and plotting subtrees with at least 10 leaves. -->
+
+<!-- <details><summary>Expand</summary> -->
+
+<!-- ```{r, fig.width = 1, fig.height = 1, eval = TRUE} -->
+
+<!-- for (node in loc_dnmt3b) { -->
+<!--     curr <- extract.clade(tr, node, root.edge = 0, collapse.singles = TRUE, -->
+<!--                           interactive = FALSE) -->
+
+<!--         print(ggtree(curr, branch.length = "none", layout = "circular", size = 0.5) + -->
+<!--               geom_tiplab(size=0.8) +  -->
+<!--               ggtitle(sprintf('DNMT3A node %s', node))) -->
+
+<!--         ## seqlogo -->
+<!-- } -->
+
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- library(ggseqlogo) -->
+<!-- for (node in loc_dnmt3b) { -->
+<!--     curr <- extract.clade(tr, node, root.edge = 0, collapse.singles = TRUE, -->
+<!--                           interactive = FALSE) -->
+
+<!--     print(ggseqlogo(data = curr$tip.label, method ='probability')) -->
+
+<!--         ## seqlogo -->
+<!-- } -->
+
+<!-- ``` -->
+
+<!-- </details> -->
 
 ## Trying to plot all at once, including the signal sign
 
@@ -1063,7 +1134,7 @@ a_phylorandom$tip.label <- sample(rownames(a), size = nrow(a), replace = FALSE)
 
 And run the method
 
-```{r}
+```{r, fig.height = 20, fig.width = 4}
 
 cand_random_dnmt3a <- getCand(tree = a_phylorandom, score_data = outW_dnmt3a, 
                        node_column = "node", p_column = "pvalue",
@@ -1079,23 +1150,79 @@ print(best_random_dnmt3a$level_info)
 
 loc_random_dnmt3a <- best_random_dnmt3a$output[best_random_dnmt3a$output$signal.node, ][["node"]]
 
-print(loc_random_dnmt3a)
+## print(loc_random_dnmt3a)
 ```
 
 
-```{r, width = 6, height = 6}
+```{r, fig.width = 20, fig.height = 20}
 
 
 fig_0 <- ggtree(a_phylorandom, branch.length = "none", layout = "circular", size = 0.5) 
 
 fig_1 <- fig_0 +
-    geom_point2(aes(subset = (node %in% loc_random_dnmt3a)), color = "red", size = 5) +
+    geom_point2(aes(subset = (node %in% loc_random_dnmt3a)), color = "red", size = 3) +
     geom_tiplab(size=0.8)
 
 print(fig_1)
 ```
 
 Fiona Huang suggestion end
+
+```{r}
+## a_fiona <- a_motif_perm
+save(tse_dnmt3a, file = 'tse_dnmt3a_fiona.Rdata')
+
+
+```
+
+
+## Random background (for DNMT3A)
+
+Witout leaves randomization, only topology (randomizing twice might result in clustering again).
+
+
+```{r}
+set.seed(45)
+a_phylorandom <- rtree(4096)
+
+set.seed(54)
+a_phylorandom$tip.label <- rownames(a_motif_perm)
+
+```
+
+And run the method
+
+```{r, fig.height = 20, fig.width = 4}
+
+cand_random_dnmt3a <- getCand(tree = a_phylorandom, score_data = outW_dnmt3a, 
+                       node_column = "node", p_column = "pvalue",
+                       sign_column = "sign", message = TRUE)
+
+## evaluate candidates
+best_random_dnmt3a <- evalCand(tree = a_phylorandom,
+                               levels = cand_dnmt3a$candidate_list, 
+                        score_data = outW_dnmt3a, node_column = "node",
+                        p_column = "pvalue", sign_column = "sign")
+
+print(best_random_dnmt3a$level_info)
+
+loc_random_dnmt3a <- best_random_dnmt3a$output[best_random_dnmt3a$output$signal.node, ][["node"]]
+
+## print(loc_random_dnmt3a)
+```
+
+
+```{r, fig.width = 20, fig.height = 20}
+
+
+fig_0 <- ggtree(a_phylorandom, branch.length = "none", layout = "circular", size = 0.5) 
+
+fig_1 <- fig_0 +
+    geom_point2(aes(subset = (node %in% loc_random_dnmt3a)), color = "red", size = 3) +
+    geom_tiplab(size=0.8)
+
+print(fig_1)
+```
 
 # Timestamp
 
