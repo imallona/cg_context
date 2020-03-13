@@ -30,6 +30,9 @@ library(Cairo)
 library(ggplot2)
 library(DT)
 library(ggExtra)
+library(dplyr)
+library(gridExtra)
+
 ```
 
 ```{r}
@@ -61,11 +64,17 @@ ac <- function(col, alpha=1){
                        rgb(x[1], x[2], x[3], alpha=alpha))  
 }
 
+get_palette <- function(alpha = alpha) {
+    data.frame(
+        nucleotide = c('G', 'C', 'A', 'T'),
+        color = ac(c('#F6A318', '#2B4C9B',  '#68B42E', '#E52521'),
+                   alpha),
+        stringsAsFactors = FALSE)
+}
+
 color_by_nucleotide_and_position <- function(motifs, start, alpha){
     
-    palette <- data.frame(nucleotide = c('G', 'C', 'A', 'T'),
-                          color = c('#f6a318', '#2b4c9b',  '#68b42e', '#e52521'),
-                          stringsAsFactors = FALSE)
+    palette <- get_palette(alpha = alpha)
     
     tmp <- data.frame(motif = as.character(motifs),
                       nucleotide = substr(as.character(motifs), start, start ))
@@ -73,8 +82,10 @@ color_by_nucleotide_and_position <- function(motifs, start, alpha){
 
     tmp2 <- merge(tmp, palette, by.x = 'nucleotide', by.y = 'nucleotide', all.x = TRUE)
     rownames(tmp2) <- tmp2$motif
-    
-    return(ac(tmp2[as.character(motifs), 'color'], alpha = alpha))  
+
+    tmp3 <- ac(tmp2[as.character(motifs), 'color'], alpha = alpha)
+    names(tmp3) <- as.character(tmp2[as.character(motifs), 'nucleotide'])
+    return(tmp3)  
 }
 
 color_by_nucleotide_and_position(c('ACG', 'CGT'), 1, 1)
@@ -172,9 +183,69 @@ for (i in 1:8){
          xlab = "mean coverage",
          main = sprintf('position %s', i))
 }
-     
+
+
 ```
 
+
+```{r, fig.width = 10, fig.height = 10}
+stopifnot(a$motif == b$motif)
+
+fd  <- data.frame(motif = a$motif,
+                  meth_dnmt3a = a$meth,
+                  unmeth_dnmt3a = a$unmeth,
+                  cov_dnmt3a = a$cov,
+                  score_dnmt3a = a$score,                  
+                  meth_dnmt3b = b$meth,
+                  unmeth_dnmt3b = b$unmeth,
+                  cov_dnmt3b = b$cov,
+                  score_dnmt3b = b$score)
+
+p <- list()
+
+
+col_scale <- scale_colour_manual(
+    name = sprintf(""),
+    labels = get_palette(alpha = alpha)$nucleotide,
+    values = get_palette(alpha = alpha)$color,
+    drop = FALSE)
+
+
+for (i in 1:8) {
+    alpha = 0.3
+    cols <- color_by_nucleotide_and_position(fd$motif,
+                                             start = i, alpha = alpha)
+    
+    cols[1:3]
+
+    fd[,sprintf('nt_%i', i)] <- factor(substr(
+        as.character(fd$motif), i, i),
+        levels = get_palette(alpha = alpha)$nucleotide)
+
+    str(fd)
+    
+    p[[i]] <- ggplot(fd, aes(y = log2(score_dnmt3a/score_dnmt3b),
+                             x = (cov_dnmt3a + cov_dnmt3b)/2,
+                             colour = get(sprintf('nt_%s', i)))) +
+        geom_point() +
+        col_scale +
+        xlab('average coverage') +
+        ylab('log2 (DNMT3A/DNMT3B) scores') +
+        ggtitle(sprintf("Nucleotide %s", i-4)) +
+        theme(legend.position = "none")
+
+    ## + theme(legend. position = "none")
+    
+
+    p[[i]] <- ggMarginal(p[[i]], groupColour = TRUE, groupFill = TRUE)
+    ## print(p[[i]])
+    ## p[[i]]
+
+}
+
+do.call("grid.arrange", c(p, ncol=3))
+
+         ```
 ## delta vs mean coverage
 
 
@@ -314,7 +385,6 @@ data(mtcars)
 p <- ggplot(mtcars, aes(x = wt, y = drat, colour = factor(vs))) +
       geom_point()
 
- ggMarginal(p, groupColour = TRUE)
 
 ggMarginal(p, groupColour = TRUE, groupFill = TRUE)
 ```
