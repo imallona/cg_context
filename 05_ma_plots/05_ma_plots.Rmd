@@ -27,9 +27,9 @@ Libraries, knitr options, permutation numbers, threads.
 ```{r settings, include=FALSE}
 library(knitr)
 library(Cairo)
-## library(ggplot2)
+library(ggplot2)
 library(DT)
-
+library(ggExtra)
 ```
 
 ```{r}
@@ -307,6 +307,17 @@ for (i in 1:8){
 
 <!-- ## score quantiles DNMTB -->
 
+## ggMarginal
+
+```{r}
+data(mtcars)
+p <- ggplot(mtcars, aes(x = wt, y = drat, colour = factor(vs))) +
+      geom_point()
+
+ ggMarginal(p, groupColour = TRUE)
+
+ggMarginal(p, groupColour = TRUE, groupFill = TRUE)
+```
 # Timestamp
 
 ```{r sessionInfo, cache = 0}
