@@ -1,0 +1,616 @@
+---
+title: "Recap PCA-based motif analysis"
+author: "Izaskun Mallona"
+output:
+  html_document:
+    keep_md: false
+    toc: true
+    toc_float: true
+    toc_depth: 4
+params:
+  seed: 11
+
+---
+    
+```{r settings, include=TRUE, message = FALSE, warning = FALSE}
+
+library(knitr)
+## library(devtools)
+library(reshape2)
+## library(lattice)
+library(pheatmap)
+## library(seqLogo)
+## library(margins)
+## library(data.table)
+library(ggplot2)
+## library(ggfortify)
+## library(ggseqlogo)
+## library(gridExtra)
+library(MOFA)
+library(DT)
+library(dplyr)
+suppressPackageStartupMessages(library(MultiAssayExperiment))
+
+TASK <- "cg_context"
+HOME <- '/home/imallona'
+WD <-  file.path(HOME, 'mnt', 'nfs', TASK)
+DATA <- file.path(WD, 'feb_2019')
+
+MIN_DEPTH <- 10
+
+beta2m <- function(beta) {
+    m <- log2(beta/(1 - beta))
+    return(m)
+}
+
+m2beta <- function(m) {
+    beta <- 2^m/(2^m + 1)
+    return(beta)
+}
+
+opts_chunk$set(fig.width = 12,
+               fig.height = 12,
+               fig.path = file.path(WD, TASK, 'RmdFigs'),
+               output.dir = WD,
+               root.dir = WD,
+               cache = TRUE,
+               include = TRUE,
+               cache.lazy = FALSE,
+               warning = TRUE,
+               message = TRUE)
+
+dir.create(file.path(WD, TASK))
+
+```
+
+# Datasets load
+
+
+```{r dictionaries}
+## dictionaries of the whole set of motifs
+nucl <- c('T', 'C', 'G', 'A')
+
+mdict <- list('cg' = NULL, 'ch' = NULL)
+mdict$cg <- apply(expand.grid('1' = nucl, '2' = nucl, '3' = nucl,
+                              '4' = 'C',  '5' = 'G',
+                              '6' = nucl, '7' = nucl, '8' = nucl ),
+                  1,
+                  function(x) paste(x, collapse = ''))
+
+
+
+mdict$ch <- apply(expand.grid('1' = nucl, '2' = nucl, '3' = nucl,
+                              '4' = 'C',  '5' = c('A', 'T', 'C'),
+                              '6' = nucl, '7' = nucl, '8' = nucl),
+                  1,
+                  function(x) paste(x, collapse = ''))
+
+
+for (item in names(mdict)) {
+    fd <- mdict[[item]]
+    fd <- sort(as.character(fd))
+    fd <- data.frame(motif = fd, count = 0)
+    rownames(fd) <- fd$motif
+    mdict[[item]] <- fd
+    rm(fd)
+}
+
+
+```
+
+
+```{r dataload}
+sources <- list.files(file.path(DATA), recursive = FALSE)
+sources <- setdiff(sources, 'feb_2019.conf')
+    
+d <- list()
+for (batch in sources) {
+
+    curr <- list(cg = data.frame(motif = mdict$cg$motif, row.names = 1),
+                 ch = data.frame(motif = mdict$ch$motif, row.names = 1))
+
+    fns <- list.files(file.path(DATA, batch, 'discretized'))
+    ## tryCatch({
+        for (context in c('cg', 'ch')) {
+            for (thres in c('000', '010', '020', '030', '040', '050', '060', '070',
+                            '080', '090', '100')) {
+                
+                fn_match <- grep(sprintf(".*%s.*%s.*",  context, thres), fns, value = TRUE)
+
+                               
+                if (length(fn_match) > 0) {
+                    fn_match <- file.path(DATA, batch, 'discretized', fn_match)
+                    
+                    fd <- read.table(fn_match, col.names = c('count', 'motif'),
+                                     stringsAsFactors = FALSE)
+
+                    ## removing Ns and short motifs
+                    rownames(fd) <- fd$motif
+                    fd <- fd[grep('N', fd$motif, invert = TRUE),]
+                    fd <- fd[nchar(fd$motif) == 8,]
+                    fd <- fd[sort(fd$motif),]
+
+                    ## filling with zeroes the motifs that are not present
+
+                    mis <- setdiff(rownames(mdict[[context]]), rownames(fd))
+                    fd <- rbind(fd, mdict[[context]][mis,])
+                    ## lexicographical sorting
+                    fd <- fd[order(as.character(fd$motif)),]
+                    
+                    
+                    
+                } else {
+                    ## probably is missing due to the fact no motif is methylated
+                    fd <- mdict[[context]]
+                }
+
+                stopifnot(nrow(fd) == nrow(mdict[[context]]))
+                curr[[context]][,thres] <- fd$count
+            }
+        }
+        
+        d[[batch]] <- curr
+    ## }, error = function(x) print(sprintf('error %s', batch)))
+}
+
+```
+
+
+## Methylation statuses as views
+
+
+Mind might make sense having methylation statuses as views, columns are samples, rows as motifs (observations).
+
+
+```{r rotated}
+## r <- setNames(as.character(mdict$cg$motif), rep(NA, length(mdict$cg$motif)))
+
+views <- list()
+context <- 'cg'
+
+for (status in c('000', '010', '020', '030', '040', '050',
+                 '060', '070', '080', '090', '100')) {
+
+    views[[status]] <- list(thres = mdict[[context]]$motif)
+    for (batch in names(d)) {
+        views[[status]][[batch]] <- d[[batch]][[context]][,status]
+    }
+    views[[status]] <- do.call(cbind.data.frame, views[[status]])
+    rownames(views[[status]]) <- views[[status]][,1]
+    views[[status]] <- views[[status]][,-1]
+}
+    
+```
+
+
+
+```{r prevariance_filtering}
+for (assay in names(views)){
+    vars <- apply(as.matrix(views[[assay]]),1, function(x) var(x,na.rm = TRUE))
+    selected <- vars != 0 & !is.na(vars)
+    views[[assay]] <- views[[assay]][selected,]
+    rm(vars, selected)
+}
+
+```
+
+
+```{r annot_manual}
+annot <- read.table(text = '20181207.A-WGBS_IL12,tko+d3a2,bwa_hiseq4k_pe
+20181207.A-WGBS_IL14,tko+d3a2qc,bwa_hiseq4k_pe
+20181207.A-WGBS_IL18,tko+d3a2,bwa_hiseq4k_pe
+20181207.A-WGBS_IL19,tko+d3a2qc,bwa_hiseq4k_pe
+20180913.A-WGBS_3,tko+d3A2qc,bwa_hiseq4k_pe
+20180913.A-WGBS_4,tko+d3A2qc,bwa_hiseq4k_pe
+20151223.B-MmES_TKOD3A1c1-3_R,tko+d3a1,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_6_ACAGTGA_L006_001,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_001,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_002,tko+d3a2,bwa_hiseq2k
+BSSE_QGF_16209_131212_SN792_0303_AD2AJ9ACXX_lane6_Undetermined_L006_003,tko+d3a2,bwa_hiseq2k
+SRR1274743,tko+d3a2,bwa_miseq_pe
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_7_CAGATCA_L007_001,tko+d3b1,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_001,tko+d3b1,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_002,tko+d3b1,bwa_hiseq2k
+BSSE_QGF_16210_131212_SN792_0303_AD2AJ9ACXX_lane7_Undetermined_L007_003,tko+d3b1,bwa_hiseq2k
+SRR1274744,tko+d3b1,bwa_miseq_pe
+SRR1274745,tko+d3b1,bwa_miseq_pe
+SRR1653150,qko+d3b1,bwa_hiseq2k
+SRR1653151,qko+d3b1,bwa_hiseq2k
+SRR1653152,qko+d3b1,bwa_hiseq2k
+SRR1653153,qko+d3b1,bwa_hiseq2k
+SRR1653154,qko+d3b1,bwa_hiseq2k
+SRR1653155,qko+d3b1,bwa_hiseq2k
+SRR1653156,qko+d3b1,bwa_hiseq2k
+SRR1653157,qko+d3b1,bwa_hiseq2k
+SRR1653158,qko+d3b1,bwa_hiseq2k
+SRR1653159,qko+d3b1,bwa_hiseq2k
+SRR1653160,qko+d3b1,bwa_hiseq2k
+SRR1653161,qko+d3b1,bwa_hiseq2k
+SRR1653162,qko+d3b1,bwa_miseq_pe
+qko+d3b1_merged,qko+d3b1,merged
+tko+d3a1_merged,tko+d3a1,merged
+tko+d3a2_merged,tko+d3a2,merged
+tko+d3b1_merged,tko+d3b1,merged',
+  sep = ',',
+  header = FALSE,
+col.names = c('batch', 'genotype', 'tech'))
+
+rownames(annot) <- annot$batch
+
+```
+
+```{r mofa_pre}
+## MOFAobject <- createMOFAobject(views)
+
+mae <- MultiAssayExperiment(
+  experiments = views, 
+  colData = annot)
+
+MOFAobject <- createMOFAobject(mae)
+rm(mae)
+
+plotTilesData(MOFAobject)
+
+
+DataOptions <- getDefaultDataOptions()
+DataOptions$removeIncompleteSamples <- TRUE
+DataOptions
+
+ModelOptions <- getDefaultModelOptions(MOFAobject)
+
+## ## ModelOptions$numFactors <- 20
+## ModelOptions <- list(likelihood = c('gaussian', 'bernoulli', 'gaussian', 'gaussian'),
+##                      numFactors = 50,
+                     ## sparsity = TRUE)
+ModelOptions
+
+TrainOptions <- getDefaultTrainOptions()
+## Automatically drop factors that explain less than 2% of variance in all omics
+TrainOptions$DropFactorThreshold <- 0.02
+
+TrainOptions$seed <- 1
+TrainOptions
+
+MOFAobject <- prepareMOFA(
+    MOFAobject, 
+    DataOptions = DataOptions,
+    ModelOptions = ModelOptions,
+    TrainOptions = TrainOptions)
+```
+
+
+```{r runmofa}
+MOFAobject <- runMOFA(MOFAobject, outfile = file.path(WD, 'mofa_full_mae.out'))
+
+```
+
+Mind that plots are not easily retrieved
+
+```{r test_save}
+## from https://stackoverflow.com/questions/43051525/how-to-draw-pheatmap-plot-to-screen-and-also-save-to-file
+save_pheatmap_png <- function(x, filename, width=700, height=700) {
+   stopifnot(!missing(x))
+   stopifnot(!missing(filename))
+   png(filename, width=width, height=height)
+   grid::grid.newpage()
+   grid::grid.draw(x$gtable)
+   dev.off()
+}
+
+export_image <- function(x,  filename, width = 1200, height = 700) {
+    if (class(x) == 'pheatmap')
+        save_pheatmap_png(x, filename, width, height)
+    else if (any(class(x) == 'gg'))
+        ggsave(filename = sprintf('%s.png', filename))
+}
+
+
+```
+
+
+
+```{r annot_vis}
+DT::datatable(annot %>% as.data.frame() %>% 
+              dplyr::mutate_if(is.numeric, funs(round(., 2))), 
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
+```
+
+```{r mofa_vis_000}
+
+r2 <- calculateVarianceExplained(MOFAobject)
+r2$R2Total
+
+head(r2$R2PerFactor)
+
+plotVarianceExplained(MOFAobject)
+
+
+for (status in names(views)) {
+    p <- plotWeightsHeatmap(
+        MOFAobject, 
+        view = status, 
+        factors = factorNames(MOFAobject),
+        show_colnames = TRUE)
+
+    export_image(p, filename = sprintf('weightsheatmap_status_%s.png', status))
+
+    for (lf in 1:length(factorNames(MOFAobject))) {
+        
+        p <- plotWeights(
+            MOFAobject, 
+            view = status, 
+            factor = factorNames(MOFAobject)[lf], 
+            nfeatures = 10,
+            scale = TRUE)
+         
+        export_image(p, filename = sprintf('weights_%s_status_%s.png', lf, status))
+
+        p <- plotTopWeights(
+            MOFAobject, 
+            view = status, 
+            factor = factorNames(MOFAobject)[lf])
+        
+        export_image(p, filename = sprintf('topweights_%s_status_%s.png', lf, status))
+        
+        p <- plotDataHeatmap(
+            MOFAobject, 
+            view = status, 
+            factor = factorNames(MOFAobject)[lf], 
+            features = 20, 
+            show_rownames = TRUE)
+        export_image(p, filename = sprintf('data_heatmap_%s_status_%s.png', lf, status))
+    }
+}
+
+```
+
+```{r mofa_full_checks}
+lf_unmeth <- 2
+status_unmeth <- '000'
+
+p <- plotDataHeatmap(
+    MOFAobject, 
+    view = status_unmeth, 
+    factor = factorNames(MOFAobject)[lf_unmeth], 
+    features = 30, 
+    show_rownames = TRUE)
+
+plotDataHeatmap(
+    MOFAobject, 
+    view = status_unmeth, 
+    factor = factorNames(MOFAobject)[lf_unmeth], 
+    features = 30, 
+    show_rownames = TRUE,
+    include.weights = TRUE)
+
+
+
+plotDataScatter(MOFAobject, 
+    view = status_unmeth, 
+    factor = factorNames(MOFAobject)[lf_unmeth], 
+    features = 10 ,
+    color_by = 'genotype')
+
+plotFactorScatter(MOFAobject, 
+                  factor = 1:2,
+                  color_by= 'genotype')
+
+plotFactorScatters(MOFAobject, 
+                   factor = 1:3,
+                   color_by = 'genotype')
+```
+
+
+```{r mixturemethunmeth}
+
+merge_factors <- function (object, view, factor1, factor2, features = 50, includeWeights = FALSE, 
+     ...) 
+{
+    
+
+    
+    W <- c(getWeights(object)[[view]][, factor1])
+    Z <- getFactors(object)[, factor1]
+    Z <- Z[!is.na(Z)]
+
+    data <- getTrainData(object, view)[[1]]
+    
+    data <- data[, names(Z)]
+    data <- data[, apply(data, 2, function(x) !all(is.na(x)))]
+    if (is(features, "numeric")) {
+        features1 <- names(tail(sort(abs(W)), n = features))
+        stopifnot(all(features1 %in% featureNames(object)[[view]]))
+    }
+  
+    W <- c(getWeights(object)[[view]][, factor2])
+    Z <- getFactors(object)[, factor2]
+    Z <- Z[!is.na(Z)]
+
+    data <- getTrainData(object, view)[[1]]
+    
+    data <- data[, names(Z)]
+    data <- data[, apply(data, 2, function(x) !all(is.na(x)))]
+   
+    features2 <- names(tail(sort(abs(W)), n = features))
+    features <- c(features1, features2)
+    
+    data <- getTrainData(object, view)[[1]]
+    
+    data <- data[, names(Z)]
+    data <- data[, apply(data, 2, function(x) !all(is.na(x)))]
+    
+    data <- data[features, ]
+
+    pheatmap(t(data), ...)
+    
+}
+
+
+merge_factors(
+    MOFAobject, 
+    view = status_unmeth, 
+    factor1 = 1,
+    factor2 = 2,
+    features = 10, 
+    show_rownames = TRUE,
+    include.weights = TRUE)
+
+x11()
+
+merge_factors(
+    MOFAobject, 
+    view = '100', 
+    factor1 = 1,
+    factor2 = 2,
+    features = 30, 
+    show_rownames = TRUE,
+    include.weights = TRUE)
+
+ ## plotDataHeatmap(
+ ##    MOFAobject, 
+ ##    view = status_unmeth, 
+ ##    factor = 1, 
+ ##    features = 30, 
+ ##    show_rownames = TRUE)
+
+```
+
+
+# Motifs as views
+
+Motifs are views, columns are samples, rows are methylation statuses (observations)
+
+CG only first
+
+@todo vectorize this
+
+```{r rotated2}
+## r <- setNames(as.character(mdict$cg$motif), rep(NA, length(mdict$cg$motif)))
+
+views <- list()
+context <- 'cg'
+
+for (motif in as.character(mdict[[context]]$motif)){
+    views[[motif]] <- list(thres = as.numeric(c('000', '010', '020', '030', '040', '050',
+                                                '060', '070', '080', '090', '100')))
+    for (batch in names(d)) {
+        views[[motif]][[batch]] <- d[[batch]][[context]][motif,]
+    }
+
+    views[[motif]] <- t(do.call(rbind.data.frame, views[[motif]]))[,-1]
+                                                                  
+}
+    
+```
+
+
+
+
+
+```{r prevariance_filtering2}
+
+for (assay in names(views)){
+    vars <- apply(as.matrix(views[[assay]]),1, function(x) var(x,na.rm = TRUE))
+    selected <- vars != 0 & !is.na(vars)
+    views[[assay]] <- views[[assay]][selected,]
+    rm(vars, selected)
+}
+
+```
+
+
+
+```{r mofa_pre2}
+
+MOFAobject <- createMOFAobject(views)
+plotTilesData(MOFAobject)
+
+
+DataOptions <- getDefaultDataOptions()
+DataOptions$removeIncompleteSamples <- TRUE
+DataOptions
+
+ModelOptions <- getDefaultModelOptions(MOFAobject)
+
+## ## ModelOptions$numFactors <- 20
+## ModelOptions <- list(likelihood = c('gaussian', 'bernoulli', 'gaussian', 'gaussian'),
+##                      numFactors = 50,
+                     ## sparsity = TRUE)
+ModelOptions
+
+TrainOptions <- getDefaultTrainOptions()
+## Automatically drop factors that explain less than 2% of variance in all omics
+TrainOptions$DropFactorThreshold <- 0.02
+
+TrainOptions$seed <- 1
+TrainOptions
+
+MOFAobject <- prepareMOFA(
+    MOFAobject, 
+    DataOptions = DataOptions,
+    ModelOptions = ModelOptions,
+    TrainOptions = TrainOptions)
+```
+
+
+```{r runmofa2}
+
+MOFAobject <- runMOFA(MOFAobject, outfile = file.path(WD, 'mofa2_full.out'))
+
+```
+
+
+```{r mofa_vis2_000}
+
+r2 <- calculateVarianceExplained(MOFAobject)
+print(r2$R2Total)
+
+head(r2$R2PerFactor)
+
+plotVarianceExplained(MOFAobject)
+
+
+for (status in names(views)) {
+    p <- plotWeightsHeatmap(
+        MOFAobject, 
+        view = status, 
+        factors = factorNames(MOFAobject),
+        show_colnames = TRUE)
+
+    export_image(p, filename = sprintf('2_weightsheatmap_status_%s.png', status))
+
+    for (lf in 1:length(factorNames(MOFAobject))) {
+        
+        p <- plotWeights(
+            MOFAobject, 
+            view = status, 
+            factor = factorNames(MOFAobject)[lf], 
+            nfeatures = 10,
+            scale = TRUE)
+         
+        export_image(p, filename = sprintf('2_weights_%s_status_%s.png', lf, status))
+
+        p <- plotTopWeights(
+            MOFAobject, 
+            view = status, 
+            factor = factorNames(MOFAobject)[lf])
+        
+        export_image(p, filename = sprintf('2_topweights_%s_status_%s.png', lf, status))
+        
+        p <- plotDataHeatmap(
+            MOFAobject, 
+            view = status, 
+            factor = factorNames(MOFAobject)[lf], 
+            features = 20, 
+            show_rownames = TRUE)
+        export_image(p, filename = sprintf('2_data_heatmap_%s_status_%s.png', lf, status))
+    }
+}
+
+```
+

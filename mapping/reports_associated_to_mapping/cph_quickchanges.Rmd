@@ -1,0 +1,988 @@
+---
+title: "CG and CH contexts, quickchanges as well"
+output:
+  html_document:
+    keep_md: true
+    toc: true
+    toc_float: true
+    toc_depth: 4
+params:
+  seed: 11
+
+---
+    
+```{r settings, include=FALSE}
+
+library(knitr)
+## library(devtools)
+library(reshape2)
+## library(lattice)
+library(pheatmap)
+library(seqLogo)
+## library(margins)
+## library(data.table)
+library(ggplot2)
+library(ggfortify)
+library(ggseqlogo)
+library(gridExtra)
+
+TASK <- "cg_context"
+HOME <- '/home/imallona'
+WD <-  file.path(HOME, 'mnt', 'nfs', TASK)
+DATA <- file.path(HOME, 'data')
+
+MIN_DEPTH <- 10
+NFS <- file.path(HOME, 'mnt', 'nfs')
+
+beta2m <- function(beta) {
+    m <- log2(beta/(1 - beta))
+    return(m)
+}
+
+m2beta <- function(m) {
+    beta <- 2^m/(2^m + 1)
+    return(beta)
+}
+
+opts_chunk$set(fig.width = 12,
+               fig.height = 12,
+               fig.path = file.path(WD, TASK, 'RmdFigs'),
+               output.dir = WD,
+               root.dir = WD,
+               cache = TRUE,
+               include = TRUE,
+               cache.lazy = FALSE,
+               warning = TRUE,
+               message = TRUE)
+
+dir.create(file.path(WD, TASK))
+
+```
+
+# Aim
+
+- Hypothesis: DNMTs (DNA meth transferases) show sequence specificity
+-   Datasets: WGBS in three mouse cells lacking DNA meth (called
+    `triple KOs or TKOs`)
+-   They have a different DNMT (DNA meth transferases) addback each
+
+# Design
+
+```{r design, include = TRUE, cache = TRUE, fig.width = 20}
+knitr::include_graphics("/home/imallona/src/cg_context/stranded_dnameth.png")
+
+```
+
+<!-- ```{r scores, out.extra='page=4'} -->
+<!-- knitr::include_graphics("/home/imallona/src/talks/current_work_mark_aug_2018/cw_mark_aug_2018.pdf") -->
+<!-- ``` -->
+
+
+-   Flow
+
+    -   Call DNA methylation for every CpG in a strand-specific manner
+
+    -   Collapse counts (methylated/unmethylated) for each context 6-mer
+        `NNNCGNNN`
+
+    -   Normalize by the overall methylation levels
+
+    -   Check proportions
+
+We define a score which reads as a fold change (motif aggregated beta value / average aggregated beta value)
+
+               N-mer      M     U    uncov    $\beta$ value          score
+  ---------- ---------- ----- ----- ------- ----------------- --------------------
+      1       AAACGAAA   127   321    988    $\frac{M}{M+U}$   $\frac{\beta}{NF}$
+      2       AAACGAAT   107   312    568                     
+   $\cdots$                                                   
+    $4^N$                                                     
+
+Being
+
+-   $N$ motif size
+-   $M$ num meth motifs
+-   $U$ num unmeth motifs
+-   `uncov` num motifs below min coverage
+-   $0 <\beta < 1$ methylation level
+-   $NF_{sample} = \frac{\sum \beta}{4^N}$ (needed because samples’ avg $\beta$ ranges 0.08-0.80)
+
+
+
+# Datasets load
+
+```{r run_trace}
+sources <- list.files(file.path(WD), recursive = TRUE, pattern = '*sources')
+
+for (fn in sources) {
+    cat(sprintf('SOURCE BAMS FOR CONFIG FILE %s', fn))
+    cat('\n')
+    for (line in readLines(file.path(WD, fn))) {
+        cat(sprintf('%s\n', line))
+    }
+    cat('\n')
+    cat('\n')
+}
+
+```
+
+
+```{r data_import, include = TRUE, echo = FALSE, cache = TRUE, cache.lazy = FALSE}
+
+## meth and unmeth separately
+d <- list(cg = list(),
+          ch = list())
+
+for (context in c('cg', 'ch')) {
+    for (genotype in dirname(sources)) {
+        for (state in c('meth', 'unmeth')) {
+
+            fd <- read.table(
+                file.path(WD, genotype,
+                          sprintf('motif_counts_%s_%s.txt', context, state)),
+                col.names = c('count', 'motif'),
+                stringsAsFactors = FALSE)
+
+            ## removing Ns and short motifs
+            rownames(fd) <- fd$motif
+            fd <- fd[grep('N', fd$motif, invert = TRUE),]
+            fd <- fd[nchar(fd$motif) == 8,]
+            fd <- fd[sort(fd$motif),]
+            
+            d[[context]][[genotype]][[state]] <- fd
+            rm(fd)
+        }
+    }
+}
+
+```
+
+
+## Quickchanges QC 
+
+Quickchanges are named WGBS 3 and 4, no idea which are the aminoacid changes and which was the background.
+
+Regarding sequence cutadapting/sickle-ing
+
+```
+[imallona@imlstaupo quickchanges]$ pwd
+/home/imallona/mnt/nfs/cg_context/quickchanges
+
+[imallona@imlstaupo quickchanges]$ find . -name "*sickle.log" | xargs head
+==> ./20180913.A-WGBS_3_cutadapt_sickle.log <==
+
+FastQ paired records kept: 109032024 (54516012 pairs)
+FastQ single records kept: 479178 (from PE1: 455320, from PE2: 23858)
+FastQ paired records discarded: 17340 (8670 pairs)
+FastQ single records discarded: 479178 (from PE1: 23858, from PE2: 455320)
+
+
+==> ./20180913.A-WGBS_4_cutadapt_sickle.log <==
+
+FastQ paired records kept: 152820834 (76410417 pairs)
+FastQ single records kept: 609665 (from PE1: 585466, from PE2: 24199)
+FastQ paired records discarded: 25058 (12529 pairs)
+FastQ single records discarded: 609665 (from PE1: 24199, from PE2: 585466)
+
+```
+
+As for mapping (bwameth default) after dedup and map40 filtering
+
+```
+[imallona@imlstaupo quickchanges]$ samtools flagstat -@ 12 20180913.A-WGBS_3_bwameth_default.bam
+57261802 + 4723556 in total (QC-passed reads + QC-failed reads)
+4011243 + 215900 secondary
+0 + 0 supplementary
+0 + 0 duplicates
+57261802 + 4723556 mapped (100.00% : 100.00%)
+53250559 + 4507656 paired in sequencing
+26854450 + 2289387 read1
+26396109 + 2218269 read2
+52410363 + 0 properly paired (98.42% : 0.00%)
+53151977 + 4466585 with itself and mate mapped
+98582 + 41071 singletons (0.19% : 0.91%)
+184465 + 118036 with mate mapped to a different chr
+184465 + 118036 with mate mapped to a different chr (mapQ>=5)
+
+
+[imallona@imlstaupo quickchanges]$ samtools flagstat -@ 12 20180913.A-WGBS_4_bwameth_default.bam
+59395798 + 3890657 in total (QC-passed reads + QC-failed reads)
+2950326 + 202473 secondary
+0 + 0 supplementary
+0 + 0 duplicates
+59395798 + 3890657 mapped (100.00% : 100.00%)
+56445472 + 3688184 paired in sequencing
+28582565 + 1895496 read1
+27862907 + 1792688 read2
+55602134 + 0 properly paired (98.51% : 0.00%)
+56371508 + 3664469 with itself and mate mapped
+73964 + 23715 singletons (0.13% : 0.64%)
+383760 + 258508 with mate mapped to a different chr
+383760 + 258508 with mate mapped to a different chr (mapQ>=5)
+
+```
+
+So around 60M alignments with highest quality. (BWA sets as QC-failed when reads are soft-clipped)
+
+Secondary alignments are half of them (discarded with methyldackel)
+
+Regarding duplication
+
+```
+[imallona@imlstaupo quickchanges]$ find . -name "*metrics" | xargs fgrep LIBRARY -A 1
+
+
+./20180913.A-WGBS_3_bwameth_default_dup_marked.metrics:LIBRARY	UNPAIRED_READS_EXAMINED	READ_PAIRS_EXAMINED	SECONDARY_OR_SUPPLEMENTARY_RDS	UNMAPPED_READS	UNPAIRED_READ_DUPLICATES	READ_PAIR_DUPLICATES	READ_PAIR_OPTICAL_DUPLICATES	PERCENT_DUPLICATION	ESTIMATED_LIBRARY_SIZE
+./20180913.A-WGBS_3_bwameth_default_dup_marked.metrics-Unknown Library	290264	54087918	14857545	565924	103908	14880118	141779   0.275332	79780960
+
+
+./20180913.A-WGBS_4_bwameth_default_dup_marked.metrics:LIBRARY	UNPAIRED_READS_EXAMINED	READ_PAIRS_EXAMINED	SECONDARY_OR_SUPPLEMENTARY_RDS	UNMAPPED_READS	UNPAIRED_READ_DUPLICATES	READ_PAIR_DUPLICATES	READ_PAIR_OPTICAL_DUPLICATES	PERCENT_DUPLICATION	ESTIMATED_LIBRARY_SIZE
+./20180913.A-WGBS_4_bwameth_default_dup_marked.metrics-Unknown Library	282352	76064994	13934541	408494	147585	32994796	208542   0.433936	60046770
+
+```
+
+So duplication rates of 27 to 43%.
+
+Qualimap run as well before deduplication but after mapq subsetting value 40. Oddly enough it reports back mapq values of 30 etc.
+
+```
+cd ~/cg_context
+mkdir qualimap_quickchanges
+cd $_
+
+rsync -avt imlstaupo://home/imallona/mnt/nfs/cg_context/quickchanges/*qualimap .
+
+```
+
+Checking mapqvalues distribution with samtools
+
+```
+
+samtools view -@ 12 -q 10 -b 20180913.A-WGBS_3_bwameth_default.bam | wc -l
+# 17131607
+samtools view -@ 12 -q 30 -b 20180913.A-WGBS_3_bwameth_default.bam | wc -l
+# 17131607
+```
+
+Is bamqc broken then? But results are consistent with the `cphg_quickchanges.sh` protocol, so nothing to see here.
+
+```{r data_import_quickchanges}
+## these are located at the quickchanges folder. No idea which one is it, names are 3 and 4.
+for (context in c('cg', 'ch')) {
+    for (genotype in c('20180913.A-WGBS_3', '20180913.A-WGBS_4')) {
+        for (state in c('meth', 'unmeth')) {
+            fd <- read.table(
+                file.path(WD, 'quickchanges',
+                          sprintf('%s_motif_counts_%s_%s_%s.txt', genotype, context, state,
+                                  genotype)),
+                col.names = c('count', 'motif'),
+                stringsAsFactors = FALSE)
+
+            ## removing Ns and short motifs
+            rownames(fd) <- fd$motif
+            fd <- fd[grep('N', fd$motif, invert = TRUE),]
+            fd <- fd[nchar(fd$motif) == 8,]
+            fd <- fd[sort(fd$motif),]
+            
+            d[[context]][[genotype]][[state]] <- fd
+            rm(fd)
+        }
+    }
+}
+
+```
+
+
+```{r updating_sources_quickchanges}
+
+sources <- c(sources, '20180913.A-WGBS_3/20180913.A-WGBS_3', '20180913.A-WGBS_4/20180913.A-WGBS_4')
+
+```
+
+``` {r preproc_countings}
+## dictionary of the whole set of motifs
+nucl <- c('T', 'C', 'G', 'A')
+
+mdict <- list('cg' = NULL, 'ch' = NULL)
+mdict$cg <- apply(expand.grid('1' = nucl, '2' = nucl, '3' = nucl,
+                               '4' = 'C',  '5' = 'G',
+                               '6' = nucl, '7' = nucl, '8' = nucl ),
+                   1,
+                   function(x) paste(x, collapse = ''))
+
+
+
+mdict$ch <- apply(expand.grid('1' = nucl, '2' = nucl, '3' = nucl,
+                               '4' = 'C',  '5' = c('A', 'T', 'C'),
+                               '6' = nucl, '7' = nucl, '8' = nucl),
+                   1,
+                   function(x) paste(x, collapse = ''))
+
+for (item in names(mdict)) {
+    fd <- mdict[[item]]
+    fd <- sort(as.character(fd))
+    fd <- data.frame(motif = fd, count = 0)
+    rownames(fd) <- fd$motif
+    mdict[[item]] <- fd
+    rm(fd)
+}
+
+## filling with zeroes the motifs that are not present in some datasets
+
+
+for (context in c('cg', 'ch')) {
+    for (genotype in dirname(sources)) {
+        for (state in c('meth', 'unmeth')) {
+            curr <- d[[context]][[genotype]][[state]]
+
+            mis <- setdiff(rownames(mdict[[context]]), rownames(curr))
+            curr <- rbind(curr, mdict[[context]][mis,])
+            ## lexicographical sorting
+            curr <- curr[order(as.character(curr$motif)),]
+            d[[context]][[genotype]][[state]] <- curr
+            
+            
+            stopifnot(nrow(curr) == nrow(mdict[[context]]))
+            rm(curr, mis)
+        }
+    }
+}
+
+```
+
+Saving the data as an R object with the following structure:
+
+- context (cg or ch)
+- sample (i.e. qko)
+- status (meth or unmeth)
+- dataframe the columns motif, number of instances
+
+```{r saving_r_data}
+
+save(x = d, file = file.path(WD, 'counts_nested_list_quickchanges.RData'))
+str(d)
+
+```
+
+##  Normalization
+
+```{r normalize}
+
+
+## normalization factor based upon the number of meth Cs vs the number of unmeth Cs
+nf <- data.frame(genotype = rep(dirname(sources), each = 2),
+                   context = c('cg', 'ch'),
+                   meth = NA,
+                   unmeth = NA,
+                   ratio = NA)
+
+nf$genotype <- as.character(nf$genotype)
+nf$context <- as.character(nf$context)
+
+for (i in 1:nrow(nf)) {
+    for (status in c('meth', 'unmeth')) {
+        nf[i, status] <- sum(d[[nf[i, 'context']]][[nf[i, 'genotype']]][[status]]$count)
+    }
+    nf[i, 'ratio'] <- nf[i, 'meth']/(nf[i, 'meth'] + nf[i, 'unmeth'])
+}
+
+
+
+## apply the normalization factor
+
+nd <- list(cg = setNames(data.frame(matrix(nrow = length(mdict$cg$motif),
+                                           ncol = length(sources) + 1)),
+                         c('motif', dirname(sources))),
+           ch = setNames(data.frame(matrix(nrow = length(mdict$ch$motif),
+                                           ncol = length(sources) + 1)),
+                         c('motif', dirname(sources))))
+
+for (context in names(nd)) {
+    nd[[context]][,'motif'] <-  as.character(mdict[[context]]$motif)
+}
+           
+
+for (context in c('cg', 'ch')) {
+    for (genotype in dirname(sources)) {
+                
+        stopifnot(d[[context]][[genotype]][['meth']]$motif ==
+                  d[[context]][[genotype]][['unmeth']]$motif)
+        
+        unnormalized <- d[[context]][[genotype]][['meth']]$count /
+            (d[[context]][[genotype]][['unmeth']]$count + d[[context]][[genotype]][['meth']]$count)
+
+
+        normalized <- unnormalized / nf[nf$genotype == genotype
+                                        & nf$context == context, 'ratio']
+
+        stopifnot(d[[context]][[genotype]][['meth']]$motif ==
+                  nd[[context]]$motif)
+        
+        nd[[context]][,genotype] <- normalized
+            
+    }
+
+}
+
+
+print(nf)
+
+```
+
+# Plotting scores
+
+Plotting the motifs sorted by their average score.
+
+
+## CG context 
+```{r plotting_overall_cpg}
+
+context <- 'cg'
+melted <- melt(nd[[context]])
+## sorted by average dnameth by kmer
+
+melted$fac = reorder(melted$motif, melted$value, mean)
+
+## ggplot(d, aes(x=reorder(fac, y, mean), y=y))
+print(ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
+                                color = variable))+ 
+      geom_point(size = 0.5))
+```
+
+
+## CH context
+
+```{r plotting_overall_ch}
+
+context <- 'ch'
+melted <- melt(nd[[context]])
+## sorted by average dnameth by kmer
+
+melted$fac = reorder(melted$motif, melted$value, mean)
+
+## ggplot(d, aes(x=reorder(fac, y, mean), y=y))
+print(ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
+                                color = variable))+ 
+      geom_point(size = 0.5))
+
+
+
+```
+
+# Subsetting for the most variable motifs
+
+Getting the top percentile (q99) variable motifs for quick visualization.
+
+```{r differential_q99, eval = TRUE}
+
+
+## picking the most variable motifs (simple variance)
+
+topmotifs <- list()
+for (context in names(nd)) {
+    print(context)
+    vars <- data.frame(motif = nd[[context]]$motif,
+                       var = apply(nd[[context]][2:ncol(nd[[context]])], 1, var))
+    vars <- vars[order(vars$var, decreasing = TRUE),]
+
+    print(sprintf('variance distribution in context %s', context))
+    plot(density(na.omit(vars$var)), main = context,
+         xlab = 'meth score variance across genotypes')
+
+    ## top 1% variable motifs
+    top <- vars[vars$var >= quantile(vars$var, probs = 0.99, na.rm = TRUE),]
+    selected <-  nd[[context]][nd[[context]]$motif %in% top$motif,]
+    rownames(selected) <- selected$motif
+    selected <- selected[,-1]
+
+    ## setting a red palette for values below 1, and blue over 1
+    pivot <- max(selected)
+    breaks <-  c(seq(0, 0.99, length = 20), seq(1.01, pivot, length = 20))
+    pal <- colorRampPalette(c('darkred', 'black', 'darkgreen'))(40)
+
+    topmotifs[[context]][['q99']] <- as.character(top$motif)
+   
+    print(pheatmap(as.matrix(selected),
+                   breaks = breaks,
+                   color = pal,
+                   Rowv = as.dendrogram(hclust(dist(as.matrix(selected)), method = 'ward')),
+                   Colv = as.dendrogram(hclust(dist(t(as.matrix(selected))), method = 'ward')),
+                   main = sprintf('q99 variable motifs, n = %s', nrow(selected))))
+
+    ## now pca
+    print(autoplot(prcomp(selected), label = TRUE,
+             main = sprintf('q99 variable motifs, n = %s', nrow(selected))))
+    print(autoplot(prcomp(t(selected)), label = TRUE, loadings = TRUE,
+             loadings.label = TRUE, loadings.label.size = 3,
+             main =  sprintf('q99 variable motifs, n = %s', nrow(selected))))
+
+    ## ## pca on the whole stuff
+    ## rownames(nd[[context]]) <- nd[[context]]$motif
+    ## print(autoplot(prcomp(nd[[context]][,-1]), label = TRUE,
+    ##          main = 'all motifs'))
+    
+    ## print(autoplot(prcomp(t(nd[[context]][,-1])), label = TRUE, loadings = TRUE,
+    ##          loadings.label = TRUE, loadings.label.size = 3,
+    ##          main =  'all motifs'))
+
+    ## exporting dataset (intemediate results)
+    write.csv(file.path(WD, sprintf('%s_normalized_data_quickchanges.csv', context)),
+              x = nd[[context]],
+              row.names = FALSE,
+              quote = FALSE)
+
+}
+```
+
+```{r differential_discrete_top, eval = FALSE, include = FALSE}
+for (context in names(nd)) {
+    for (topn in c(10)) {  ## only top 100, not iterating
+        vars <- data.frame(motif = nd[[context]]$motif,
+                       var = apply(nd[[context]][2:ncol(nd[[context]])], 1, var))
+        vars <- vars[order(vars$var, decreasing = TRUE),]
+        
+        top <- head(as.character(vars$motif), topn)
+
+        selected <- nd[[context]][nd[[context]]$motif %in% top,]
+        rownames(selected) <- selected$motif
+        selected <- selected[,-1]
+
+        pheatmap(as.matrix(selected),
+                Rowv = as.dendrogram(hclust(dist(as.matrix(selected)), method = 'ward')),
+                Colv = as.dendrogram(hclust(dist(t(as.matrix(selected))), method = 'ward')),
+                main = sprintf('top %s variable motifs', n = topn))
+
+        topmotifs[[context]][[as.character(topn)]] <- top
+
+        ## m1 <- lm(value ~ motif * variable, data = selected,])
+    } 
+}
+
+
+```
+
+
+
+
+```{r table_plot_tops_cg, eval = FALSE, include = FALSE}
+for (context in names(topmotifs)) {
+    for (cutoff in names(topmotifs[[context]])) {
+        selected <- nd[[context]][nd[[context]]$motif %in% topmotifs[[context]][[cutoff]],]  
+
+        print(sprintf('top %s motifs in context %s', cutoff, context))
+        
+        ## ## sorted lexicographically        
+        ## melted <- melt(selected)
+        ## print(ggplot(data = melted, aes(x = motif, y = value, group = variable, color = variable))+ 
+        ##       geom_point()+
+        ##       theme(axis.text.x = element_text(angle = 90, hjust = 1)))
+
+        ## sorted by trend
+
+        melted$fac = reorder(melted$motif, melted$value, mean)
+
+        ## ggplot(d, aes(x=reorder(fac, y, mean), y=y))
+        print(ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
+                                        color = variable))+ 
+              geom_point()+
+              theme(axis.text.x = element_text(angle = 90, hjust = 1)))
+    }
+
+}
+
+```
+
+# Getting sequence logos
+
+
+   
+## Normalized logos
+
+Scoring on normalized data (i.e. taking into account the unmethylated, but covered, motifs as well).
+
+<!-- ```{r logos_normalized_top, eval = FALSE, include = FALSE} -->
+
+<!-- for (context in names(topmotifs)) { -->
+<!--     for (cutoff in names(topmotifs[[context]])) { -->
+<!--         selected <- nd[[context]][nd[[context]]$motif %in% topmotifs[[context]][[cutoff]],] -->
+<!--         melted <- melt(selected) -->
+
+<!--         ## setting the item with min value as 1 and scoring others (truncating) -->
+<!--         ## this is shitty because some are valued 0! -->
+<!--         melted$score <- round(melted$value/min(melted$value)) -->
+<!--         lprobs <- list() -->
+<!--         for (genotype in levels(melted$variable)) { -->
+<!--             curr <- melted[melted$variable == genotype,] -->
+                        
+<!--             lprobs[[genotype]] <- rep(curr$motif, curr$score) -->
+<!--         } -->
+
+<!--         print(sprintf('context %s cutoff top %s', context, cutoff)) -->
+<!--         print(ggseqlogo(lprobs, ncol = 1, method = 'probability')) -->
+<!--         print(ggseqlogo(lprobs, ncol = 1, method = 'bits')) -->
+<!--         rm(selected, lprobs) -->
+
+<!--     } -->
+<!-- } -->
+<!-- ``` -->
+
+
+
+```{r logos_without_filtering, eval = TRUE}
+
+for (context in names(nd)) {
+    
+    selected <- nd[[context]]
+    melted <- melt(selected)
+
+    ## setting the item with min value (but not being 0) as 1 and scoring others (truncating)
+    melted <- na.omit(melted[melted$value > 0,])
+    melted$score <- round(melted$value/min(melted$value))
+    lprobs <- list()
+    for (genotype in levels(melted$variable)) {
+        curr <- melted[melted$variable == genotype,]
+        lprobs[[genotype]] <- rep(curr$motif, curr$score)
+        
+        
+    }
+    ## print(sprintf('context %s cutoff top %s', context, cutoff))
+    print(ggseqlogo(lprobs, ncol = 1, method = 'probability'))
+    print(ggseqlogo(lprobs, ncol = 1, method = 'bits'))
+    rm(selected, lprobs)
+
+}
+```
+
+## Logos without normalization
+
+Independent logo call without normalization, just counting the nucleotide proportions for methylated motifs (i.e. without normalizing against covered but unmethylated cytosines).
+
+```{r logos_pwm, fig.width = 12, fig.height = 4,}
+
+proportion <- function(x){
+   rs <- sum(x);
+   return(x / rs);
+}
+
+for (context in names(d)) {
+    for (genotype in names(d[[context]])) {
+        print(genotype)
+
+        selected <- d[[context]][[genotype]]$meth
+
+        for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
+                              C = NA,
+                              G = NA,
+                              T = NA)
+
+        for (i in 1:nchar(selected$motif[1])) {
+            id <- paste0('d',i)
+            selected[, id] <- substr(selected$motif, i, i)
+            for (nt in c('A', 'T', 'C', 'G')) {
+                tsum <- 0
+                tsum <- sum(selected[selected[,id] == nt,'count'])
+                for_pwm[i, nt] <- tsum 
+                    
+            }
+        }
+        pwm <- makePWM(apply(for_pwm, 1, proportion))
+        print(pwm)
+
+        plot(pwm, main = genotype)
+        
+    }
+}
+
+
+```
+
+## Aggregated beta values of top scoring motifs
+
+Mind that these are not exactly betavalues, but the ratio M/(M+U) for gruped motifs.
+
+```{r betavalues, eval = TRUE}
+
+## beware, these are not betavalues but aggregated beta values
+betas <- list(cg = setNames(data.frame(matrix(nrow = length(mdict$cg$motif),
+                                           ncol = length(sources) + 1)),
+                         c('motif', dirname(sources))),
+           ch = setNames(data.frame(matrix(nrow = length(mdict$ch$motif),
+                                           ncol = length(sources) + 1)),
+                         c('motif', dirname(sources))))
+
+for (context in names(betas)) {
+    betas[[context]][,'motif'] <-  as.character(mdict[[context]]$motif)
+}
+           
+
+for (context in c('cg', 'ch')) {
+    for (genotype in dirname(sources)) {
+                
+        stopifnot(d[[context]][[genotype]][['meth']]$motif ==
+                  d[[context]][[genotype]][['unmeth']]$motif)
+        
+        unnormalized <- d[[context]][[genotype]][['meth']]$count /
+            (d[[context]][[genotype]][['unmeth']]$count + d[[context]][[genotype]][['meth']]$count)
+
+        stopifnot(d[[context]][[genotype]][['meth']]$motif ==
+                  betas[[context]]$motif)
+        
+        betas[[context]][,genotype] <- unnormalized
+     
+    }
+     rownames(betas[[context]]) <- betas[[context]]$motif
+     ## betas[[context]] <- betas[[context]][,-1]
+}
+
+for (context in names(betas)) {
+    for (cutoff in names(topmotifs[[context]])) {
+
+        print(sprintf('top %s motifs in context %s', cutoff, context))
+        
+        selected <- betas[[context]][betas[[context]]$motif %in% topmotifs[[context]][[cutoff]],]
+        
+        melted <- melt(selected)
+
+        melted$fac = reorder(melted$motif, melted$value, mean)
+        ## ggplot(d, aes(x=reorder(fac, y, mean), y=y))
+        print(ggplot(data = melted, aes(reorder(fac, value, mean), y = value, group = variable,
+                                        color = variable))+ 
+              geom_point()+
+              theme(axis.text.x = element_text(angle = 90, hjust = 1)))
+
+        rm(selected, melted)
+    }
+}
+
+
+
+```
+
+# Simplest visualization
+
+Just evaluating the deviation of motif abundances to the 0.25:0.25:0.25:0.25 ratio
+
+Scoring is calculated as the log2 of the ratio (i.e. being nucleotide A present 0.24 or 24% of the times at position 1) as compared to 0.25 (uniform distributtion)
+
+log2fc goes from minus infinity to +2 (meaning a letter is in 100% of the cases at a given position )
+
+```{r deviations}
+
+
+proportion <- function(x){
+   rs <- sum(x);
+   return(x / rs);
+}
+
+
+deviation_from_proportion <- function(x){
+   rs <- sum(x);
+   ## return((x / rs) - 0.25)
+   return((x / rs) / 0.25)
+}
+
+
+log2ratio_proportion <- function(x){
+   rs <- sum(x);
+   ## return((x / rs) - 0.25)
+   return(log2((x / rs) - 0.25))
+}
+
+## information content
+
+for (context in names(d)) {
+    melted <- list()
+    for (genotype in names(d[[context]])) {
+        print(genotype)
+
+        selected <- d[[context]][[genotype]]$meth
+
+        for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
+                              C = NA,
+                              G = NA,
+                              T = NA)
+
+        for (i in 1:nchar(selected$motif[1])) {
+            id <- paste0('d',i)
+            selected[, id] <- substr(selected$motif, i, i)
+            for (nt in c('A', 'T', 'C', 'G')) {
+                tsum <- 0
+                tsum <- sum(selected[selected[,id] == nt,'count'])
+                for_pwm[i, nt] <- tsum 
+                
+            }
+        }
+        pwm <- makePWM(apply(for_pwm, 1, proportion))
+        print(pwm)
+
+        ## deviations <- (apply(for_pwm, 1, deviation_from_proportion))
+        ## deviations <- (apply(for_pwm, 1, log2ratio_proportion))
+
+        ## (pwm@pwm - 0.25)
+        deviations <- log2(pwm@pwm /0.25)
+        ## deviations[!is.finite(deviations)] <- 0
+        
+        data.m <- melt(deviations)
+
+        
+
+        data.m$genotype <- genotype
+        melted[[genotype]] <- data.m
+
+        
+    }
+    melted2 <- do.call(rbind.data.frame, melted)
+    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'genotype')
+    ## ## plot everything
+    ## ggplot(melted, aes(position, deviation)) +   
+    ##     geom_bar(aes(fill = genotype), position = "dodge", stat="identity")
+
+    ## ggplot(melted, aes(nucleotide, deviation, fill=as.factor(position)))+
+    ##     geom_bar(position="dodge",stat="identity")+
+    ##     facet_wrap(~genotype,nrow=3)
+
+
+    ## ggplot(melted2, aes(position, deviation, fill=as.factor(nucleotide)))+
+    ##     geom_bar(position="dodge",stat="identity")+
+    ##     facet_wrap(~genotype,nrow=2)
+
+    print(ggplot(melted2, aes(position, deviation, fill=as.factor(genotype)))+
+          geom_bar(position="dodge",stat="identity") +
+          ## scale_x_discrete(breaks = 1:8) +
+          scale_x_continuous(breaks = 1:8) +
+          facet_wrap(~nucleotide,nrow=4) + xlab("position") + ylab('log2fc to 1/4'))
+
+    print(ggplot(melted2, aes(position, deviation, fill=as.factor(nucleotide)))+
+          geom_bar(position="dodge",stat="identity") +
+          ## scale_x_discrete(breaks = 1:8) +
+          scale_x_continuous(breaks = 1:8) +
+          facet_wrap(~genotype,nrow=4) + xlab("position") + ylab('log2fc to 1/4'))
+    
+}
+
+
+```
+
+## Normalized by covered/unmethylated
+
+Similar to the upper, log2ratio_proportion but not compared to an uniform 0.25 freq for each nucleotide but to the unmethylated proportions (do they differ?)
+
+
+
+```{r deviations_compared_to_unmeth}
+
+
+for (context in names(d)) {
+    melted <- list()
+    for (genotype in names(d[[context]])) {
+        print(genotype)
+        
+        selected <- d[[context]][[genotype]]$meth
+
+        for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
+                              C = NA,
+                              G = NA,
+                              T = NA)
+
+        for (i in 1:nchar(selected$motif[1])) {
+            id <- paste0('d',i)
+            selected[, id] <- substr(selected$motif, i, i)
+            for (nt in c('A', 'T', 'C', 'G')) {
+                tsum <- 0
+                tsum <- sum(selected[selected[,id] == nt,'count'])
+                for_pwm[i, nt] <- tsum 
+                
+            }
+        }
+        pwm <- makePWM(apply(for_pwm, 1, proportion))
+
+        print(sprintf('meth proportions sample %s context %s', genotype, context))
+        print(pwm)
+        
+        pwm_meth <- pwm
+
+        ## same for unmeth
+
+        selected <- d[[context]][[genotype]]$unmeth
+
+        for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
+                              C = NA,
+                              G = NA,
+                              T = NA)
+
+        for (i in 1:nchar(selected$motif[1])) {
+            id <- paste0('d',i)
+            selected[, id] <- substr(selected$motif, i, i)
+            for (nt in c('A', 'T', 'C', 'G')) {
+                tsum <- 0
+                tsum <- sum(selected[selected[,id] == nt,'count'])
+                for_pwm[i, nt] <- tsum 
+                
+            }
+        }
+        pwm <- makePWM(apply(for_pwm, 1, proportion))
+        print(sprintf('unmeth proportions sample %s context %s', genotype, context))
+        
+        print(pwm)
+        pwm_unmeth <- pwm
+
+        print(sprintf('log2 (meth/unmeth) sample %s context %s', genotype, context))
+        deviations <- log2(pwm_meth@pwm /pwm_unmeth@pwm)
+
+        print(deviations)
+        data.m <- melt(deviations)
+
+        
+
+        data.m$genotype <- genotype
+        melted[[genotype]] <- data.m
+
+        
+    }
+    melted2 <- do.call(rbind.data.frame, melted)
+    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'genotype')
+    ## ## plot everything
+    ## ggplot(melted, aes(position, deviation)) +   
+    ##     geom_bar(aes(fill = genotype), position = "dodge", stat="identity")
+
+    ## ggplot(melted, aes(nucleotide, deviation, fill=as.factor(position)))+
+    ##     geom_bar(position="dodge",stat="identity")+
+    ##     facet_wrap(~genotype,nrow=3)
+
+
+    ## ggplot(melted2, aes(position, deviation, fill=as.factor(nucleotide)))+
+    ##     geom_bar(position="dodge",stat="identity")+
+    ##     facet_wrap(~genotype,nrow=2)
+
+    print(ggplot(melted2, aes(position, deviation, fill=as.factor(genotype)))+
+          geom_bar(position="dodge",stat="identity") +
+          ## scale_x_discrete(breaks = 1:8) +
+          scale_x_continuous(breaks = 1:8) +
+          facet_wrap(~nucleotide,nrow=4) + xlab("position") + ylab('log2fc meth/unmeth'))
+
+    print(ggplot(melted2, aes(position, deviation, fill=as.factor(nucleotide)))+
+          geom_bar(position="dodge",stat="identity") +
+          ## scale_x_discrete(breaks = 1:8) +
+          scale_x_continuous(breaks = 1:8) +
+          facet_wrap(~genotype,nrow=4) + xlab("position") + ylab('log2fc meth/unmeth'))
+    
+}
+
+
+```
+
+
+# Intermediate data download
+
+* [Download whole RData](`r sprintf('counts_nested_list_quickchanges.RData')`)
+* [Download normalized CG data](`r sprintf('cg_normalized_data_quickchanges.csv') `)
+* [Download normalized CH data](`r sprintf('ch_normalized_data_quickchanges.csv') `)
+
+# Timestamp
+
+```{r sessionInfo}
+date()
+sessionInfo()
+devtools::session_info()
+
+```

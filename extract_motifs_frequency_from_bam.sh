@@ -1,9 +1,23 @@
 #!/bin/bash
 ##
+## Generates discretized DNA methylation count tables from bwameth-aligned bam files
+##
+## Instances are loci (CpG or CpH) and their surrounding sequence up to a 8-mer motif.
+##   E.g. AAACAGGG centered in chrom1:235
+##
+## Aggregated count tables depict the number of instances that share (in a strand-specific way)
+##   the motif, e.g. two instances of AAACAGGG, one centered in chrom1:235 and another in chrX:10
+##
+## DNA methylation is reported discretizing the methylation value.
+##  That is, reports how many DNA methylation instances are fully unmethylated
+##  in a bam file, how many have less than 10% methylated reads, how many from 10 to 20% and so on.
+##
+## Deprecated; extract_motifs_frequency_from_bam_binary.sh should be used instead.
+##
 ## 17th Dec 2018
 ##
 ## Izaskun Mallona
-
+## GPLv2
 
 usage(){
     echo ""
