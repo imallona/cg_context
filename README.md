@@ -10,7 +10,7 @@ Alignments with MAPQ > 40 were used as input to methylation calling with methyld
 
 ### Data aggregation by motif
 
-For each sample, genome-wide reports of the per-cytosine methylation status (e.g. with a record per cytosine including its coordinate, mapping strand, number of methylated reads, number of unmethylated reads) were obtained. Next, we added the strand-aware 8-mer sequence context using the bedtools v2.27.1 suite including `slop` and `getfasta` commands. Thus, we stored the methylation status (at least a methylated read) and unmethylated (only unmethylated reads) of each cytosine and its sequence context. Script XXX.
+For each sample, genome-wide reports of the per-cytosine methylation status (e.g. with a record per cytosine including its coordinate, mapping strand, number of methylated reads, number of unmethylated reads) were obtained. Next, we added the strand-aware 8-mer sequence context using the bedtools v2.27.1 suite including `slop` and `getfasta` commands. Thus, we stored the methylation status (at least a methylated read) and unmethylated (only unmethylated reads) of each cytosine and its sequence context. Script `extract_motifs_frequency_from_bam_binary.sh` (see below).
 
 To aggregate the data by sequence, we generated count tables with the number of methylated and unmethylated instances. The CpG count table contained 4^6 = 4096 possible sequences (since two positions, CG, are fixed), whereas the CpH count table reported 4^6*3 = 12288 possible sequences (since the `C` position is fixed and the H can only be [A,C,T]).
 
@@ -39,8 +39,8 @@ We next combined all 8-mer information to generate position weight matrices (PWM
 ### Accessory
 
 * `accessory`, accessory scripts during the discovery phase
- * `.discarded`, discarded approaches
- * `cytosine_report`, first prototype
+    * `.discarded`, discarded approaches
+    * `cytosine_report`, first prototype
 
 ### Media
 
@@ -49,12 +49,12 @@ We next combined all 8-mer information to generate position weight matrices (PWM
 ### Exploratory reports and data (count tables)
 
 * `rmd_reports`, PWM and other plots
-   * `01_motif_extract_run_nov_2019_postproc`, report (with coverage filtering)
-   * `02_motif_extract_run_nov_2019_no_coverage_filtering_postproc`, report (no coverage filtering)
-   * `03_stats_assessment`, attempt to evaluate significance I
-   * `04_stats_assessment`, attempt to evaluate significance II (structFDR)
-   * `05_ma_plots`, visualization
-   * `data/counts_nested_list.RData`, used by several reports
+    * `01_motif_extract_run_nov_2019_postproc`, report (with coverage filtering)
+    * `02_motif_extract_run_nov_2019_no_coverage_filtering_postproc`, report (no coverage filtering)
+    * `03_stats_assessment`, attempt to evaluate significance I
+    * `04_stats_assessment`, attempt to evaluate significance II (structFDR)
+    * `05_ma_plots`, visualization
+    * `data/counts_nested_list.RData`, used by several reports
 
 # Contact
 
