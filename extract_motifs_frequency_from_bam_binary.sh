@@ -1,10 +1,20 @@
 #!/bin/bash
 ##
-## 04 nov 2019
-## Extracts meth and un meth motifs from bisulfite bam files, and counts them
-## 
-## Assumes is mm9! hardcoded
+## Generates DNA methylation count tables from bwameth-aligned bam files depicting how many
+##   instances are methylated (e.g. at least a methylated) read/fragment and how many are not
+##   (all reads/fragment unmethylated)
 ##
+## Instances are loci (CpG or CpH) and their surrounding sequence up to a 8-mer motif.
+##   E.g. AAACAGGG centered in chrom1:235
+##
+## Aggregated count tables depict the number of instances that share (in a strand-specific way)
+##   the motif, e.g. two instances of AAACAGGG, one centered in chrom1:235 and another in chrX:10
+##
+## DNA methylation is a binary outcome: either methylated, either non methylated.
+##
+## A minimum coverage can be requested.
+##
+## 04 nov 2019
 ## Izaskun Mallona
 
 MM9=/home/Shared/data/annotation/Mouse/mm9/mm9.fa
@@ -34,7 +44,7 @@ process(){
     sample=$(basename $bam .bam)
     samtools index -@ $nthreads "$(basename $bam)" "$(basename $bam)".bai
 
-    ## mind the mapq40 filtering was done before
+    ## mind the mapq40 filtering was done before (bamfile generation)
     $METHYLDACKEL extract \
                   -@ $nthreads \
                   --cytosine_report \
