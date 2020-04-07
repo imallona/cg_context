@@ -1,7 +1,4 @@
-# Do DNMT show sequence preferences?
-
-## Approach
-
+## Do DNMTs show sequence preferences?
 
 ### Next generation sequencing data processing
 
@@ -23,20 +20,35 @@ To visualize the DNA methylation per sequence 8-mer, we developed a methylation 
 
 We next combined all 8-mer information to generate position weight matrices (PWMs) depicting DNA methylation preferences. To account for representation biases, we integrated the count tables of methylated and unmethylated 8-mers. First, we calculated the nucleotide frequency per position for the methylated and unmethylated 8-mer count tables separately. Second, we divided the proportion from the methylated frequencies by the unmethylated frequencies and log2-transformed the result. Hence, the score sign depicts the enrichment sign: positive values indicate methylation preference, and negative values trend towards unmethylation.
 
-## Repository structure
+## Flow chart
 
  ![flow](./media/stranded_dnameth.png "Data flow").
 
+## Repository structure
 
-1. `extract_motifs_frequency_from_bam_binary.sh`, bash script to generate the methylation count tables.
-1. `extract_motifs_frequency_from_bam.sh`, bash script to generate discretized count tables
-1. `accessory`, accessory scripts during the discovery phase
-   * `.discarded`, discarded approaches
-   * `cytosine_report`, first prototype
-1.  `mapping`, bash scripts to bismark/bwa-meth retrieve, QC, map, and methylation call the single-end and paired-end reads
-      * `reports_associated_to_mapping`, mainly for discovery and QC
-1. `media`, SVG and PNG flowchart
-1. `rmd_reports`, PWM and other plots
+### Main
+
+* `extract_motifs_frequency_from_bam_binary.sh`, bash script to generate the methylation count tables.
+* `extract_motifs_frequency_from_bam.sh`, bash script to generate discretized count tables
+
+### Mapping
+
+*  `mapping`, bash scripts to bismark/bwa-meth retrieve, QC, map, and methylation call the single-end and paired-end reads
+ * `reports_associated_to_mapping`, mainly for discovery and QC
+
+### Accessory
+
+* `accessory`, accessory scripts during the discovery phase
+ * `.discarded`, discarded approaches
+ * `cytosine_report`, first prototype
+
+### Media
+
+* `media`, SVG and PNG flowchart
+
+### Exploratory reports and data (count tables)
+
+* `rmd_reports`, PWM and other plots
    * `01_motif_extract_run_nov_2019_postproc`, report (with coverage filtering)
    * `02_motif_extract_run_nov_2019_no_coverage_filtering_postproc`, report (no coverage filtering)
    * `03_stats_assessment`, attempt to evaluate significance I
@@ -46,5 +58,6 @@ We next combined all 8-mer information to generate position weight matrices (PWM
 
 # Contact
 
-tuncay.baubec ta uzh tod ch
-izaskun.mallona ta gmail tod com
+* tuncay.baubec ta uzh tod ch
+
+* izaskun.mallona ta gmail tod com
