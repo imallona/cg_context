@@ -14,9 +14,6 @@
 ##
 ## A minimum coverage can be requested.
 ##
-## A mask (BED file with intervals to be scrutinized) can be added with \
-##  the --intervals flag (added 4th August 2020)
-##
 ## 04 nov 2019
 ## Izaskun Mallona
 
@@ -27,12 +24,11 @@ usage(){
     echo "Usage: bash ""$(basename "$0")"" -b bamfile -t nthreads"
     echo ""
     echo "Params"
-    echo " -b --bam        WGBS bamfile                      [mandatory]"
-    echo " -t --threads    number of cores                   [defaults to 4]"
-    echo " -c --coverage   min num reads                     [defaults to 10 nonstrandspecific]"
-    echo " --bedtools      path to bedtools                  [defaults to bedtools]"
-    echo " --methyldackel  path to methyldackel              [defaults to MethylDackel]"
-    echo " -i --intervals  BED file with target intervals    [defaults to None]"
+    echo " -b --bam        WGBS bamfile          [mandatory]"
+    echo " -t --threads    number of cores       [defaults to 4]"
+    echo " -c --coverage   min num reads         [defaults to 10 nonstrandspecific]"
+    echo " --bedtools      path to bedtools      [defaults to bedtools]"
+    echo " --methyldackel  path to methyldackel  [defaults to MethylDackel]"
     echo ""
 }
 
@@ -43,11 +39,10 @@ process(){
     mincov="$3"
     BEDTOOLS="$4"
     METHYLDACKEL="$5"
-    intervals="$6"
 
-    # bam=$(basename $bam)
+    bam=$(basename $bam)
     sample=$(basename $bam .bam)
-    samtools index -@ $nthreads "$bam" "$bam".bai
+    samtools index -@ $nthreads "$(basename $bam)" "$(basename $bam)".bai
 
     ## mind the mapq40 filtering was done before (bamfile generation)
     $METHYLDACKEL extract \
@@ -57,24 +52,9 @@ process(){
                   --CHG \
                   -o "$(basename $bam)"_ch_d \
                   $MM9 \
-                  "$bam"
+                  "$(basename $bam)"
 
-    report="$(basename $bam)"_ch_d.cytosine_report.txt
-
-    ## if no bedfile with intervals to focus in, proceed
-    ##   else, intersect the report with the interval BEDFILE
-    if [[ "$intervals" != "None"  ]] ; then
-        echo 'Applying a mask'        
-
-        ## only grepping elements with data (not 0,0 for meth and unmeth reads)
-        awk '{FS=OFS="\t"; print $1,$2,$2+1,$3,$4,$5,$6,$7}' "$report" |
-            grep -vP '\t0\t0\t' | \
-            "$BEDTOOLS" intersect -a - -b "$intervals" -wa > masked
-        
-        report="$(basename $bam)"_ch_d.cytosine_report_mask_"$(basename $intervals)".txt
-        mv -f masked "$report"
-        
-    fi
+    report="$bam"_ch_d.cytosine_report.txt
 
     pigz --processes $nthreads $report
     
@@ -155,7 +135,6 @@ nthreads=4
 mincov=10
 BEDTOOLS=bedtools
 METHYLDACKEL=MethylDackel
-intervals=None
 while [ "$1" != "" ]; do
     case $1 in
         -b | --bam )           shift
@@ -175,9 +154,6 @@ while [ "$1" != "" ]; do
                                ;;
         --methyldackel)        shift
                                METHYLDACKEL=$1
-                               ;;
-        -i | --intervals)      shift
-                               intervals=$1
                                ;;
         -h | --help )          usage
                                exit
@@ -200,6 +176,6 @@ mysql --user=genome \
       --host=genome-euro-mysql.soe.ucsc.edu -A -P 3306 \
       -e "select chrom, size from mm9.chromInfo" > mm9.genome
 
-process $bam $nthreads $mincov $BEDTOOLS $METHYLDACKEL "$intervals"
+process $bam $nthreads $mincov $BEDTOOLS $METHYLDACKEL
 
 echo "$(date)" Processing $sample from "$bam" with "$nthreads" threads and mincov "$mincov" end

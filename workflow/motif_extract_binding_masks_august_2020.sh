@@ -133,23 +133,116 @@ do
     mkdir -p "$WD"/"$sample"
     cd "$_"
     
-    # ln -s $bam
+    
+    ## rather, avoiding running methyldackel multiple times - start     ######
+
+    # bam=$(basename $bam)
+    # sample=$(basename $bam .bam)
+    samtools index -@ $nthreads "$bam" "$bam".bai
+
+    ## mind the mapq40 filtering was done before (bamfile generation)
+    $METHYLDACKEL extract \
+                  -@ $nthreads \
+                  --cytosine_report \
+                  --CHH \
+                  --CHG \
+                  -o "$(basename $bam)"_ch_d \
+                  $MM9 \
+                  "$bam"
+
+    report="$(basename $bam)"_ch_d.cytosine_report.txt
 
     for interval in $(find $WD/data/ -name "*bed")
     do
         echo $interval
         
-        mkdir -p "$(basename $interval .bed)"
+        mkdir -p "$WD"/"$sample"/"$(basename $interval .bed)"
         cd "$_"
+
+        mysql --user=genome \
+              --host=genome-euro-mysql.soe.ucsc.edu -A -P 3306 \
+              -e "select chrom, size from mm9.chromInfo" > mm9.genome
+
         
-        ## untested
-        bash $EXTRACT_MOTIFS_FREQUENCY_FROM_BAM_BINARY \
-             -b $bam \
-             -t $NTHREADS \
-             -c 1 \
-             --bedtools $BEDTOOLS \
-             --methyldackel $METHYLDACKEL \
-             --intervals "$interval"| tee -a with_mask_"$(basename $interval)".log
+        ## if no bedfile with intervals to focus in, proceed
+        ##   else, intersect the report with the interval BEDFILE
+       
+
+        ## only grepping elements with data (not 0,0 for meth and unmeth reads)
+        ## added a column 3 with the CpN position + 1 to be able to run bedtools,
+        ##   and took if afterwards with `cut`
+        grep -vP '\t0\t0\t' ../"$report" |
+            awk '{FS=OFS="\t"; print $1,$2-1,$2,$4,$5,$3,$6,$7}' | \
+            "$BEDTOOLS" intersect -a - -b "$interval" -wa > masked
+        
+        masked_report="$(basename $bam)"_ch_d.cytosine_report_mask_"$(basename $interval)".txt
+        mv -f masked "$masked_report"
+            
+
+        pigz --processes $nthreads $masked_report
+        
+        ## mincov
+        zcat "$masked_report".gz | awk -v mincov="$mincov" '{
+FS=OFS="\t"; 
+if ($4+$5 >= mincov)
+ print $0
+}' | gzip > tmp_covered_"$sample"
+
+        mv -f tmp_covered_"$sample" "$masked_report".gz
+
+        ## motif retrieval
+        zcat "$masked_report".gz |
+            "$BEDTOOLS" slop -i - \
+                        -g mm9.genome \
+                        -l 3 -r 4 -s | \
+            "$BEDTOOLS" getfasta -fi $MM9 \
+                        -bed - \
+                        -fo "$masked_report"_cytosine_masked_report_slop.fa \
+                        -tab \
+                        -s
+        
+        zcat "$masked_report".gz | paste - "$masked_report"_cytosine_masked_report_slop.fa > tmp_"$sample"
+
+        pigz --processes $nthreads tmp_"$sample"
+
+        rm -rf "$masked_report"_cytosine_masked_report_slop.fa
+
+        ## split into cg and non cg, meth and unmeth in one run
+        zcat tmp_"$sample".gz | awk -v cgmeth=cg_meth_"$sample" -v chmeth=ch_meth_"$sample" -v cgunmeth=cg_unmeth_"$sample" -v chunmeth=ch_unmeth_"$sample" '{
+OFS=FS="\t"; 
+if ($7 == "CG" && $4 > 0) {
+  print $4,$5,$6,$7,$8,$9,toupper($10) > cgmeth}
+else if ($7 == "CG" && $4 == 0) {
+  print $4,$5,$6,$7,$8,$9,toupper($10) > cgunmeth}
+else if ($7 != "CG" && $4 > 0) {
+  print $4,$5,$6,$7,$8,$9,toupper($10) > chmeth}
+else if ($7 != "CG" && $4 == 0) {
+  print $4,$5,$6,$7,$8,$9,toupper($10) > chunmeth}
+else
+  print
+}' 
+
+        wc -l cg_meth_"$sample" cg_unmeth_"$sample" ch_meth_"$sample" ch_unmeth_"$sample"    
+
+        # count instances by motif
+        for item in  cg_meth_"$sample" cg_unmeth_"$sample" ch_meth_"$sample" ch_unmeth_"$sample"
+        do
+            cut -f7 "$item" | sort | uniq -c | sed 's/^ *//' > \
+                                                   motif_counts_"$item".txt
+        done
+
+        rm -f cg_"$sample" ch_"$sample" cg_meth_"$sample" cg_unmeth_"$sample" \
+           ch_meth_"$sample" ch_unmeth_"$sample"
+
+        mv -f tmp_"$sample".gz "$sample"_raw_masked_report.txt.gz
+        rm -f "$sample"_raw_masked_report.txt.gz
+        rm -f "$bam".bai mm9.genome
+        
+        pigz --processes $nthreads *motif_counts*
+        
+        ## rather - end                                                     ######
+        
+        cd $WD/"$sample"
     done            
     
     cd $WD
