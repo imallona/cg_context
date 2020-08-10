@@ -1,0 +1,207 @@
+---
+title: "07 autocorrelation within reads"
+author: "Izaskun Mallona at Robinsonlab"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    code_download: true
+    number_sections: true
+    df_print: kable
+    theme: lumen
+
+# Aim
+
+Postprocesses  `methtutple_bismark_read_correlation.sh`.
+
+# Set up
+
+Knitted under `R_LIBS=/home/Shared_taupo/Rlib/release-3.11-lib /usr/local/R/R-4.0.0/bin/R`
+
+
+## Libraries
+
+```{r}
+suppressPackageStartupMessages({
+    library(pheatmap)
+    library(knitr)
+    library(ggplot2)
+    library(reshape2)
+    library(DT)
+    library(MASS)
+})
+```
+
+## Data load
+
+```{r}
+WD <- file.path('/home', 'Shared_s3it', 'imallona', 'cg_context',
+                'nar_review', 'autocorrelation')
+
+```
+
+We downsize the data to:
+- only `NTUPLES` tuples  (as the CNN context readouts are pretty large).
+- We filter tuples with at least two methylation events within the read (to have some data for CNN). That is, those with from columns 9
+
+
+```{r}
+
+NTUPLES <- 1e6
+d <- list()
+
+header <- c('chr', 'strand', 'pos1', 'pos2', 'MM', 'MU', 'UM', 'UU',
+            'region1', 'motif1', 'region2', 'motif2')
+
+## 9 is the first tuple column
+## column 72 is all unmeth, so shouldn't be included
+## 69 is the last column with two Ms at least
+## awk '{x=0;for(i=9;i<=69;i++) if($i>=2) x+=1; if(x>1)print}' SRR1274743_1_cutadapt_sickle_bismark_pe.CG_CHG_CHH.6.tsv | less
+
+## awk '{x=0;for(i=9;i<=69;i++) if($i>=1) x+=1; if(x>1) print}' SRR1274743_1_cutadapt_sickle_bismark_pe.CG_CHG_CHH.6.tsv | less
+
+## d$cg <- read.table(pipe(
+##     sprintf("awk '{x=0;for(i=9;i<=69;i++) if($i>=1) x+=1; if(x>1) print}' %s",
+##             file.path(WD, 'SRR1274743_1_cutadapt_sickle_bismark_pe.CG.6.tsv'))),
+##     col.names = header,
+##     nrows = NTUPLES)
+
+d$cg <- read.table(file.path(WD, 'tmp_SRR1274743_1_cutadapt_sickle_bismark_pe.CG.2.tsv.gz'),
+                   col.names = header,
+                   sep = '\t',
+                   nrows = NTUPLES)
+```
+
+# Collapse into frequencies, keep strand separated
+
+
+
+```{r}
+for (item in names(d)) {
+    d[[item]]$dist <- d[[item]]$pos2 - d[[item]]$pos1
+    d[[item]]$cometh_prop <- d[[item]]$MM/(d[[item]]$UM + d[[item]]$MM + d[[item]]$UU)
+}
+```
+
+```{r}
+table(d[[item]]$cometh_prop == 1)
+
+```
+
+```{r}
+
+boxplot(list(MM = d[[item]][d[[item]]$cometh_prop == 1, 'dist'],
+             UU = d[[item]][(d[[item]]$cometh_prop > 0 &
+                             d[[item]]$cometh_prop < 1), 'dist'],
+             UU = d[[item]][d[[item]]$cometh_prop == 0, 'dist'])
+```    
+
+```{r}
+
+library(hexbin)
+library(RColorBrewer)
+rf <- colorRampPalette(rev(brewer.pal(11,'Spectral')))
+r <- rf(32)
+
+h <- hexbin(d$cg[,c('dist', 'cometh_prop')])
+plot(h, colramp = rf)
+
+```
+
+<!-- ```{r} -->
+<!-- d$cg$logdist <- log(d$cg$dist +1, base = 10) -->
+<!-- d$cg$asin_cometh_prop <- asin(d$cg$cometh_prop) -->
+
+<!-- hlog <- hexbin(d$cg[,c('dist', 'asin_cometh_prop')]) -->
+<!-- plot(hlog, colramp = rf) -->
+<!-- ``` -->
+
+
+
+<!-- ```{r} -->
+<!-- prop <- list() -->
+
+<!-- for (item in names(d)) { -->
+<!--     tuples <- grep('M|U', header, value = TRUE) -->
+    
+<!--     prop[[item]] <- data.frame(prop = colSums(d[[item]][,tuples]) / sum(d[[item]][,tuples]), -->
+<!--                                status = tuples) -->
+
+   
+<!-- } -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+
+<!-- plot(y = prop$cg$prop, x = 1:nrow(prop$cg), xaxt = 'n', xlab = '', type ='p', col = 'blue', -->
+<!--      pch = 0) -->
+<!-- lines(y = prop$mixed$prop, x = 1:nrow(prop$cg), type ='p', pch = 4) -->
+
+<!-- axis(1, at = 1:nrow(prop$cg), labels = prop$cg$status, las = 2) -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+
+<!-- plot(y = prop$cg$logprop, x = 1:nrow(prop$cg), xaxt = 'n', xlab = '', type ='p', -->
+<!--      col = 'blue', pch = 0, ylim = c(min(min(prop$cg$logprop, prop$mixed$logprop)), -->
+<!--                                      max(max(prop$cg$logprop, prop$mixed$logprop)))) -->
+
+<!-- lines(prop$mixed$logprop, x = 1:nrow(prop$mixed), type ='p', pch = 4) -->
+      
+<!-- axis(1, at = 1:nrow(prop$cg), labels = prop$cg$status, las = 2) -->
+<!-- ``` -->
+
+<!-- Plot proportion of Ms vs distance between them -->
+
+<!-- first get the tuples that are different from 0 -->
+<!-- then get the coordinates -->
+<!-- then get the distance between all possible pairs of Ms -->
+
+
+<!-- ```{r} -->
+<!-- dists <- list() -->
+<!-- for (item in names(d)) { -->
+<!--     dists[[tuple]] <- list() -->
+<!--     for (tuple in tuples) { -->
+<!--         ## at least two methylation events -->
+<!--         if (length(grep('M', strsplit(tuple, '')[[1]])) >= 2) { -->
+<!--             ## this gets the relative position of an `M` within a tuple, e.g. UMMMU -> 2,3,4 -->
+<!--             ## grep('M', strsplit(tuple, '')[[1]]) -->
+<!--             ## this the coordinates of those -->
+<!--             ## d[[item]][,paste0('pos', grep('M', strsplit(tuple, '')[[1]]))] -->
+<!--             ## and this the distances between the leftmost and all other events -->
+            
+<!--             dists[[item]][[tuple]] <- apply(d[[item]][,paste0('pos', grep('M', strsplit(tuple, '')[[1]]))], 2, -->
+<!--                                             function(x) return(x -d[[item]][,paste0('pos', grep('M', strsplit(tuple, '')[[1]]))][,1])) -->
+            
+<!--         } -->
+<!--     } -->
+<!-- } -->
+
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+
+<!-- item <- 'cg' -->
+<!-- curr <- 'MMUUUU' -->
+
+<!-- plot(x= as.vector(dists[[item]][[curr]]), y=prop[[item]][[curr]]$prop) -->
+
+<!-- ``` -->
+
+# Export objects
+
+
+# Timestamp
+
+```{r sessionInfo, cache = FALSE}
+date()
+sessionInfo()
+devtools::session_info()
+
+```

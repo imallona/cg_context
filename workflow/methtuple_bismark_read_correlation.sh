@@ -37,6 +37,7 @@ export ILLUMINA="CGGTTCAGCAGGAATGCCGAGATCGGAAGAGCGGTT"
 
 export BOWTIE_PATH=~/soft/bowtie/bowtie-1.2.2/
 export BISMARK=~/soft/bismark/Bismark_v0.19.1/bismark
+export BEDTOOLS="$SOFT"/bedtools/bin/bedtools
 
 mkdir -p $WD
 
@@ -181,15 +182,56 @@ methtuple "$sample"_1_cutadapt_sickle_bismark_pe.bam \
           --methylation-type CG \
           --methylation-type CHG \
           --methylation-type CHH \
-          -m 8 \
+          -m 2 \
           --ignore-duplicates \
           --overlap-filter Bismark
 
 ## control only CG
 methtuple "$sample"_1_cutadapt_sickle_bismark_pe.bam \
           --methylation-type CG \
-          -m 8 \
+          -m 2 \
           --ignore-duplicates \
           --overlap-filter Bismark
 
 deactivate
+
+
+# and extract the sequence context for each of the positions
+mysql --user=genome \
+      --host=genome-euro-mysql.soe.ucsc.edu -A -P 3306 \
+      -e "select chrom, size from mm9.chromInfo" > mm9.genome
+   
+# pos1
+cg=SRR1274743_1_cutadapt_sickle_bismark_pe.CG.2.tsv
+
+head -1 "$cg" > old_header_"$cg"
+
+awk '{OFS=FS="\t"; print $1,$3-1,$3,".",".",$2,$4,$5,$6,$7,$8 }' $cg | head -1 > new_header_"$cg"
+
+awk '{OFS=FS="\t"; print $1,$3-1,$3,".",".",$2,$5,$6,$7,$8 }' $cg | sed 1d |
+    "$BEDTOOLS" slop -i - \
+                -g mm9.genome \
+                -l 3 -r 4 -s | \
+    "$BEDTOOLS" getfasta -fi $MM9 \
+                -bed - \
+                -fo "$cg"_slop_1.fa \
+                -tab \
+                -s
+
+# pos2
+awk '{OFS=FS="\t"; print $1,$4-1,$4,".",".",$2,$5,$6,$7,$8 }' $cg | sed 1d |
+    "$BEDTOOLS" slop -i - \
+                -g mm9.genome \
+                -l 3 -r 4 -s | \
+    "$BEDTOOLS" getfasta -fi $MM9 \
+                -bed - \
+                -fo "$cg"_slop_2.fa \
+                -tab \
+                -s
+# paste everything
+
+sed 1d $cg | paste - "$cg"_slop_1.fa "$cg"_slop_2.fa > tmp_"$cg"
+gzip tmp_"$cg"
+gzip "$cg"
+
+## similarly for ch
