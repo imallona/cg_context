@@ -16,6 +16,10 @@ output:
 
 Postprocesses  `methtutple_bismark_read_correlation.sh`.
 
+```
+The trimming data down to 75bp limits the analysis of neighbourhood effects particularly the presence of non-CpG methylation (CpH) in the context of CpG methylation on the same strand. In other words how much is the methylation of CpG’s and neighbouring CpH methylation influenced by flanking sequences on the same molecule.
+```
+
 # Set up
 
 Knitted under `R_LIBS=/home/Shared_taupo/Rlib/release-3.11-lib /usr/local/R/R-4.0.0/bin/R`
@@ -31,6 +35,7 @@ suppressPackageStartupMessages({
     library(reshape2)
     library(DT)
     library(MASS)
+    library(ggExtra)
 })
 ```
 
@@ -68,13 +73,24 @@ header <- c('chr', 'strand', 'pos1', 'pos2', 'MM', 'MU', 'UM', 'UU',
 ##     col.names = header,
 ##     nrows = NTUPLES)
 
-d$cg <- read.table(file.path(WD, 'tmp_SRR1274743_1_cutadapt_sickle_bismark_pe.CG.2.tsv.gz'),
+## d$ch <- read.table(file.path(WD, 'tmp_SRR1274743_1_cutadapt_sickle_bismark.deduplicated.CG_CHG_CHH.2.tsv.gz'),
+##                    col.names = header,
+##                    sep = '\t',
+##                    nrows = NTUPLES)
+
+## d$cg <- read.table(file.path(WD, 'tmp_SRR1274743_1_cutadapt_sickle_bismark_pe.CG.2.tsv.gz'),
+##                    col.names = header,
+##                    sep = '\t',
+##                    nrows = NTUPLES)
+
+
+d$cnn <- read.table(file.path(WD, 'tmp_SRR1274743_chr10.CG_CHG_CHH.2.tsv.gz'),
                    col.names = header,
                    sep = '\t',
-                   nrows = NTUPLES)
+                   nrows = NTUPLES) 
 ```
 
-# Collapse into frequencies, keep strand separated
+# Collapse into frequencies
 
 
 
@@ -86,29 +102,90 @@ for (item in names(d)) {
 ```
 
 ```{r}
-table(d[[item]]$cometh_prop == 1)
+
+lapply(d, function(x) table(x$cometh_prop == 1))
 
 ```
 
 ```{r}
+item <- 'cnn'
 
 boxplot(list(MM = d[[item]][d[[item]]$cometh_prop == 1, 'dist'],
              UU = d[[item]][(d[[item]]$cometh_prop > 0 &
                              d[[item]]$cometh_prop < 1), 'dist'],
-             UU = d[[item]][d[[item]]$cometh_prop == 0, 'dist'])
+             UU = d[[item]][d[[item]]$cometh_prop == 0, 'dist']))
 ```    
 
+
+Plot events of at least one methylation event by distance and by motif?
+
+
 ```{r}
+for (item in names(d)) {
+    d[[item]]$type <- paste(tolower(substr(d[[item]]$motif1, 4, 5)),
+                            tolower(substr(d[[item]]$motif2, 4, 5)),
+                            sep = '_')
 
-library(hexbin)
-library(RColorBrewer)
-rf <- colorRampPalette(rev(brewer.pal(11,'Spectral')))
-r <- rf(32)
+    d[[item]]$type_simple <- 'ch_ch'
+    d[[item]]$type_simple <- ifelse(
+        test = (tolower(substr(d[[item]]$motif1, 4, 5)) == 'cg' |
+                tolower(substr(d[[item]]$motif1, 4, 5)) == 'cg'),
+        yes = 'cg_ch',
+        no = 'ch_ch')
+    
+    d[[item]]$type_simple[d[[item]]$type == 'cg_cg'] <- 'cg_cg'
 
-h <- hexbin(d$cg[,c('dist', 'cometh_prop')])
-plot(h, colramp = rf)
+    plot(x = d[[item]][(d[[item]]$MM > 0 | d[[item]]$UM > 0 | d[[item]]$UM > 0), 'dist'],
+         d[[item]][(d[[item]]$MM > 0 | d[[item]]$UM > 0 | d[[item]]$UM > 0), 'cometh_prop'],
+         pch = 19,
+         col = as.numeric(as.factor(
+             d[[item]][(d[[item]]$MM > 0 | d[[item]]$UM > 0 | d[[item]]$UM > 0),
+                       'type_simple'])))
+
+    ss10 <- smooth.spline(
+        d[[item]][(d[[item]]$MM > 0 | d[[item]]$UM > 0 | d[[item]]$UM > 0), 'dist'],
+        d[[item]][(d[[item]]$MM > 0 | d[[item]]$UM > 0 | d[[item]]$UM > 0), 'cometh_prop'])
+    
+
+    lines(ss10, col = "gray")
+}
+```
+
+Stratify?
+
+```{r, fig.width = 8, fig.height= 8}
+## methylated at least once
+m <-  d[[item]][(d[[item]]$MM > 0 | d[[item]]$UM > 0 | d[[item]]$UM > 0),]
+ggplot(m, aes(dist, cometh_prop)) + geom_point() + facet_grid(~type_simple) + 
+    geom_smooth()
+```
+
+
+```{r}
+p <- ggplot(m[m$type_simple == 'cg_cg',], aes(dist, cometh_prop)) +
+    geom_point() +
+        xlab('') +
+        ylab('') +
+    theme(legend.position = "none")
+
+ggMarginal(p, margins = 'y',
+           groupColour = FALSE, groupFill = FALSE)
 
 ```
+
+Now plot according to the nucleotide in the key position.
+
+<!-- ```{r} -->
+
+<!-- library(hexbin) -->
+<!-- library(RColorBrewer) -->
+<!-- rf <- colorRampPalette(rev(brewer.pal(11,'Spectral'))) -->
+<!-- r <- rf(32) -->
+
+<!-- h <- hexbin(d$cg[,c('dist', 'cometh_prop')]) -->
+<!-- plot(h, colramp = rf) -->
+
+<!-- ``` -->
 
 <!-- ```{r} -->
 <!-- d$cg$logdist <- log(d$cg$dist +1, base = 10) -->

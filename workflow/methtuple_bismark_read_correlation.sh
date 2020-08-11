@@ -93,17 +93,87 @@ rm -f "$WD"/"${sample}"_1_cutadapt.fastq.gz "$WD"/"${sample}"_2_cutadapt.fastq.g
 #             -t $NTHREADS &> ${curr}/${sample}_"$r"_fastqc.log
 # done    
 
-# # bismark here
+# # bismark paired end start
 
 
 fw="$sample"_1_cutadapt_sickle.fastq.gz
 rv="$sample"_2_cutadapt_sickle.fastq.gz
 
-# # ## bwameth doesn't like reads with different read names, treats them as single end
-# # zcat $fw | sed 's/\.1 /\ 1 /g' | gzip -c  > "$fw"_ed.gz
-# # zcat $rv | sed 's/\.2 /\ 2 /g'  | gzip -c > "$rv"_ed.gz
-# # mv "$fw"_ed.gz  "$fw"
-# # mv "$rv"_ed.gz "$rv"
+# # # ## bwameth doesn't like reads with different read names, treats them as single end
+# # # zcat $fw | sed 's/\.1 /\ 1 /g' | gzip -c  > "$fw"_ed.gz
+# # # zcat $rv | sed 's/\.2 /\ 2 /g'  | gzip -c > "$rv"_ed.gz
+# # # mv "$fw"_ed.gz  "$fw"
+# # # mv "$rv"_ed.gz "$rv"
+
+# ## assumes directional library
+# ( "$BISMARK" --bowtie1 \
+#              --path_to_bowtie $BOWTIE_PATH \
+#              --gzip \
+#              --parallel $NTHREADS \
+#              --genome $(dirname "$MM9") \
+#              --1 "$fw" \
+#              --2 "$rv") 2>&1 | tee "$WD"/"$sample"_bismark.log
+
+# # Final Alignment report
+# # ======================
+# # Sequence pairs analysed in total:       7893867
+# # Number of paired-end alignments with a unique best hit: 2933414
+# # Mapping efficiency:     37.2%
+
+# # Sequence pairs with no alignments under any condition:  4758398
+# # Sequence pairs did not map uniquely:    202055
+# # Sequence pairs which were discarded because genomic sequence could not be extracted:    4
+
+# # Number of sequence pairs with unique best (first) alignment came from the bowtie output:
+# # CT/GA/CT:       1467637 ((converted) top strand)
+# # GA/CT/CT:       0       (complementary to (converted) top strand)
+# # GA/CT/GA:       0       (complementary to (converted) bottom strand)
+# # CT/GA/GA:       1465777 ((converted) bottom strand)
+
+
+# # # let's try nondirectional
+# # ( "$BISMARK" --bowtie1 \
+# #              --path_to_bowtie $BOWTIE_PATH \
+# #              --gzip \
+# #              --non_directional \
+# #              --parallel $NTHREADS \
+# #              --genome $(dirname "$MM9") \
+# #              --1 "$fw" \
+# #              --2 "$rv") 2>&1 | tee "$WD"/"$sample"_bismark_non_directional.log
+
+# # ## does not get better, stick to the directional run
+
+# # # Final Alignment report
+# # # ======================
+# # # Sequence pairs analysed in total:       7893867
+# # # Number of paired-end alignments with a unique best hit: 2936145
+# # # Mapping efficiency:     37.2%
+
+# # # Sequence pairs with no alignments under any condition:  4748733
+# # # Sequence pairs did not map uniquely:    208989
+# # # Sequence pairs which were discarded because genomic sequence could not be extracted:    3
+
+# # # Number of sequence pairs with unique best (first) alignment came from the bowtie output:
+# # # CT/GA/CT:       1466882 ((converted) top strand)
+# # # GA/CT/CT:       1979    (complementary to (converted) top strand)
+# # # GA/CT/GA:       2022    (complementary to (converted) bottom strand)
+# # # CT/GA/GA:       1465262 ((converted) bottom strand)
+
+
+# # remove duplicates
+
+# echo dedup
+
+# ( "$(dirname $BISMARK)"/deduplicate_bismark -p \
+#                      --output_dir $WD \
+#                      --bam \
+#                      "$sample"_1_cutadapt_sickle_bismark_pe.bam ) 2>&1 | \
+#      tee "$WD"/"$sample"_dedup_bismark.log
+
+
+## bismark paired end end
+
+## single end alternative start
 
 ## assumes directional library
 ( "$BISMARK" --bowtie1 \
@@ -111,127 +181,93 @@ rv="$sample"_2_cutadapt_sickle.fastq.gz
              --gzip \
              --parallel $NTHREADS \
              --genome $(dirname "$MM9") \
-             --1 "$fw" \
-             --2 "$rv") 2>&1 | tee "$WD"/"$sample"_bismark.log
+             "$fw","$rv") 2>&1 | tee "$WD"/"$sample"_bismark_single_end.log
 
-# Final Alignment report
-# ======================
-# Sequence pairs analysed in total:       7893867
-# Number of paired-end alignments with a unique best hit: 2933414
-# Mapping efficiency:     37.2%
-
-# Sequence pairs with no alignments under any condition:  4758398
-# Sequence pairs did not map uniquely:    202055
-# Sequence pairs which were discarded because genomic sequence could not be extracted:    4
-
-# Number of sequence pairs with unique best (first) alignment came from the bowtie output:
-# CT/GA/CT:       1467637 ((converted) top strand)
-# GA/CT/CT:       0       (complementary to (converted) top strand)
-# GA/CT/GA:       0       (complementary to (converted) bottom strand)
-# CT/GA/GA:       1465777 ((converted) bottom strand)
-
-
-# # let's try nondirectional
-# ( "$BISMARK" --bowtie1 \
-#              --path_to_bowtie $BOWTIE_PATH \
-#              --gzip \
-#              --non_directional \
-#              --parallel $NTHREADS \
-#              --genome $(dirname "$MM9") \
-#              --1 "$fw" \
-#              --2 "$rv") 2>&1 | tee "$WD"/"$sample"_bismark_non_directional.log
-
-# ## does not get better, stick to the directional run
-
-# # Final Alignment report
-# # ======================
-# # Sequence pairs analysed in total:       7893867
-# # Number of paired-end alignments with a unique best hit: 2936145
-# # Mapping efficiency:     37.2%
-
-# # Sequence pairs with no alignments under any condition:  4748733
-# # Sequence pairs did not map uniquely:    208989
-# # Sequence pairs which were discarded because genomic sequence could not be extracted:    3
-
-# # Number of sequence pairs with unique best (first) alignment came from the bowtie output:
-# # CT/GA/CT:       1466882 ((converted) top strand)
-# # GA/CT/CT:       1979    (complementary to (converted) top strand)
-# # GA/CT/GA:       2022    (complementary to (converted) bottom strand)
-# # CT/GA/GA:       1465262 ((converted) bottom strand)
-
-
-# remove duplicates
-
-echo dedup
-
-( "$(dirname $BISMARK)"/deduplicate_bismark -p \
+( "$(dirname $BISMARK)"/deduplicate_bismark \
                      --output_dir $WD \
                      --bam \
-                     "$sample"_1_cutadapt_sickle_bismark_pe.bam ) 2>&1 | \
-     tee "$WD"/"$sample"_dedup_bismark.log
+                     "$sample"_1_cutadapt_sickle_bismark.bam ) 2>&1 | \
+     tee "$WD"/"$sample"_dedup_bismark_single_end.log
 
+
+
+## single end alternative end
+
+
+
+
+## downsizing to chr10
+
+samtools sort -@ $NTHREADS "$sample"_1_cutadapt_sickle_bismark.deduplicated.bam > sorted.bam
+
+mv sorted.bam "$sample"_1_cutadapt_sickle_bismark.deduplicated.bam
+
+samtools index -@ $NTHREADS  "$sample"_1_cutadapt_sickle_bismark.deduplicated.bam
+
+samtools view "$sample"_1_cutadapt_sickle_bismark.deduplicated.bam chr10 -b \
+         -@ $NTHREADS > "$sample"_chr10.bam
 
 # ## run methtuple to 4 tuples at most, including cpg and cph stuff
 
 source ~/virtenvs/methtuple/bin/activate
 
-# Using all paired-end reads, even those that have overlapping mates.
-#   However, for the overlapping sequence, only read_1 shall be used
-#   (as done by bismark_methylation_extractor --no_overlap).
-methtuple "$sample"_1_cutadapt_sickle_bismark_pe.bam \
+## bismark was run as single-end
+methtuple "$sample"_chr10.bam \
           --methylation-type CG \
           --methylation-type CHG \
           --methylation-type CHH \
           -m 2 \
-          --ignore-duplicates \
-          --overlap-filter Bismark
+          --ignore-duplicates
 
-## control only CG
-methtuple "$sample"_1_cutadapt_sickle_bismark_pe.bam \
-          --methylation-type CG \
-          -m 2 \
-          --ignore-duplicates \
-          --overlap-filter Bismark
+# ## control only CG
+# methtuple "$sample"_1_cutadapt_sickle_bismark.bam \
+#           --methylation-type CG \
+#           -m 2 \
+#           --ignore-duplicates
 
-deactivate
+# deactivate
 
 
 # and extract the sequence context for each of the positions
 mysql --user=genome \
       --host=genome-euro-mysql.soe.ucsc.edu -A -P 3306 \
       -e "select chrom, size from mm9.chromInfo" > mm9.genome
-   
+
 # pos1
-cg=SRR1274743_1_cutadapt_sickle_bismark_pe.CG.2.tsv
+ch=SRR1274743_chr10.CG_CHG_CHH.2.tsv
 
-head -1 "$cg" > old_header_"$cg"
+head -1 "$ch" > old_header_"$ch"
 
-awk '{OFS=FS="\t"; print $1,$3-1,$3,".",".",$2,$4,$5,$6,$7,$8 }' $cg | head -1 > new_header_"$cg"
+awk '{OFS=FS="\t"; print $1,$3-1,$3,".",".",$2,$4,$5,$6,$7,$8 }' $ch | head -1 > new_header_"$ch"
 
-awk '{OFS=FS="\t"; print $1,$3-1,$3,".",".",$2,$5,$6,$7,$8 }' $cg | sed 1d |
+awk '{OFS=FS="\t"; print $1,$3-1,$3,".",".",$2,$5,$6,$7,$8 }' $ch | grep -w "chr10" |
     "$BEDTOOLS" slop -i - \
                 -g mm9.genome \
                 -l 3 -r 4 -s | \
     "$BEDTOOLS" getfasta -fi $MM9 \
                 -bed - \
-                -fo "$cg"_slop_1.fa \
+                -fo "$ch"_slop_1.fa \
                 -tab \
                 -s
 
 # pos2
-awk '{OFS=FS="\t"; print $1,$4-1,$4,".",".",$2,$5,$6,$7,$8 }' $cg | sed 1d |
+awk '{OFS=FS="\t"; print $1,$4-1,$4,".",".",$2,$5,$6,$7,$8 }' $ch | grep -w "chr10" |
     "$BEDTOOLS" slop -i - \
                 -g mm9.genome \
                 -l 3 -r 4 -s | \
     "$BEDTOOLS" getfasta -fi $MM9 \
                 -bed - \
-                -fo "$cg"_slop_2.fa \
+                -fo "$ch"_slop_2.fa \
                 -tab \
                 -s
+
 # paste everything
 
-sed 1d $cg | paste - "$cg"_slop_1.fa "$cg"_slop_2.fa > tmp_"$cg"
-gzip tmp_"$cg"
-gzip "$cg"
+grep -w "chr10" $ch | paste - "$ch"_slop_1.fa "$ch"_slop_2.fa > tmp_"$ch"
+gzip tmp_"$ch"
+gzip "$ch"
 
-## similarly for ch
+
+# clean up slop fastas
+
+rm *slop*fa
