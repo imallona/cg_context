@@ -11,6 +11,7 @@ output:
     number_sections: true
     df_print: kable
     theme: lumen
+---
 
 # Aim
 
@@ -39,6 +40,16 @@ suppressPackageStartupMessages({
 })
 ```
 
+```{r}
+opts_chunk$set(fig.width = 5,
+               fig.height = 5,
+               cache = FALSE,
+               include = TRUE,
+               cache.lazy = FALSE,
+               warning = TRUE,
+               message = TRUE)
+```
+
 ## Data load
 
 ```{r}
@@ -54,7 +65,7 @@ We downsize the data to:
 
 ```{r}
 
-NTUPLES <- 1e8
+NTUPLES <- 1e9
 d <- list()
 
 header <- c('chr', 'strand', 'pos1', 'pos2', 'MM', 'MU', 'UM', 'UU',
@@ -121,7 +132,7 @@ for (item in names(d)) {
     d[[item]]$type_simple <- 'ch_ch'
     d[[item]]$type_simple <- ifelse(
         test = (tolower(substr(d[[item]]$motif1, 4, 5)) == 'cg' |
-                tolower(substr(d[[item]]$motif1, 4, 5)) == 'cg'),
+                tolower(substr(d[[item]]$motif2, 4, 5)) == 'cg'),
         yes = 'cg_ch',
         no = 'ch_ch')
     
@@ -186,7 +197,7 @@ boxplot(list(MM = d[[item]][d[[item]]$cometh_prop == 1, 'dist'],
 
 Stratified by type
 
-```{r, fig.width = 8, fig.height= 8}
+```{r, fig.width = 6, fig.height= 6}
 ## methylated at least once
 m <-  d[[item]][(d[[item]]$MM > 0 | d[[item]]$UM > 0 | d[[item]]$UM > 0),]
 ggplot(m, aes(dist, cometh_prop)) + geom_point() + facet_grid(~type_simple) + 
@@ -195,6 +206,8 @@ ggplot(m, aes(dist, cometh_prop)) + geom_point() + facet_grid(~type_simple) +
 
 # Within reads vs across reads
 
+## Within read tuple definition
+
 Within reads
 
 ```{r}
@@ -202,21 +215,29 @@ within <- aggregate(cometh_prop ~ four1 + four2, data=d[[item]],
                     FUN = function(x) c(mean = mean(x), sd = sd(x), length = length(x)))
 
 within <- cbind(within[-ncol(within)], within[[ncol(within)]])
-colnames(within) <- c('four1', 'four2', 'cometh.mean', 'cometh.sd', 'cometh.length')
-
+colnames(within) <- c('four1', 'four2', 'cometh.mean', 'cometh.sd', 'cometh.n')
 ```
+
+Within-reads comethylation data shape.
+
+```{r}
+head(within)
+```
+
+## Background motif definition
 
 Overall background: per motif, get the proportion of methylated statuses. We only focus, for each tuple, in the first position, and count methylation events as MM or MU only. This we do not to check the position twice if it there are positions across multiple tuples but possibly with some shared readss, e.g. (A, B), (B, C) etc.
 
 
 ```{r}
+
 ## only two positions free, plus another with either C or A
 stopifnot(length(unique(d$cnn$four1)) == 2 * 4^2)
 
 bg <- data.frame(motif = unique(d$cnn$four1),
-                 meth_prop.mean = NA,
-                 meth_prop.sd = NA,
-                 meth_prop.length = NA)
+                 meth.mean = NA,
+                 meth.sd = NA,
+                 meth.n = NA)
 
 for (i in 1:nrow(bg)) {
     m <- bg[i, 'motif']
@@ -227,12 +248,18 @@ for (i in 1:nrow(bg)) {
     ## bg[i,'meth_prop.sd'] = sd(curr$cometh_prop)
     ## bg[i,'meth_prop.length'] = length(curr$cometh_prop)
     
-    bg[i,'meth_prop.mean']  <- mean((curr$MM + curr$MU)/(curr$UM + curr$MU + curr$MM + curr$UU))
-    bg[i,'meth_prop.sd']  <- sd((curr$MM + curr$MU)/(curr$UM + curr$MU + curr$MM + curr$UU))
-    bg[i,'meth_prop.length']  <- length((curr$MM + curr$MU)/(curr$UM + curr$MU + curr$MM + curr$UU))
+    bg[i,'meth.mean']  <- mean((curr$MM + curr$MU)/(curr$UM + curr$MU + curr$MM + curr$UU))
+    bg[i,'meth.sd']  <- sd((curr$MM + curr$MU)/(curr$UM + curr$MU + curr$MM + curr$UU))
+    bg[i,'meth.n']  <- length((curr$MM + curr$MU)/(curr$UM + curr$MU + curr$MM + curr$UU))
     
 }
+```
 
+Background of co-methylation events of a motif against any other motif (only the left C of a tuple considered).
+
+```{r}
+
+head(bg)
 ```
 
 
@@ -247,22 +274,39 @@ colnames(within)[9:11] <- paste0('bg2.', colnames(within)[9:11])
 
 ```
 
+## Plots
+
 ```{r}
 
-table(within$cometh.mean != 0)
+## table(within$cometh.mean != 0)
 within <- within[within$cometh.mean != 0,]
 within <- within[order(within$cometh.mean, decreasing = TRUE),]
 
-plot(within$cometh.mean, xaxt = 'n', ylab = 'meth proportion', xlab = '', pch = 19)
+plot(within$cometh.mean, xaxt = 'n',  xlab = '', pch = 19,
+     col = 'blue',
+     ylab = 'proportion of methylated tuples or motifs')
+
 axis(1, at = 1:nrow(within), las = 2, labels = paste(within$four1, within$four2, sep = '_'))
 
-points(within$bg1.meth_prop.mean,  col = 'blue', pch = 19)
-arrows(xx, low, xx, up, col = repcols, angle = 90, length = 0.03, code = 3)
-## arrows(1:nrow(within), within$bg1.meth_prop.mean - within$bg1.meth_prop.sd ,
-##        1:nrow(within), within$bg1.meth_prop.mean + within$bg1.meth_prop.sd,
-##        code=3, length=0.02, angle = 90)
+## points(within$bg1.meth_prop.mean,  col = 'blue', pch = 19, cex = 0.5)
+## ## arrows(xx, low, xx, up, col = repcols, angle = 90, length = 0.03, code = 3)
+## ## arrows(1:nrow(within), within$bg1.meth_prop.mean - within$bg1.meth_prop.sd ,
+## ##        1:nrow(within), within$bg1.meth_prop.mean + within$bg1.meth_prop.sd,
+## ##        code=3, length=0.02, angle = 90)
 
-points(within$bg2.meth_prop.mean, col = 'red', pch = 19)
+## points(within$bg2.meth_prop.mean, col = 'red', pch = 19, cex = 0.5)
+
+for (i in 1:nrow(within)) {
+    lines(x = rep(i, 2), y = c(within$bg1.meth.mean[i], within$bg2.meth.mean[i]),
+          lwd = 0.5, type ='b', pch = 4, cex = 0.5)
+}
+
+legend('topright',
+       legend=c("within strand cometh",
+                "background meth (motifs separately)"),
+       col=c("blue", "black"),
+       lty= rep(1,2), pch = c(19, 4))
+
 
 ```
 
@@ -271,11 +315,18 @@ Deviations from the expectation (mean of methylation proportions either having m
 
 Only for the pairs that I measured within reads. Not necessarily across reads, but surely not contiguous and with a distance filter of MINDIST.
 
+MINDIST:
+
 ```{r}
 MINDIST <- 150
 
+print(MINDIST)
+```
 
 
+Subsetting the tuples data to be MINDIST apart (not overlapping reads, due to read length constraints).
+
+```{r}
 ## making sure each element within this subset is in a different read
 ## assumes run within a chromosome only
 d$cnn$keep <- FALSE
@@ -289,10 +340,13 @@ for (i in 1:nrow(d$cnn)) {
 
 ```
 
+Tuples kept.
+
 ```{r}
 table(d$cnn$keep)
 ```
           
+## Across read tuple definition
 
 ```{r}
 
@@ -300,7 +354,7 @@ across <- data.frame(four1 = within$four1,
                      four2 = within$four2,
                      cometh.mean = NA,
                      cometh.sd = NA,
-                     cometh.length = NA)
+                     cometh.n = NA)
 
 for (i in 1:nrow(across)) {
         m1 <- across[i, 'four1']
@@ -309,28 +363,87 @@ for (i in 1:nrow(across)) {
                       (d$cnn$four1 == m2 & d$cnn$four2 != m1)), ]
         
    
-        across[i,'cometh.mean'] = mean(curr$cometh_prop)
-        across[i,'cometh.sd'] = sd(curr$cometh_prop)
-        across[i,'cometh.length'] = length(curr$cometh_prop)
+        across[i,'cometh.mean'] = mean(curr$cometh)
+        across[i,'cometh.sd'] = sd(curr$cometh)
+        across[i,'cometh.n'] = length(curr$cometh)
 }
+```
 
-    
+Across-reads comethylation events
+
+```{r}
+head(across)    
+```
+
+Add a color code (cg-cg, cg-ca, ca-ca)
+
+```{r}
+across$type <- paste(tolower(substr(across$four1, 2, 3)),
+                     tolower(substr(across$four2, 2, 3)),
+                     sep = '_')
+
+across$type_simple <- 'ch_ch'
+across$type_simple <- ifelse(
+    test = (tolower(substr(across$four1, 2, 3)) == 'cg' |
+            tolower(substr(across$four2, 2, 3)) == 'cg'),
+    yes = 'cg_ch',
+    no = 'ch_ch')
+
+across$type_simple[across$type == 'cg_cg'] <- 'cg_cg'
+
+
+```
+
+Plotting only those motif pairs with at least one methylation event
+
+```{r}
+
+plot(x = across$cometh.mean, y = within$cometh.mean,
+     pch = as.numeric(as.factor(across$type_simple)),
+     col = as.numeric(as.factor(across$type_simple)))
+
+legend('topright',
+       legend= levels(as.factor(across$type_simple)),
+       pch = 1:3,
+       col = 1:3)
+     
 ```
 
 
 ```{r}
-plot(x = across$cometh.mean, y = within$cometh.mean, pch = 19)
 
-plot(x = log(across$cometh.mean), y = log(within$cometh.mean), pch = 19,
-     xlim = c(-10, -2), ylim = c(-10, -2))
+plot(x = across$cometh.mean, y = within$cometh.mean, 
+     xlim = c(0, 0.15),
+     ylim = c(0, 0.15),
+     col = as.numeric(as.factor(across$type_simple)),
+     pch = as.numeric(as.factor(across$type_simple)))
+
+legend('topright',
+       legend= levels(as.factor(across$type_simple)),    
+       col = 1:3, pch = 1:3)
+     
+```
+
+```{r}
+plot(x = log(across$cometh.mean), y = log(within$cometh.mean),
+     pch = as.numeric(as.factor(across$type_simple)),
+     xlim = c(-10, -2), ylim = c(-10, -2),
+     col = as.numeric(as.factor(across$type_simple)),
+     xlab = 'log mean cometh across reads, per 4-mers',
+     ylab = 'log mean cometh within reads, per 4-mers')
 
 lines(x = c(-10,-2), y = c(-10, -2))
+
+legend('bottomright',
+       legend= levels(as.factor(across$type_simple)),
+       pch = 1:3,
+       col = 1:3)
 
 ## Split for CG, CA, and CGCA
 ```
 
 ```{r}
-save('all.RData', list = c('d', 'across', 'within'))
+save(file = 'all.RData', list = c('d', 'across', 'within'))
 ```
 
 ```{r}
@@ -358,17 +471,6 @@ save('all.RData', list = c('d', 'across', 'within'))
 
 ```
 
-```{r}
-plot(agg_within$cometh_prop.mean, agg_across$cometh_prop.mean)
-```
-
-
-Across reads
-
-```{r}
-
-
-```
 
 
 <!-- ```{r} -->
