@@ -236,7 +236,14 @@ colnames(within) <- c('four1', 'four2', 'cometh.mean', 'cometh.sd', 'cometh.n')
 Within-reads comethylation data shape.
 
 ```{r}
-head(within)
+
+DT::datatable(within %>% as.data.frame(),
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
 ```
 
 ### Background motif definition
@@ -273,8 +280,15 @@ for (i in 1:nrow(bg)) {
 Background of co-methylation events of a motif against any other motif (only the left C of a tuple considered).
 
 ```{r}
+DT::datatable(bg %>% as.data.frame(),
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
 
-head(bg)
+
 ```
 
 
@@ -414,7 +428,15 @@ for (i in 1:nrow(across)) {
 Across-reads comethylation events
 
 ```{r}
-head(across)    
+DT::datatable(across %>% as.data.frame(), 
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
+
+
 ```
 
 Add a color code (cg-cg, cg-ca, ca-ca)
@@ -508,7 +530,13 @@ colnames(within) <- c('six1', 'six2', 'cometh.mean', 'cometh.sd', 'cometh.n')
 Within-reads comethylation data shape.
 
 ```{r}
-head(within)
+DT::datatable(within %>% as.data.frame(), 
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
 ```
 
 ### Background motif definition
@@ -545,8 +573,14 @@ for (i in 1:nrow(bg)) {
 Background of co-methylation events of a motif against any other motif (only the left C of a tuple considered).
 
 ```{r}
+DT::datatable(bg %>% as.data.frame(), 
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
 
-head(bg)
 ```
 
 
@@ -565,11 +599,14 @@ colnames(within)[9:11] <- paste0('bg2.', colnames(within)[9:11])
 
 Co-methylation proportion = probability (for 2-tuples of 4-mers) vs methylation proportions of 4-mers.
 
-```{r}
+```{r, fig.width = 6, fig.height = 8}
 
 ## table(within$cometh.mean != 0)
 within <- within[within$cometh.mean != 0,]
 within <- within[order(within$cometh.mean, decreasing = TRUE),]
+
+## c(bottom, left, top, right)
+par(oma = c(10,3,3,3))
 
 plot(within$cometh.mean, xaxt = 'n',  xlab = '', pch = 19,
      col = 'blue',
@@ -604,9 +641,10 @@ legend('topright',
 Assuming that preferences towards individual motifs are independent, we can assume that their co-ocurrence is the product of their proportions/probabilities.
 
 
-```{r}
+```{r, fig.height = 8, fig.width = 6}
 within$expected.cometh <- within$bg1.meth.mean * within$bg2.meth.mean
 
+par(oma = c(10,3,3,3))
 
 plot(within$cometh.mean, xaxt = 'n',  xlab = '', pch = 19,
      col = 'blue',
@@ -686,7 +724,14 @@ for (i in 1:nrow(across)) {
 Across-reads comethylation events
 
 ```{r}
-head(across)    
+DT::datatable(across %>% as.data.frame(), 
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
+   
 ```
 
 Add a color code (cg-cg, cg-ca, ca-ca)
@@ -741,12 +786,12 @@ legend('topright',
 ```{r}
 plot(x = log(across$cometh.mean), y = log(within$cometh.mean),
      pch = as.numeric(as.factor(across$type_simple)),
-     ## xlim = c(-10, -2), ylim = c(-10, -2),
+     xlim = c(-8, 0), ylim = c(-8, 0),
      col = as.numeric(as.factor(across$type_simple)),
-     xlab = 'log mean cometh across reads, per 4-mers',
-     ylab = 'log mean cometh within reads, per 4-mers')
+     xlab = 'log mean cometh across reads, per 6-mers',
+     ylab = 'log mean cometh within reads, per 6-mers')
 
-## lines(x = c(-10,-2), y = c(-10, -2))
+lines(x = c(-8,0), y = c(-8, 0))
 
 legend('bottomright',
        legend= levels(as.factor(across$type_simple)),
