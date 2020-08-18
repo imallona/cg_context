@@ -223,7 +223,7 @@ ggplot(m, aes(dist, cometh_prop)) + geom_point() + facet_grid(~type_simple) +
 
 ### Within read tuple definition
 
-Within reads
+Within reads (with at least 10 events)
 
 ```{r}
 within <- aggregate(cometh_prop ~ four1 + four2, data=d[[item]],
@@ -231,6 +231,7 @@ within <- aggregate(cometh_prop ~ four1 + four2, data=d[[item]],
 
 within <- cbind(within[-ncol(within)], within[[ncol(within)]])
 colnames(within) <- c('four1', 'four2', 'cometh.mean', 'cometh.sd', 'cometh.n')
+within <- within[within$cometh.n >= 10,]
 ```
 
 Within-reads comethylation data shape.
@@ -517,7 +518,7 @@ rm(within, across)
 
 ### Within read tuple definition
 
-Within reads
+Within reads (with at least 10 events in the genome)
 
 ```{r}
 within <- aggregate(cometh_prop ~ six1 + six2, data=d[[item]],
@@ -525,6 +526,7 @@ within <- aggregate(cometh_prop ~ six1 + six2, data=d[[item]],
 
 within <- cbind(within[-ncol(within)], within[[ncol(within)]])
 colnames(within) <- c('six1', 'six2', 'cometh.mean', 'cometh.sd', 'cometh.n')
+within <- within[within$cometh.n >= 10,]
 ```
 
 Within-reads comethylation data shape.
