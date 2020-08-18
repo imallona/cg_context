@@ -64,6 +64,7 @@ We downsize the data to:
 
 
 ```{r}
+## NTUPLES <- 1e9 # feasible
 
 NTUPLES <- 1e9
 d <- list()
@@ -121,7 +122,7 @@ lapply(d, function(x) summary(x$cometh_prop))
 
 ```
 
-Extract six-motifs, and filter for CG and CA contexts only
+Extract eight-motifs, and filter for CG and CA contexts only
 
 ```{r}
 for (item in names(d)) {
@@ -144,7 +145,19 @@ for (item in names(d)) {
 
 ```
 
-Extract four-motifs
+
+Extract six-mers, and filter for CG and CA contexts only
+
+
+```{r}
+for (item in names(d)) {
+    d[[item]]$six1 <- tolower(substr(d[[item]]$motif1, 2, 7))
+    
+    d[[item]]$six2 <- tolower(substr(d[[item]]$motif2, 2, 7))
+}
+```
+
+Extract four-mers
 
 ```{r}
 for (item in names(d)) {
@@ -204,9 +217,11 @@ ggplot(m, aes(dist, cometh_prop)) + geom_point() + facet_grid(~type_simple) +
     geom_smooth()
 ```
 
-# Within reads vs across reads
+# Four-mers
 
-## Within read tuple definition
+## Within reads vs across reads
+
+### Within read tuple definition
 
 Within reads
 
@@ -224,7 +239,7 @@ Within-reads comethylation data shape.
 head(within)
 ```
 
-## Background motif definition
+### Background motif definition
 
 Overall background: per motif, get the proportion of methylated statuses. We only focus, for each tuple, in the first position, and count methylation events as MM or MU only. This we do not to check the position twice if it there are positions across multiple tuples but possibly with some shared readss, e.g. (A, B), (B, C) etc.
 
@@ -274,7 +289,9 @@ colnames(within)[9:11] <- paste0('bg2.', colnames(within)[9:11])
 
 ```
 
-## Plots
+### Co-methylation vs motif methylations
+
+Co-methylation proportion = probability (for 2-tuples of 4-mers) vs methylation proportions of 4-mers.
 
 ```{r}
 
@@ -288,30 +305,56 @@ plot(within$cometh.mean, xaxt = 'n',  xlab = '', pch = 19,
 
 axis(1, at = 1:nrow(within), las = 2, labels = paste(within$four1, within$four2, sep = '_'))
 
-## points(within$bg1.meth_prop.mean,  col = 'blue', pch = 19, cex = 0.5)
+points(within$bg1.meth.mean,  col = 'black', pch = 19, cex = 0.5)
 ## ## arrows(xx, low, xx, up, col = repcols, angle = 90, length = 0.03, code = 3)
 ## ## arrows(1:nrow(within), within$bg1.meth_prop.mean - within$bg1.meth_prop.sd ,
 ## ##        1:nrow(within), within$bg1.meth_prop.mean + within$bg1.meth_prop.sd,
 ## ##        code=3, length=0.02, angle = 90)
 
-## points(within$bg2.meth_prop.mean, col = 'red', pch = 19, cex = 0.5)
+points(within$bg2.meth.mean, col = 'black', pch = 19, cex = 0.5)
 
-for (i in 1:nrow(within)) {
-    lines(x = rep(i, 2), y = c(within$bg1.meth.mean[i], within$bg2.meth.mean[i]),
-          lwd = 0.5, type ='b', pch = 4, cex = 0.5)
-}
+## for (i in 1:nrow(within)) {
+##     lines(x = rep(i, 2), y = c(within$bg1.meth.mean[i], within$bg2.meth.mean[i]),
+##           lwd = 0.5, type ='b', pch = 4, cex = 0.5)
+## }
 
 legend('topright',
        legend=c("within strand cometh",
-                "background meth (motifs separately)"),
+                "background meth"),
        col=c("blue", "black"),
-       lty= rep(1,2), pch = c(19, 4))
+       lty= rep(1,2), pch = c(19, 19))
 
+
+```
+
+### Co-methylation vs product of expected motif methylations
+
+Assuming that preferences towards individual motifs are independent, we can assume that their co-ocurrence is the product of their proportions/probabilities.
+
+
+```{r}
+within$expected.cometh <- within$bg1.meth.mean * within$bg2.meth.mean
+
+
+plot(within$cometh.mean, xaxt = 'n',  xlab = '', pch = 19,
+     col = 'blue',
+     ylab = 'proportion of methylated tuples or motifs')
+
+axis(1, at = 1:nrow(within), las = 2, labels = paste(within$four1, within$four2, sep = '_'))
+
+points(within$expected.cometh,  col = 'black', pch = 19, cex = 0.5)
+
+legend('topright',
+       legend=c("within strand cometh",
+                "expected cometh"),
+       col=c("blue", "black"),
+       lty= rep(1,2), pch = c(19, 19))
 
 ```
 
 Deviations from the expectation (mean of methylation proportions either having motif1 or motif2, but not both) as compared to the observed comethylation proportions.
 
+## Across-reads
 
 Only for the pairs that I measured within reads. Not necessarily across reads, but surely not contiguous and with a distance filter of MINDIST.
 
@@ -340,13 +383,12 @@ for (i in 1:nrow(d$cnn)) {
 
 ```
 
-Tuples kept.
+Number of tuples kept.
 
 ```{r}
 table(d$cnn$keep)
 ```
           
-## Across read tuple definition
 
 ```{r}
 
@@ -442,148 +484,284 @@ legend('bottomright',
 ## Split for CG, CA, and CGCA
 ```
 
+
+# Six- mers
+
+```{r}
+rm(within, across)
+```
+
+## Within reads vs across reads
+
+### Within read tuple definition
+
+Within reads
+
+```{r}
+within <- aggregate(cometh_prop ~ six1 + six2, data=d[[item]],
+                    FUN = function(x) c(mean = mean(x), sd = sd(x), length = length(x)))
+
+within <- cbind(within[-ncol(within)], within[[ncol(within)]])
+colnames(within) <- c('six1', 'six2', 'cometh.mean', 'cometh.sd', 'cometh.n')
+```
+
+Within-reads comethylation data shape.
+
+```{r}
+head(within)
+```
+
+### Background motif definition
+
+Overall background: per motif, get the proportion of methylated statuses. We only focus, for each tuple, in the first position, and count methylation events as MM or MU only. This we do not to check the position twice if it there are positions across multiple tuples but possibly with some shared readss, e.g. (A, B), (B, C) etc.
+
+
+```{r}
+
+## only two positions free, plus another with either C or A
+## stopifnot(length(unique(d$cnn$six1)) == 2 * 4^4)
+
+bg <- data.frame(motif = unique(d$cnn$six1),
+                 meth.mean = NA,
+                 meth.sd = NA,
+                 meth.n = NA)
+
+for (i in 1:nrow(bg)) {
+    m <- bg[i, 'motif']
+  
+    curr <- d$cnn[d$cnn$six1 == m, ]
+
+    ## bg[i,'meth_prop.mean'] = mean(curr$cometh_prop)
+    ## bg[i,'meth_prop.sd'] = sd(curr$cometh_prop)
+    ## bg[i,'meth_prop.length'] = length(curr$cometh_prop)
+    
+    bg[i,'meth.mean']  <- mean((curr$MM + curr$MU)/(curr$UM + curr$MU + curr$MM + curr$UU))
+    bg[i,'meth.sd']  <- sd((curr$MM + curr$MU)/(curr$UM + curr$MU + curr$MM + curr$UU))
+    bg[i,'meth.n']  <- length((curr$MM + curr$MU)/(curr$UM + curr$MU + curr$MM + curr$UU))
+    
+}
+```
+
+Background of co-methylation events of a motif against any other motif (only the left C of a tuple considered).
+
+```{r}
+
+head(bg)
+```
+
+
+```{r}
+within <- merge(within, bg, by.x = 'six1', by.y = 'motif', suffixes = c('', '.bg1'))
+
+colnames(within)[6:8] <- paste0('bg1.', colnames(within)[6:8])
+
+within <- merge(within, bg, by.x = 'six2', by.y = 'motif', suffixes = c('', '.bg1'))
+
+colnames(within)[9:11] <- paste0('bg2.', colnames(within)[9:11])
+
+```
+
+### Co-methylation vs motif methylations
+
+Co-methylation proportion = probability (for 2-tuples of 4-mers) vs methylation proportions of 4-mers.
+
+```{r}
+
+## table(within$cometh.mean != 0)
+within <- within[within$cometh.mean != 0,]
+within <- within[order(within$cometh.mean, decreasing = TRUE),]
+
+plot(within$cometh.mean, xaxt = 'n',  xlab = '', pch = 19,
+     col = 'blue',
+     ylab = 'proportion of methylated tuples or motifs')
+
+axis(1, at = 1:nrow(within), las = 2, labels = paste(within$six1, within$six2, sep = '_'))
+
+points(within$bg1.meth.mean,  col = 'black', pch = 19, cex = 0.5)
+## ## arrows(xx, low, xx, up, col = repcols, angle = 90, length = 0.03, code = 3)
+## ## arrows(1:nrow(within), within$bg1.meth_prop.mean - within$bg1.meth_prop.sd ,
+## ##        1:nrow(within), within$bg1.meth_prop.mean + within$bg1.meth_prop.sd,
+## ##        code=3, length=0.02, angle = 90)
+
+points(within$bg2.meth.mean, col = 'black', pch = 19, cex = 0.5)
+
+## for (i in 1:nrow(within)) {
+##     lines(x = rep(i, 2), y = c(within$bg1.meth.mean[i], within$bg2.meth.mean[i]),
+##           lwd = 0.5, type ='b', pch = 4, cex = 0.5)
+## }
+
+legend('topright',
+       legend=c("within strand cometh",
+                "background meth"),
+       col=c("blue", "black"),
+       lty= rep(1,2), pch = c(19, 19))
+
+
+```
+
+### Co-methylation vs product of expected methylations
+
+Assuming that preferences towards individual motifs are independent, we can assume that their co-ocurrence is the product of their proportions/probabilities.
+
+
+```{r}
+within$expected.cometh <- within$bg1.meth.mean * within$bg2.meth.mean
+
+
+plot(within$cometh.mean, xaxt = 'n',  xlab = '', pch = 19,
+     col = 'blue',
+     ylab = 'proportion of methylated tuples or motifs')
+
+axis(1, at = 1:nrow(within), las = 2, labels = paste(within$six1, within$six2, sep = '_'))
+
+points(within$expected.cometh,  col = 'black', pch = 19, cex = 0.5)
+
+legend('topright',
+       legend=c("within strand cometh",
+                "expected cometh"),
+       col=c("blue", "black"),
+       lty= rep(1,2), pch = c(19, 19))
+
+```
+
+Deviations from the expectation (mean of methylation proportions either having motif1 or motif2, but not both) as compared to the observed comethylation proportions.
+
+## Across-reads
+
+Only for the pairs that I measured within reads. Not necessarily across reads, but surely not contiguous and with a distance filter of MINDIST.
+
+MINDIST:
+
+```{r}
+MINDIST <- 75
+
+print(MINDIST)
+```
+
+
+Subsetting the tuples data to be MINDIST apart (not overlapping reads, due to read length constraints).
+
+```{r}
+## making sure each element within this subset is in a different read
+## assumes run within a chromosome only
+d$cnn$keep <- FALSE
+prev_pos <- 0
+for (i in 1:nrow(d$cnn)) {
+        if ((d$cnn[i, 'pos1'] - prev_pos) >= MINDIST) {
+            d$cnn$keep[i] <- TRUE
+            prev_pos <- d$cnn[i, 'pos1']
+        }
+}
+
+```
+
+Number of tuples kept.
+
+```{r}
+table(d$cnn$keep)
+```
+          
+
+```{r}
+
+across <- data.frame(six1 = within$six1,
+                     six2 = within$six2,
+                     cometh.mean = NA,
+                     cometh.sd = NA,
+                     cometh.n = NA)
+
+for (i in 1:nrow(across)) {
+        m1 <- across[i, 'six1']
+        m2 <- across[i, 'six2']
+        curr <- d$cnn[d$cnn$keep & ((d$cnn$six1 == m1 & d$cnn$six2 != m2) |
+                      (d$cnn$six1 == m2 & d$cnn$six2 != m1)), ]
+        
+   
+        across[i,'cometh.mean'] = mean(curr$cometh)
+        across[i,'cometh.sd'] = sd(curr$cometh)
+        across[i,'cometh.n'] = length(curr$cometh)
+}
+```
+
+Across-reads comethylation events
+
+```{r}
+head(across)    
+```
+
+Add a color code (cg-cg, cg-ca, ca-ca)
+
+```{r}
+across$type <- paste(tolower(substr(across$six1, 3, 4)),
+                     tolower(substr(across$six2, 3, 4)),
+                     sep = '_')
+
+across$type_simple <- 'ch_ch'
+across$type_simple <- ifelse(
+    test = (tolower(substr(across$six1, 3, 4)) == 'cg' |
+            tolower(substr(across$six2, 3, 4)) == 'cg'),
+    yes = 'cg_ch',
+    no = 'ch_ch')
+
+across$type_simple[across$type == 'cg_cg'] <- 'cg_cg'
+
+
+```
+
+Plotting only those motif pairs with at least one methylation event
+
+```{r}
+
+plot(x = across$cometh.mean, y = within$cometh.mean,
+     pch = as.numeric(as.factor(across$type_simple)),
+     col = as.numeric(as.factor(across$type_simple)))
+
+legend('topright',
+       legend= levels(as.factor(across$type_simple)),
+       pch = 1:3,
+       col = 1:3)
+     
+```
+
+
+```{r}
+
+plot(x = across$cometh.mean, y = within$cometh.mean, 
+     ## xlim = c(0, 0.15),
+     ## ylim = c(0, 0.15),
+     col = as.numeric(as.factor(across$type_simple)),
+     pch = as.numeric(as.factor(across$type_simple)))
+
+legend('topright',
+       legend= levels(as.factor(across$type_simple)),    
+       col = 1:3, pch = 1:3)
+     
+```
+
+```{r}
+plot(x = log(across$cometh.mean), y = log(within$cometh.mean),
+     pch = as.numeric(as.factor(across$type_simple)),
+     ## xlim = c(-10, -2), ylim = c(-10, -2),
+     col = as.numeric(as.factor(across$type_simple)),
+     xlab = 'log mean cometh across reads, per 4-mers',
+     ylab = 'log mean cometh within reads, per 4-mers')
+
+## lines(x = c(-10,-2), y = c(-10, -2))
+
+legend('bottomright',
+       legend= levels(as.factor(across$type_simple)),
+       pch = 1:3,
+       col = 1:3)
+
+## Split for CG, CA, and CGCA
+```
+
+
+# Trace
+
 ```{r}
 save(file = 'all.RData', list = c('d', 'across', 'within'))
 ```
-
-```{r}
-## ## only two positions free, plus another with either C or A
-## stopifnot(length(unique(d$cnn$four1)) == 2 * 4^2)
-
-## ## we'll only fill the same data we got for within reads
-
-## agg_across <- data.frame(four1 = agg_within$four1,
-##                          four2 = agg_within$four2,
-##                          cometh_prop.mean = NA,
-##                          cometh_prop.sd = NA,
-##                          cometh_prop.length = NA)
-
-## for (i in 1:nrow(agg_across)) {
-##     m1 <- agg_across[i, 'four1']
-##     m2 <- agg_across[i, 'four2']
-##     curr <- d$cnn[(d$cnn$four1 == m1 & d$cnn$four2 != m2) |
-##                   (d$cnn$four1 == m2 & d$cnn$four2 != m1), ]
-    
-##     agg_across[i,'cometh_prop.mean'] = mean(curr$cometh_prop)
-##     agg_across[i,'cometh_prop.sd'] = sd(curr$cometh_prop)
-##     agg_across[i,'cometh_prop.length'] = length(curr$cometh_prop)  
-## }
-
-```
-
-
-
-<!-- ```{r} -->
-<!-- p <- ggplot(m[m$type_simple == 'cg_cg',], aes(dist, cometh_prop)) + -->
-<!--     geom_point() + -->
-<!--         xlab('') + -->
-<!--         ylab('') + -->
-<!--     theme(legend.position = "none") -->
-
-<!-- ggMarginal(p, margins = 'y', -->
-<!--            groupColour = FALSE, groupFill = FALSE) -->
-
-<!-- ``` -->
-
-<!-- Now plot according to the nucleotide in the key position. -->
-
-<!-- ```{r} -->
-
-<!-- library(hexbin) -->
-<!-- library(RColorBrewer) -->
-<!-- rf <- colorRampPalette(rev(brewer.pal(11,'Spectral'))) -->
-<!-- r <- rf(32) -->
-
-<!-- h <- hexbin(d$cg[,c('dist', 'cometh_prop')]) -->
-<!-- plot(h, colramp = rf) -->
-
-<!-- ``` -->
-
-<!-- ```{r} -->
-<!-- d$cg$logdist <- log(d$cg$dist +1, base = 10) -->
-<!-- d$cg$asin_cometh_prop <- asin(d$cg$cometh_prop) -->
-
-<!-- hlog <- hexbin(d$cg[,c('dist', 'asin_cometh_prop')]) -->
-<!-- plot(hlog, colramp = rf) -->
-<!-- ``` -->
-
-
-
-<!-- ```{r} -->
-<!-- prop <- list() -->
-
-<!-- for (item in names(d)) { -->
-<!--     tuples <- grep('M|U', header, value = TRUE) -->
-    
-<!--     prop[[item]] <- data.frame(prop = colSums(d[[item]][,tuples]) / sum(d[[item]][,tuples]), -->
-<!--                                status = tuples) -->
-
-   
-<!-- } -->
-<!-- ``` -->
-
-
-<!-- ```{r} -->
-
-<!-- plot(y = prop$cg$prop, x = 1:nrow(prop$cg), xaxt = 'n', xlab = '', type ='p', col = 'blue', -->
-<!--      pch = 0) -->
-<!-- lines(y = prop$mixed$prop, x = 1:nrow(prop$cg), type ='p', pch = 4) -->
-
-<!-- axis(1, at = 1:nrow(prop$cg), labels = prop$cg$status, las = 2) -->
-<!-- ``` -->
-
-
-<!-- ```{r} -->
-
-<!-- plot(y = prop$cg$logprop, x = 1:nrow(prop$cg), xaxt = 'n', xlab = '', type ='p', -->
-<!--      col = 'blue', pch = 0, ylim = c(min(min(prop$cg$logprop, prop$mixed$logprop)), -->
-<!--                                      max(max(prop$cg$logprop, prop$mixed$logprop)))) -->
-
-<!-- lines(prop$mixed$logprop, x = 1:nrow(prop$mixed), type ='p', pch = 4) -->
-      
-<!-- axis(1, at = 1:nrow(prop$cg), labels = prop$cg$status, las = 2) -->
-<!-- ``` -->
-
-<!-- Plot proportion of Ms vs distance between them -->
-
-<!-- first get the tuples that are different from 0 -->
-<!-- then get the coordinates -->
-<!-- then get the distance between all possible pairs of Ms -->
-
-
-<!-- ```{r} -->
-<!-- dists <- list() -->
-<!-- for (item in names(d)) { -->
-<!--     dists[[tuple]] <- list() -->
-<!--     for (tuple in tuples) { -->
-<!--         ## at least two methylation events -->
-<!--         if (length(grep('M', strsplit(tuple, '')[[1]])) >= 2) { -->
-<!--             ## this gets the relative position of an `M` within a tuple, e.g. UMMMU -> 2,3,4 -->
-<!--             ## grep('M', strsplit(tuple, '')[[1]]) -->
-<!--             ## this the coordinates of those -->
-<!--             ## d[[item]][,paste0('pos', grep('M', strsplit(tuple, '')[[1]]))] -->
-<!--             ## and this the distances between the leftmost and all other events -->
-            
-<!--             dists[[item]][[tuple]] <- apply(d[[item]][,paste0('pos', grep('M', strsplit(tuple, '')[[1]]))], 2, -->
-<!--                                             function(x) return(x -d[[item]][,paste0('pos', grep('M', strsplit(tuple, '')[[1]]))][,1])) -->
-            
-<!--         } -->
-<!--     } -->
-<!-- } -->
-
-<!-- ``` -->
-
-
-<!-- ```{r} -->
-
-<!-- item <- 'cg' -->
-<!-- curr <- 'MMUUUU' -->
-
-<!-- plot(x= as.vector(dists[[item]][[curr]]), y=prop[[item]][[curr]]$prop) -->
-
-<!-- ``` -->
-
-# Export objects
 
 
 # Timestamp
