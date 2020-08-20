@@ -37,6 +37,7 @@ suppressPackageStartupMessages({
     library(DT)
     library(MASS)
     library(ggExtra)
+    library(rsq)
 })
 ```
 
@@ -124,7 +125,7 @@ lapply(d, function(x) summary(x$cometh_prop))
 
 Extract eight-motifs, and filter for CG and CA contexts only
 
-```{r}
+```{r noway, eval = TRUE}
 for (item in names(d)) {
     d[[item]]$type <- paste(tolower(substr(d[[item]]$motif1, 4, 5)),
                             tolower(substr(d[[item]]$motif2, 4, 5)),
@@ -145,6 +146,27 @@ for (item in names(d)) {
 
 ```
 
+
+<!-- ```{r} -->
+
+<!-- motifs <- unique(tolower(c(d[[item]]$motif1, d[[item]]$motif2))) -->
+<!-- mapping <- data.frame(motif = motifs, -->
+<!--                       six =  substr(motifs, 2, 7), -->
+<!--                       four = substr(motifs, 3, 6)) -->
+
+
+<!-- mapping$type <-  ifelse(test = tolower(substr(mapping$four, 2, 3)) == 'cg', -->
+<!--                         yes = 'cg',   no = 'ch') -->
+
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- d[[item]]$type_simple <- paste( -->
+<!--     mapping[mapping$motif == d[[item]]$motif1, 'type'], -->
+<!--     mapping[mapping$motif == d[[item]]$motif2, 'type'], -->
+<!--     sep = "_") -->
+
+<!-- ``` -->
 
 Extract six-mers, and filter for CG and CA contexts only
 
@@ -376,7 +398,7 @@ Only for the pairs that I measured within reads. Not necessarily across reads, b
 MINDIST:
 
 ```{r}
-MINDIST <- 150
+MINDIST <- 75
 
 print(MINDIST)
 ```
@@ -507,6 +529,120 @@ legend('bottomright',
 ## Split for CG, CA, and CGCA
 ```
 
+
+## Models
+
+To answer the reviewer's question and given the linearity of the cometh patterns (across and within reads), we fit a linear model that predicts the within read comethylation as a function of across reads comethylation plus whether cg-ch/ch*ch/cg-cg.
+
+
+###  Comethylation variance explained: motif, type, and across or within-strand
+<!-- ```{r} -->
+
+<!-- x <- data.frame(motifs = paste(across$four1, across$four2, sep = "_"), -->
+<!--                 type = across$type_simple, -->
+<!--                 across = across$cometh.mean) -->
+
+<!-- within$motifs <- paste(within$four1, within$four2, sep = "_") -->
+<!-- rownames(within) <- within$motifs -->
+
+<!-- x$within <- within[x$motifs, 'cometh.mean'] -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- summary(lm(x$within ~ 0 + x$across)) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- summary(lm(x$within ~ 0 + x$across * x$type)) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- summary(lm(x$within ~ 0 + x$across + x$type)) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- summary(lm(x$within ~ 0 + x$across + x$type)) -->
+<!-- ``` -->
+
+```{r}
+
+
+across$motifs <- paste(across$four1, across$four2, sep = "_")
+within$motifs <- paste(within$four1, within$four2, sep = "_")
+within <- merge(within, across[,c('motifs', 'type_simple')], all.x = TRUE, by = 'motifs')
+    
+x <- rbind(data.frame(cometh = across$cometh.mean,
+                      read = 'across',
+                      type =  across$type_simple,
+                      motifs = paste(across$four1, across$four2, sep = "_")),
+           data.frame(cometh = within$cometh.mean,
+                      read = 'within',
+                      type =  within$type_simple,
+                      motifs = paste(within$four1, within$four2, sep = "_")))
+
+           
+```
+
+
+
+
+```{r}
+fit <- lm(x$cometh ~ x$read + x$type)
+
+## https://rdrr.io/cran/rsq/man/rsq.partial.html
+summary(fit)
+print(rsq::rsq.partial(fit))
+```
+
+
+```{r}
+fit2 <- lm(x$cometh ~ x$read * x$type)
+
+summary(fit2)
+print(rsq::rsq.partial(fit2))
+```
+
+
+
+```{r}
+fit3 <- lm(x$cometh ~ x$read + x$motifs)
+
+
+summary(fit3)
+
+print(rsq::rsq.partial(fit3))
+```
+
+###  Comethylation variance explained by the motif with highest methylation
+
+Reasoning: we do see more co-methylation than expected, but only for some motifs. Then, it might be some of the motifs we see as methylated are not in fact so, but a by-product of being close in sequence to the DNMT 'favoured' target. Thus, the alternative hypothesis is that most of the signal is just comethylation. But using the most methylated motif (which cannot be due to co-methylation), we could quantify how much co-methylation with this motif explains the other motifs.
+
+```{r}
+
+
+top <- head(bg[order(bg$meth.mean, decreasing = TRUE), 'motif'], 1)
+
+x <- rbind(data.frame(cometh = across$cometh.mean,
+                      read = 'across',
+                      type =  across$type_simple,
+                      motifs = paste(across$four1, across$four2, sep = "_")),
+           data.frame(cometh = within$cometh.mean,
+                      read = 'within',
+                      type =  within$type_simple,
+                      motifs = paste(within$four1, within$four2, sep = "_")))
+
+x$has_top <- grepl(top, x$motifs)
+
+```
+
+```{r}
+fit <- lm(x$cometh ~ as.factor(x$has_top))
+
+summary(fit)
+print(rsq::rsq.partial(fit))
+
+
+```
 
 # Six- mers
 
@@ -801,6 +937,94 @@ legend('bottomright',
        col = 1:3)
 
 ## Split for CG, CA, and CGCA
+```
+
+## Model
+
+###  Comethylation variance explained: motif, type, and across or within-strand
+
+To answer the reviewer's question and given the linearity of the cometh patterns (across and within reads), we fit a linear model that predicts the within read comethylation as a function of across reads comethylation plus whether cg-ch/ch*ch/cg-cg.
+
+```{r}
+
+
+across$motifs <- paste(across$six1, across$six2, sep = "_")
+within$motifs <- paste(within$six1, within$six2, sep = "_")
+
+within <- merge(within, across[,c('motifs', 'type_simple')], all.x = TRUE, by = 'motifs')
+    
+x <- rbind(data.frame(cometh = across$cometh.mean,
+                      read = 'across',
+                      type =  across$type_simple,
+                      motifs = paste(across$six1, across$six2, sep = "_")),
+           data.frame(cometh = within$cometh.mean,
+                      read = 'within',
+                      type =  within$type_simple,
+                      motifs = paste(within$six1, within$six2, sep = "_")))
+
+           
+```
+
+
+
+
+```{r}
+fit <- lm(x$cometh ~ x$read + x$type)
+
+## https://rdrr.io/cran/rsq/man/rsq.partial.html
+summary(fit)
+print(rsq::rsq.partial(fit))
+```
+
+
+```{r}
+fit2 <- lm(x$cometh ~ x$read * x$type)
+
+summary(fit2)
+print(rsq::rsq.partial(fit2))
+```
+
+
+
+```{r}
+fit3 <- lm(x$cometh ~ x$read + x$motifs)
+
+
+summary(fit3)
+
+print(rsq::rsq.partial(fit3))
+```
+
+
+###  Comethylation variance explained by the motif with highest methylation
+
+Reasoning: we do see more co-methylation than expected, but only for some motifs. Then, it might be some of the motifs we see as methylated are not in fact so, but a by-product of being close in sequence to the DNMT 'favoured' target. Thus, the alternative hypothesis is that most of the signal is just comethylation. But using the most methylated motif (which cannot be due to co-methylation), we could quantify how much co-methylation with this motif explains the other motifs.
+
+```{r}
+
+
+top <- head(bg[order(bg$meth.mean, decreasing = TRUE), 'motif'], 1)
+
+x <- rbind(data.frame(cometh = across$cometh.mean,
+                      read = 'across',
+                      type =  across$type_simple,
+                      motifs = paste(across$four1, across$four2, sep = "_")),
+           data.frame(cometh = within$cometh.mean,
+                      read = 'within',
+                      type =  within$type_simple,
+                      motifs = paste(within$four1, within$four2, sep = "_")))
+
+x$has_top <- grepl(top, x$motifs)
+
+```
+
+```{r}
+fit <- lm(x$cometh ~ as.factor(x$has_top))
+
+summary(fit)
+print(rsq::rsq.partial(fit))
+
+
 ```
 
 
