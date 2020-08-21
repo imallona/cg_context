@@ -1,6 +1,6 @@
 ---
 title: "07 autocorrelation within reads"
-author: "Izaskun Mallona at Robinsonlab"
+author: "Izaskun Mallona"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: 
   html_document:
@@ -20,6 +20,43 @@ Postprocesses  `methtutple_bismark_read_correlation.sh`.
 ```
 The trimming data down to 75bp limits the analysis of neighbourhood effects particularly the presence of non-CpG methylation (CpH) in the context of CpG methylation on the same strand. In other words how much is the methylation of CpG’s and neighbouring CpH methylation influenced by flanking sequences on the same molecule.
 ```
+
+# Approach in short
+
+We process conventionally (bismark) paired end sequencing reads from SRR1274743, as a representative of our WGBSs. We map and process it as single end.
+
+
+We compute the events of co-methylation of all pairs of CpNs in the genome: for each pair of contiguous CpNs, we store how often they are both methylated within the same sequencing read, and how often only one is methylated, and how often none is.
+
+With this information, we extract the sequence context of each motif from the motif pair, and evaluate how much of the CA-motifs methylation is correlated with the closest, within the same read, CG-motif methylation. This we call `within` read comethylation.
+
+To have an external `across` read value, we slide along the genome and take pairs of motifs that are at least 75 nt apart (not within the same read because of the read length limitations).
+
+Both `within` and `across` tables start with a loci-bound shape e.g. 
+
+```
+chr cg1 cg2 MM MU UM MU dist
+chr1 120 132 2 0 0 M0 12
+
+```
+
+Then, a co-methylation score MM/ (MM + MU + UM + UU) is built.
+
+Then, they are aggregated (mean score, sd score, number of events) by motif, e.g.
+
+```
+motif1 motif2 mean.cometh sd.cometh, n.cometh
+cgcCGatg cacCGcaa 0.1 0.3 150
+
+```
+
+
+We also compute a background of DNA methylation proportion (probability), to have an expectation of what rate of co-methylation we might expect (for motif A and B) given their individual methylation probability (we assume independence and expect the product).
+
+Next, some extra information is added to `within` and `across`: whether they are CpH, CpG, and the co-methylation expectation (product of the individual motifs mean methylation rates).
+
+Summarization is done at the pair of 4-mers and 6-mers level. CG and CA-only.
+
 
 # Set up
 
@@ -44,7 +81,7 @@ suppressPackageStartupMessages({
 ```{r}
 opts_chunk$set(fig.width = 5,
                fig.height = 5,
-               cache = FALSE,
+               cache = TRUE,
                include = TRUE,
                cache.lazy = FALSE,
                warning = TRUE,
@@ -245,7 +282,7 @@ ggplot(m, aes(dist, cometh_prop)) + geom_point() + facet_grid(~type_simple) +
 
 ### Within read tuple definition
 
-Within reads (with at least 10 events)
+Within reads (with at least 5 events)
 
 ```{r}
 within <- aggregate(cometh_prop ~ four1 + four2, data=d[[item]],
@@ -253,7 +290,7 @@ within <- aggregate(cometh_prop ~ four1 + four2, data=d[[item]],
 
 within <- cbind(within[-ncol(within)], within[[ncol(within)]])
 colnames(within) <- c('four1', 'four2', 'cometh.mean', 'cometh.sd', 'cometh.n')
-within <- within[within$cometh.n >= 10,]
+within <- within[within$cometh.n >= 5,]
 ```
 
 Within-reads comethylation data shape.
@@ -591,7 +628,7 @@ fit <- lm(x$cometh ~ x$read + x$type)
 
 ## https://rdrr.io/cran/rsq/man/rsq.partial.html
 summary(fit)
-print(rsq::rsq.partial(fit))
+print(rsq::rsq.partial(fit, adj = TRUE))
 ```
 
 
@@ -599,7 +636,7 @@ print(rsq::rsq.partial(fit))
 fit2 <- lm(x$cometh ~ x$read * x$type)
 
 summary(fit2)
-print(rsq::rsq.partial(fit2))
+print(rsq::rsq.partial(fit2, adj = TRUE))
 ```
 
 
@@ -610,7 +647,7 @@ fit3 <- lm(x$cometh ~ x$read + x$motifs)
 
 summary(fit3)
 
-print(rsq::rsq.partial(fit3))
+print(rsq::rsq.partial(fit3, adj = TRUE))
 ```
 
 ###  Comethylation variance explained by the motif with highest methylation
@@ -633,16 +670,24 @@ x <- rbind(data.frame(cometh = across$cometh.mean,
 
 x$has_top <- grepl(top, x$motifs)
 
+table(x$has_top)
 ```
 
 ```{r}
 fit <- lm(x$cometh ~ as.factor(x$has_top))
 
 summary(fit)
-print(rsq::rsq.partial(fit))
+print(rsq::rsq.partial(fit, adj = TRUE))
 
 
 ```
+
+## Trace
+
+```{r}
+save(file = 'four.RData', list = c('d', 'across', 'within'))
+```
+
 
 # Six- mers
 
@@ -654,7 +699,7 @@ rm(within, across)
 
 ### Within read tuple definition
 
-Within reads (with at least 10 events in the genome)
+Within reads (with at least 5 events in the genome)
 
 ```{r}
 within <- aggregate(cometh_prop ~ six1 + six2, data=d[[item]],
@@ -662,7 +707,7 @@ within <- aggregate(cometh_prop ~ six1 + six2, data=d[[item]],
 
 within <- cbind(within[-ncol(within)], within[[ncol(within)]])
 colnames(within) <- c('six1', 'six2', 'cometh.mean', 'cometh.sd', 'cometh.n')
-within <- within[within$cometh.n >= 10,]
+within <- within[within$cometh.n >= 5,]
 ```
 
 Within-reads comethylation data shape.
@@ -973,7 +1018,7 @@ fit <- lm(x$cometh ~ x$read + x$type)
 
 ## https://rdrr.io/cran/rsq/man/rsq.partial.html
 summary(fit)
-print(rsq::rsq.partial(fit))
+print(rsq::rsq.partial(fit, adj = TRUE))
 ```
 
 
@@ -981,7 +1026,7 @@ print(rsq::rsq.partial(fit))
 fit2 <- lm(x$cometh ~ x$read * x$type)
 
 summary(fit2)
-print(rsq::rsq.partial(fit2))
+print(rsq::rsq.partial(fit2, adj = TRUE))
 ```
 
 
@@ -992,7 +1037,7 @@ fit3 <- lm(x$cometh ~ x$read + x$motifs)
 
 summary(fit3)
 
-print(rsq::rsq.partial(fit3))
+print(rsq::rsq.partial(fit3, adj = TRUE))
 ```
 
 
@@ -1008,30 +1053,31 @@ top <- head(bg[order(bg$meth.mean, decreasing = TRUE), 'motif'], 1)
 x <- rbind(data.frame(cometh = across$cometh.mean,
                       read = 'across',
                       type =  across$type_simple,
-                      motifs = paste(across$four1, across$four2, sep = "_")),
+                      motifs = paste(across$six1, across$six2, sep = "_")),
            data.frame(cometh = within$cometh.mean,
                       read = 'within',
                       type =  within$type_simple,
-                      motifs = paste(within$four1, within$four2, sep = "_")))
+                      motifs = paste(within$six1, within$six2, sep = "_")))
 
 x$has_top <- grepl(top, x$motifs)
-
+table(x$has_top)
 ```
+
 
 ```{r}
 fit <- lm(x$cometh ~ as.factor(x$has_top))
 
 summary(fit)
-print(rsq::rsq.partial(fit))
+print(rsq::rsq.partial(fit, adj = TRUE))
 
 
 ```
 
 
-# Trace
+## Trace
 
 ```{r}
-save(file = 'all.RData', list = c('d', 'across', 'within'))
+save(file = 'six.RData', list = c('d', 'across', 'within'))
 ```
 
 
