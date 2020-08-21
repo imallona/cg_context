@@ -17,6 +17,8 @@ output:
 
 Postprocesses  `methtutple_bismark_read_correlation.sh`.
 
+Reviewer's comment:
+
 ```
 The trimming data down to 75bp limits the analysis of neighbourhood effects particularly the presence of non-CpG methylation (CpH) in the context of CpG methylation on the same strand. In other words how much is the methylation of CpG’s and neighbouring CpH methylation influenced by flanking sequences on the same molecule.
 ```
@@ -81,11 +83,17 @@ suppressPackageStartupMessages({
 ```{r}
 opts_chunk$set(fig.width = 5,
                fig.height = 5,
-               cache = TRUE,
+               cache = FALSE,
                include = TRUE,
                cache.lazy = FALSE,
                warning = TRUE,
                message = TRUE)
+```
+
+
+```{r}
+logit <- function(p) { log(p/(1-p)) }
+arcsin <- function(p) { asin(sqrt(p)) }
 ```
 
 ## Data load
@@ -282,7 +290,7 @@ ggplot(m, aes(dist, cometh_prop)) + geom_point() + facet_grid(~type_simple) +
 
 ### Within read tuple definition
 
-Within reads (with at least 5 events)
+Within reads (with at least 20 events)
 
 ```{r}
 within <- aggregate(cometh_prop ~ four1 + four2, data=d[[item]],
@@ -290,7 +298,7 @@ within <- aggregate(cometh_prop ~ four1 + four2, data=d[[item]],
 
 within <- cbind(within[-ncol(within)], within[[ncol(within)]])
 colnames(within) <- c('four1', 'four2', 'cometh.mean', 'cometh.sd', 'cometh.n')
-within <- within[within$cometh.n >= 5,]
+within <- within[within$cometh.n >= 20,]
 ```
 
 Within-reads comethylation data shape.
@@ -518,35 +526,12 @@ across$type_simple[across$type == 'cg_cg'] <- 'cg_cg'
 
 ```
 
+## Plot within vs across
+
 Plotting only those motif pairs with at least one methylation event
 
-```{r}
-
-plot(x = across$cometh.mean, y = within$cometh.mean,
-     pch = as.numeric(as.factor(across$type_simple)),
-     col = as.numeric(as.factor(across$type_simple)))
-
-legend('topright',
-       legend= levels(as.factor(across$type_simple)),
-       pch = 1:3,
-       col = 1:3)
-     
-```
 
 
-```{r}
-
-plot(x = across$cometh.mean, y = within$cometh.mean, 
-     xlim = c(0, 0.15),
-     ylim = c(0, 0.15),
-     col = as.numeric(as.factor(across$type_simple)),
-     pch = as.numeric(as.factor(across$type_simple)))
-
-legend('topright',
-       legend= levels(as.factor(across$type_simple)),    
-       col = 1:3, pch = 1:3)
-     
-```
 
 ```{r}
 plot(x = log(across$cometh.mean), y = log(within$cometh.mean),
@@ -564,6 +549,33 @@ legend('bottomright',
        col = 1:3)
 
 ## Split for CG, CA, and CGCA
+```
+
+```{r}
+
+plot(x = across$cometh.mean, y = within$cometh.mean, 
+     xlim = c(0, 0.15),
+     ylim = c(0, 0.15),
+     col = as.numeric(as.factor(across$type_simple)),
+     pch = as.numeric(as.factor(across$type_simple)))
+
+legend('topright',
+       legend= levels(as.factor(across$type_simple)),    
+       col = 1:3, pch = 1:3)
+     
+```
+
+```{r}
+
+plot(x = across$cometh.mean, y = within$cometh.mean,
+     pch = as.numeric(as.factor(across$type_simple)),
+     col = as.numeric(as.factor(across$type_simple)))
+
+legend('topright',
+       legend= levels(as.factor(across$type_simple)),
+       pch = 1:3,
+       col = 1:3)
+     
 ```
 
 
@@ -624,30 +636,34 @@ x <- rbind(data.frame(cometh = across$cometh.mean,
 
 
 ```{r}
-fit <- lm(x$cometh ~ x$read + x$type)
+fit <- lm(arcsin(x$cometh) ~ x$read + x$type)
 
 ## https://rdrr.io/cran/rsq/man/rsq.partial.html
 summary(fit)
 print(rsq::rsq.partial(fit, adj = TRUE))
+plot(fit)
 ```
 
 
 ```{r}
-fit2 <- lm(x$cometh ~ x$read * x$type)
+fit2 <- lm(arcsin(x$cometh) ~ x$read * x$type)
 
 summary(fit2)
+
 print(rsq::rsq.partial(fit2, adj = TRUE))
+plot(fit2)
 ```
 
 
 
 ```{r}
-fit3 <- lm(x$cometh ~ x$read + x$motifs)
-
+fit3 <- lm(arcsin(x$cometh) ~ x$read + x$motifs)
 
 summary(fit3)
 
 print(rsq::rsq.partial(fit3, adj = TRUE))
+
+plot(fit3)
 ```
 
 ###  Comethylation variance explained by the motif with highest methylation
@@ -657,7 +673,7 @@ Reasoning: we do see more co-methylation than expected, but only for some motifs
 ```{r}
 
 
-top <- head(bg[order(bg$meth.mean, decreasing = TRUE), 'motif'], 1)
+tops <- head(bg[order(bg$meth.mean, decreasing = TRUE), 'motif'], 20)
 
 x <- rbind(data.frame(cometh = across$cometh.mean,
                       read = 'across',
@@ -668,17 +684,27 @@ x <- rbind(data.frame(cometh = across$cometh.mean,
                       type =  within$type_simple,
                       motifs = paste(within$four1, within$four2, sep = "_")))
 
+# the top motif should be at least ten times as part of a comethylating pair
+for (i in 1:10) {
+    if (sum(grepl(tops[i], x$motifs) >= 10)) {
+        top <- topps[i]
+        break
+    }
+    
+}
+
 x$has_top <- grepl(top, x$motifs)
 
 table(x$has_top)
 ```
 
 ```{r}
-fit <- lm(x$cometh ~ as.factor(x$has_top))
+fit <- lm(arcsin(x$cometh) ~ as.factor(x$has_top))
 
 summary(fit)
 print(rsq::rsq.partial(fit, adj = TRUE))
 
+plot(fit)
 
 ```
 
@@ -699,7 +725,7 @@ rm(within, across)
 
 ### Within read tuple definition
 
-Within reads (with at least 5 events in the genome)
+Within reads (with at least 20 events in the genome)
 
 ```{r}
 within <- aggregate(cometh_prop ~ six1 + six2, data=d[[item]],
@@ -707,7 +733,7 @@ within <- aggregate(cometh_prop ~ six1 + six2, data=d[[item]],
 
 within <- cbind(within[-ncol(within)], within[[ncol(within)]])
 colnames(within) <- c('six1', 'six2', 'cometh.mean', 'cometh.sd', 'cometh.n')
-within <- within[within$cometh.n >= 5,]
+within <- within[within$cometh.n >= 20,]
 ```
 
 Within-reads comethylation data shape.
@@ -917,6 +943,15 @@ DT::datatable(across %>% as.data.frame(),
    
 ```
 
+Plot variance vs variance (within and across)
+
+```{r}
+
+plot(across$cometh.sd, within$cometh.sd)
+
+```
+
+
 Add a color code (cg-cg, cg-ca, ca-ca)
 
 ```{r}
@@ -936,19 +971,28 @@ across$type_simple[across$type == 'cg_cg'] <- 'cg_cg'
 
 ```
 
+## Plot within vs across
+
 Plotting only those motif pairs with at least one methylation event
 
+
+
+
+
 ```{r}
-
-plot(x = across$cometh.mean, y = within$cometh.mean,
+plot(x = log(across$cometh.mean), y = log(within$cometh.mean),
      pch = as.numeric(as.factor(across$type_simple)),
-     col = as.numeric(as.factor(across$type_simple)))
+     xlim = c(-8, 0), ylim = c(-8, 0),
+     col = as.numeric(as.factor(across$type_simple)),
+     xlab = 'log mean cometh across reads, per 6-mers',
+     ylab = 'log mean cometh within reads, per 6-mers')
 
-legend('topright',
+lines(x = c(-8,0), y = c(-8, 0))
+
+legend('bottomright',
        legend= levels(as.factor(across$type_simple)),
        pch = 1:3,
        col = 1:3)
-     
 ```
 
 
@@ -966,22 +1010,18 @@ legend('topright',
      
 ```
 
+
 ```{r}
-plot(x = log(across$cometh.mean), y = log(within$cometh.mean),
+
+plot(x = across$cometh.mean, y = within$cometh.mean,
      pch = as.numeric(as.factor(across$type_simple)),
-     xlim = c(-8, 0), ylim = c(-8, 0),
-     col = as.numeric(as.factor(across$type_simple)),
-     xlab = 'log mean cometh across reads, per 6-mers',
-     ylab = 'log mean cometh within reads, per 6-mers')
+     col = as.numeric(as.factor(across$type_simple)))
 
-lines(x = c(-8,0), y = c(-8, 0))
-
-legend('bottomright',
+legend('topright',
        legend= levels(as.factor(across$type_simple)),
        pch = 1:3,
        col = 1:3)
-
-## Split for CG, CA, and CGCA
+     
 ```
 
 ## Model
@@ -1013,26 +1053,28 @@ x <- rbind(data.frame(cometh = across$cometh.mean,
 
 
 
+
 ```{r}
-fit <- lm(x$cometh ~ x$read + x$type)
+fit <- lm(arcsin(x$cometh) ~ x$read + x$type)
 
 ## https://rdrr.io/cran/rsq/man/rsq.partial.html
 summary(fit)
 print(rsq::rsq.partial(fit, adj = TRUE))
+plot(fit)
 ```
 
 
 ```{r}
-fit2 <- lm(x$cometh ~ x$read * x$type)
-
+fit2 <- lm(arcsin(x$cometh + 1) ~ x$read * x$type)
 summary(fit2)
 print(rsq::rsq.partial(fit2, adj = TRUE))
+plot(fit2)
 ```
 
 
 
 ```{r}
-fit3 <- lm(x$cometh ~ x$read + x$motifs)
+fit3 <- lm(arcsin(x$cometh) ~ x$read + x$motifs)
 
 
 summary(fit3)
@@ -1047,8 +1089,8 @@ Reasoning: we do see more co-methylation than expected, but only for some motifs
 
 ```{r}
 
+tops <- head(bg[order(bg$meth.mean, decreasing = TRUE), 'motif'], 20)
 
-top <- head(bg[order(bg$meth.mean, decreasing = TRUE), 'motif'], 1)
 
 x <- rbind(data.frame(cometh = across$cometh.mean,
                       read = 'across',
@@ -1059,17 +1101,26 @@ x <- rbind(data.frame(cometh = across$cometh.mean,
                       type =  within$type_simple,
                       motifs = paste(within$six1, within$six2, sep = "_")))
 
+# the top motif should be at least ten times as part of a comethylating pair
+for (i in 1:10) {
+    if (sum(grepl(tops[i], x$motifs) >= 10)) {
+        top <- topps[i]
+        break
+    }
+    
+}
+
 x$has_top <- grepl(top, x$motifs)
 table(x$has_top)
 ```
 
 
 ```{r}
-fit <- lm(x$cometh ~ as.factor(x$has_top))
+fit <- lm(arcsin(x$cometh) ~ as.factor(x$has_top))
 
 summary(fit)
 print(rsq::rsq.partial(fit, adj = TRUE))
-
+plot(fit)
 
 ```
 
