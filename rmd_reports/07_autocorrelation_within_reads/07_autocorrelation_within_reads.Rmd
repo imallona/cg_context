@@ -655,17 +655,6 @@ plot(fit2)
 ```
 
 
-
-```{r}
-fit3 <- lm(arcsin(x$cometh) ~ x$read + x$motifs)
-
-summary(fit3)
-
-print(rsq::rsq.partial(fit3, adj = TRUE))
-
-plot(fit3)
-```
-
 ###  Comethylation variance explained by the motif with highest methylation
 
 Reasoning: we do see more co-methylation than expected, but only for some motifs. Then, it might be some of the motifs we see as methylated are not in fact so, but a by-product of being close in sequence to the DNMT 'favoured' target. Thus, the alternative hypothesis is that most of the signal is just comethylation. But using the most methylated motif (which cannot be due to co-methylation), we could quantify how much co-methylation with this motif explains the other motifs.
@@ -686,8 +675,9 @@ x <- rbind(data.frame(cometh = across$cometh.mean,
 
 # the top motif should be at least ten times as part of a comethylating pair
 for (i in 1:10) {
-    if (sum(grepl(tops[i], x$motifs) >= 10)) {
-        top <- topps[i]
+    ## print(sum(grepl(tops[i], x$motifs)) >= 10)
+    if (sum(grepl(tops[i], x$motifs)) >= 10) {
+        top <- tops[i]
         break
     }
     
@@ -1065,21 +1055,10 @@ plot(fit)
 
 
 ```{r}
-fit2 <- lm(arcsin(x$cometh + 1) ~ x$read * x$type)
+fit2 <- lm(arcsin(x$cometh) ~ x$read * x$type)
 summary(fit2)
 print(rsq::rsq.partial(fit2, adj = TRUE))
 plot(fit2)
-```
-
-
-
-```{r}
-fit3 <- lm(arcsin(x$cometh) ~ x$read + x$motifs)
-
-
-summary(fit3)
-
-print(rsq::rsq.partial(fit3, adj = TRUE))
 ```
 
 
@@ -1103,7 +1082,7 @@ x <- rbind(data.frame(cometh = across$cometh.mean,
 
 # the top motif should be at least ten times as part of a comethylating pair
 for (i in 1:10) {
-    if (sum(grepl(tops[i], x$motifs) >= 10)) {
+    if (sum(grepl(tops[i], x$motifs)) >= 10) {
         top <- topps[i]
         break
     }
