@@ -192,18 +192,18 @@ while IFS='' read -r line || [[ -n "$line" ]]; do
 done < "$CONFIG_FILE"
 
 
-# ## tests on further stratifying the contexts
-# cd $WD
+## tests on further stratifying the contexts
+cd $WD
 
-# for bam in $(find $WD -name "*default.bam")
-# do
-#     echo $bam
+for bam in $(find $WD -name "*default.bam")
+do
+    echo $bam
 
-#     bash $SRC/cg_context/extract_motifs_frequency_from_bam.sh \
-#          -b $bam \
-#          -t $NTHREADS \
-#          --bedtools $BEDTOOLS \
-#          --methyldackel $METHYLDACKEL    
-# done
+    bash ~/src/cg_context/extract_motifs_frequency_from_bam.sh \
+         -b $bam \
+         -t $NTHREADS \
+         --bedtools $BEDTOOLS \
+         --methyldackel $METHYLDACKEL    
+done
 
 
