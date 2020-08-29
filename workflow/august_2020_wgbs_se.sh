@@ -198,12 +198,22 @@ cd $WD
 for bam in $(find $WD -name "*default.bam")
 do
     echo $bam
+    sample=$(basename $bam _bwameth_default.bam)
+    echo $sample
 
-    bash ~/src/cg_context/extract_motifs_frequency_from_bam.sh \
+    mkdir -p "$sample"_motifs
+    cd $_
+    ln -s $bam
+
+    
+    bash ~/src/cg_context/extract_motifs_frequency_from_bam_binary.sh \
          -b $bam \
          -t $NTHREADS \
+         --coverage 1 \
          --bedtools $BEDTOOLS \
-         --methyldackel $METHYLDACKEL    
+         --methyldackel $METHYLDACKEL | tee -a "$(basename $bam .bam)"_no_filtering.log
+
+    cd $WD
 done
 
 
