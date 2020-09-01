@@ -1,0 +1,599 @@
+---
+title: "---"
+author: "Izaskun Mallona"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    code_download: true
+    number_sections: true
+    df_print: kable
+    theme: lumen
+params:
+  seed: 11
+
+---
+
+# Config
+
+```{r}
+suppressPackageStartupMessages({
+    library(knitr)
+    library(ggplot2)
+    library(pheatmap)
+    library(seqLogo)
+    library(reshape2)
+    library(ggplot2)
+    library(ggfortify)
+    library(ggseqlogo)
+    library(gridExtra)
+    library(DT)
+    library(naivebayes)
+    library(viridis)
+    library(dendextend)
+})
+```
+
+
+```{r}
+
+TASK <- "cg_context"
+HOME <- '/home/imallona'
+S3IT <- '/home/Shared_s3it/imallona'
+SUBTASK <- 'august_2020'
+
+WD <-  file.path(S3IT, TASK, SUBTASK)
+
+beta2m <- function(beta) {
+    m <- log2(beta/(1 - beta))
+    return(m)
+}
+
+m2beta <- function(m) {
+    beta <- 2^m/(2^m + 1)
+    return(beta)
+}
+
+opts_chunk$set(fig.width = 12,
+               fig.height = 12,
+               fig.path = file.path(WD, TASK, 'RmdFigs'),
+               output.dir = WD,
+               root.dir = WD,
+               cache = FALSE,
+               include = TRUE,
+               cache.lazy = FALSE,
+               warning = TRUE,
+               message = TRUE)
+```
+
+
+# Data load
+
+
+```{r}
+
+load(file.path(WD, '..', 'nar_review', 'counts_nested_list_with_masks.RData'))
+masked <- d
+
+load(file.path(WD, '..', 'nov_2019', 'counts_nested_list.RData'))
+nov <- d
+
+load(file.path(WD, '..', 'august_2020', 'counts_nested_list_aug_2020.RData'))
+aug <- d
+```
+
+```{r}
+annot <- read.table(text = "20151223.B-MmES_TKOD3A1c1-3_R,tko+d3a1,bwa_hiseq2k,+a1,es,nov
+qko+d3b1_merged,qko+d3b1,merged,+b1,es,nov
+tko+d3a2_merged,tko+d3a2,merged,+a2,es,nov
+tko+d3b1_merged,tko+d3b1,merged,+b1,es,nov
+20200826.A-Sample1_pool1_motifs,IK_WGBS_TKO_WT,aug2020,tko_wt,es,aug
+20200826.A-Sample2_pool1_motifs,IK_WGBS_TKO_DNMT3B_9R,aug2020,3b_9r,es,aug
+20200826.A-Sample3_pool1_motifs,IK_WGBS_TKO_DNMT3A2_R836K_A2,aug2020,3a2_r836k_a2,es,aug
+20200826.A-Sample4_pool1_motifs,IK_WGBS_TKO_DNMT3A2_R836K_D1,aug2020,3a2_r836k_d1,es,aug
+",
+col.names = c('sample', 'id', 'tech', 'id_short', 'celltype', 'date'),
+sep = ',')
+
+
+row.names(annot) <- annot$sample
+```
+
+Graft old analysis into new ones
+
+
+```{r}
+d <- aug
+for (item in c('cg', 'ch')) {
+    for (run in c(annot[annot$date == 'nov',]$sample)) {
+        d[[item]][[run]] <- nov[[item]][[run]]
+    }
+}
+
+```
+
+# Seqlogo-based analysis
+
+Based in nucleotide deviations from the 0.25:0.25:0.25:0.25 expectations for each nucleotide for each position.
+
+```{r deviations_functions}
+
+proportion <- function(x){
+   rs <- sum(x);
+   return(x / rs);
+}
+
+
+deviation_from_proportion <- function(x){
+   rs <- sum(x);
+   ## return((x / rs) - 0.25)
+   return((x / rs) / 0.25)
+}
+
+
+log2ratio_proportion <- function(x){
+   rs <- sum(x);
+   ## return((x / rs) - 0.25)
+   return(log2((x / rs) - 0.25))
+}
+
+```
+
+## Data processing
+
+Nucleotide weights are computed as if a PWM. We first get the nucleotide representation in methylated xor unmethylated motifs, and them compute the log2 enrichment of the meth/unmeth ratio to get a positive weight for overrepresentations. A step by step analysis is provided below (header `Processing steps in detail`).
+
+
+```{r deviations_compared_to_unmeth, results = "asis", include = TRUE}
+
+outer <- list()
+for (context in names(d)) {
+    melted <- list()
+    for (genotype in names(d[[context]])) {
+        ## print(genotype)
+        
+        selected <- d[[context]][[genotype]]$meth
+
+        for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
+                              C = NA,
+                              G = NA,
+                              T = NA)
+
+        for (i in 1:nchar(selected$motif[1])) {
+            id <- paste0('d',i)
+            selected[, id] <- substr(selected$motif, i, i)
+            for (nt in c('A', 'T', 'C', 'G')) {
+                tsum <- 0
+                tsum <- sum(selected[selected[,id] == nt,'count'])
+                for_pwm[i, nt] <- tsum 
+                
+            }
+        }
+        
+        pwm <- makePWM(apply(for_pwm, 1, proportion))
+        pwm_meth <- pwm
+
+        ## same for unmeth
+        selected <- d[[context]][[genotype]]$unmeth
+
+        for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
+                              C = NA,
+                              G = NA,
+                              T = NA)
+
+        for (i in 1:nchar(selected$motif[1])) {
+            id <- paste0('d',i)
+            selected[, id] <- substr(selected$motif, i, i)
+            for (nt in c('A', 'T', 'C', 'G')) {
+                tsum <- 0
+                tsum <- sum(selected[selected[,id] == nt,'count'])
+                for_pwm[i, nt] <- tsum                 
+            }
+        }
+        
+        pwm <- makePWM(apply(for_pwm, 1, proportion))   
+        pwm_unmeth <- pwm
+
+        deviations <- log2(pwm_meth@pwm /pwm_unmeth@pwm)
+        data.m <- melt(deviations)
+        data.m$genotype <- genotype
+        melted[[genotype]] <- data.m
+        outer[[context]] <- melted        
+    }
+}
+```
+
+## Processing steps in detail
+
+Let's visualize the calculations for sample `tko+d3a2_merged` and a context `CG`
+
+```{r}
+
+context <- 'cg' ; genotype <- 'tko+d3a2_merged'
+
+selected <- d[[context]][[genotype]]$meth
+
+for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
+                      C = NA, G = NA,  T = NA)
+
+for (i in 1:nchar(selected$motif[1])) {
+    id <- paste0('d',i)
+    selected[, id] <- substr(selected$motif, i, i)
+    for (nt in c('A', 'T', 'C', 'G')) {
+        tsum <- 0
+        tsum <- sum(selected[selected[,id] == nt,'count'])
+        for_pwm[i, nt] <- tsum 
+        
+    }
+}
+
+pwm <- makePWM(apply(for_pwm, 1, proportion))
+
+cat(sprintf('First we calculate the nucleotide proportions for each nucleotide in methylated motifs\n'))
+print(kable(pwm@pwm))
+cat("\n")
+
+pwm_meth <- pwm
+
+## same for unmeth
+selected <- d[[context]][[genotype]]$unmeth
+
+for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
+                      C = NA,
+                      G = NA,
+                      T = NA)
+
+for (i in 1:nchar(selected$motif[1])) {
+    id <- paste0('d',i)
+    selected[, id] <- substr(selected$motif, i, i)
+    for (nt in c('A', 'T', 'C', 'G')) {
+        tsum <- 0
+        tsum <- sum(selected[selected[,id] == nt,'count'])
+        for_pwm[i, nt] <- tsum                 
+    }
+}
+pwm <- makePWM(apply(for_pwm, 1, proportion))
+        
+cat('We do the same for unmethylated motifs\n')
+
+print(kable(pwm@pwm))
+cat("\n")      
+pwm_unmeth <- pwm
+
+cat(sprintf('We finally calculate the log2 (meth/unmeth) ratios\n'))
+deviations <- log2(pwm_meth@pwm /pwm_unmeth@pwm)
+
+print(kable(deviations))    
+
+```
+
+## Coloring by annotations
+
+All experiments
+
+```{r, fig.height = 10, fig.width = 8}
+
+for (context in names(outer)) {
+    melted2 <- do.call(rbind.data.frame, outer[[context]])
+    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'sample')
+    melted2 <- merge(melted2, annot, by = 'sample', all.x = TRUE)
+   
+    print(ggplot(melted2, aes(position, deviation, fill=sample))+
+          geom_bar(position="dodge",stat="identity") +
+          scale_x_continuous(breaks = 1:8) +
+          facet_wrap(~id+nucleotide, ncol= 4) +
+          xlab("position") +          
+          ylab('log2fc meth/unmeth') +
+          theme(legend.position = 'none') + ggtitle(context))
+}
+```
+
+## Per sample quality checks
+
+Coverage (total number of methylated plus unmethylated motifs detected).
+
+
+```{r, fig.height = 5, fig.width=5}
+
+counts <- list()
+for (context in names(d)) {
+    tmp <- list()
+    for (sample in names(d[[context]])) {
+        meth <- d[[context]][[sample]]$meth
+        meth$sample <- sample
+        meth$context <- context
+        meth$status <- 'meth'
+        
+        unmeth <- d[[context]][[sample]]$unmeth
+
+        unmeth$sample <- sample
+        unmeth$context <- context
+        unmeth$status <- 'unmeth'
+        
+        tmp[[sample]] <- rbind(meth, unmeth)
+       
+        
+    }
+
+    counts[[context]] <- do.call(rbind.data.frame, tmp)
+  
+}
+
+```
+
+```{r, fig.height = 5, fig.width = 5}
+for (context in names(counts)) {
+    sums <- aggregate(counts[[context]]$count,
+                      by=list(counts[[context]]$sample,
+                              counts[[context]]$status), sum)
+    colnames(sums) <- c('sample', 'status', 'count')
+
+    sums <- merge(sums, annot, by ='sample')
+    print(ggplot(sums,
+           aes(x = sample, y = count , fill = factor(id)))+
+        geom_bar(stat="identity",position="dodge") +
+        scale_y_continuous(trans='log10') +
+        facet_wrap(~status , nrow = 1) + 
+        xlab("Sample") + ylab("Cum. number of motifs detected") +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+        ggtitle(context))
+}
+```
+
+And by sequencing technology
+
+```{r, fig.height = 5, fig.width = 5}
+for (context in names(counts)) {
+    sums <- aggregate(counts[[context]]$count,
+                      by=list(counts[[context]]$sample,
+                              counts[[context]]$status), sum)
+    colnames(sums) <- c('sample', 'status', 'count')
+
+    sums <- merge(sums, annot, by ='sample')
+    print(ggplot(sums,
+           aes(x = sample, y = count , fill = factor(id)))+
+        geom_bar(stat="identity",position="dodge") +
+        scale_y_continuous(trans='log10') +
+        facet_wrap(~status , nrow = 1) + 
+        xlab("Sample") + ylab("Cum. number of motifs detected") +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+        ggtitle(context))
+}
+```
+
+Total number of motifs detected at least once (methylated or unmethylated).
+
+Note that for CG we expect 4^6=4096, and for CH 4^6*3=12288.
+
+```{r fig.height = 10, fig.width = 10}
+for (context in names(counts)) {
+    detects <- aggregate(counts[[context]]$count,
+                      by=list(counts[[context]]$sample,
+                              counts[[context]]$status), function(x) sum(x >=1))
+    colnames(detects) <- c('sample', 'status', 'count')
+
+    detects <- merge(detects, annot, by ='sample')
+    print(ggplot(detects,
+           aes(x = sample, y = count , fill = factor(id)))+
+        geom_bar(stat="identity",position="dodge") +
+        scale_y_continuous(trans='log10') +
+        facet_wrap(~status , nrow = 1) + 
+        xlab("Sample") + ylab("Number of motifs detected (at least once)") +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+        ggtitle(context))
+}
+
+```
+
+
+## Per nucleotide, celltype and annotation
+
+
+```{r, fig.height = 6, fig.width = 8}
+
+for (context in names(d)) {
+    tmp <- as.numeric(annot[names(outer$cg),'id_short'])
+    names(tmp) <- names(outer$cg)
+
+    ## actually this is not being used
+    idx <- names(sort(tmp))
+
+    melted2 <- do.call(rbind.data.frame, outer[[context]])
+    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'sample')
+
+    annot$sample <- rownames(annot)
+    melted2 <- merge(melted2, annot, by = 'sample')
+    
+    melted2$sample <- factor(x = melted2$sample, levels = idx)
+
+    print(ggplot(melted2, aes(position, deviation, fill=as.factor(id_short)))+
+          geom_bar(position="dodge",stat="identity") +
+          scale_x_continuous(breaks = 1:8) +
+          facet_wrap(~celltype + nucleotide, nrow = 2) + xlab("position") +
+          ylab('log2fc meth/unmeth') +
+          ggtitle(context))
+    
+    
+}
+
+```
+
+## Per celltype, annotation and nucleotide
+
+```{r, fig.height = 6, fig.width = 8}
+
+for (context in names(d)) {
+   
+    melted2 <- do.call(rbind.data.frame, outer[[context]])
+    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'sample')
+
+    annot$sample <- rownames(annot)
+    melted2 <- merge(melted2, annot, by = 'sample')
+    
+    melted2$sample <- factor(x = melted2$sample, levels = idx)
+
+    print(ggplot(melted2, aes(nucleotide, deviation, fill=as.factor(position)))+
+          geom_bar(position="dodge",stat="identity") +
+          facet_wrap(~celltype + id_short, nrow = 2) + xlab("genotype") +
+          ylab('log2fc meth/unmeth') +
+          ggtitle(context))
+
+
+}
+
+```
+
+
+```{r, fig.height = 6, fig.width = 8}
+
+for (context in names(d)) {
+   
+    melted2 <- do.call(rbind.data.frame, outer[[context]])
+    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'sample')
+
+    annot$sample <- rownames(annot)
+    melted2 <- merge(melted2, annot, by = 'sample')
+    
+    melted2$sample <- factor(x = melted2$sample, levels = idx)
+
+    print(ggplot(melted2, aes(nucleotide, deviation, fill=as.factor(position)))+
+          geom_bar(position="dodge",stat="identity") +
+          facet_wrap(~celltype + id_short, nrow = 2) + xlab("id") +
+          ylab('log2fc meth/unmeth') +
+          ggtitle(context))
+
+}
+```
+
+
+
+# Clustering (CG)
+
+Simple approach: cluster the overall rate of meth/unmeth per motif (this is biased by methylation level).
+
+```{r, fig.height = 6, fig.width = 6}
+ 
+ratios <- sapply(d$cg, function(x) return(x$meth$count))/
+    (sapply(d$cg, function(x) return(x$unmeth$count)) + sapply(d$cg, function(x) return(x$meth$count)) ) 
+
+rownames(ratios) <- d$cg[[1]]$unmeth$motif
+
+## ratios <- ratios[,c(targets, grep('*merged*', colnames(ratios), value = TRUE))]
+    
+hc <- hclust(dist(t(ratios)), method = 'ward.D')
+plot(hc)
+
+```
+
+Annotated clustering
+
+
+```{r, fig.width=8, fig.height=5}
+## hc2 <- hc
+
+## hc2$labels <- sprintf('%s\n(%s)', hc$labels, annot[hc$labels,'id'])
+dend <- as.dendrogram(hc)
+
+## labels_colors(dend) <- as.numeric(as.factor( annot[hc$labels,'id']))
+par(mar = c(4,10,1,22), xpd=TRUE)
+plot(dend, horiz = TRUE)
+colored_bars(cbind(as.numeric(as.factor(annot[hc$labels,c('id_short')])),
+                   as.numeric(as.factor(annot[hc$labels,c('tech')])),
+                   as.numeric(as.factor(annot[hc$labels,c('celltype')]))), dend, horiz = TRUE,
+             rowLabels = c('id', 'tech','celltype'))
+
+legend("bottomleft",inset=c(-0.5,0), title ='id',
+       legend = levels(as.factor(annot[hc$labels,'id_short'])),
+       fill = 1:nlevels(as.factor(annot[hc$labels,'id'])))
+
+legend("topleft", inset=c(-0.5,0), title = 'tech',
+       legend = levels(as.factor(annot[hc$labels,'tech'])),
+       fill = 1:nlevels(as.factor(annot[hc$labels,'tech'])))
+
+```
+
+```{r, fig.height =8, fig.width = 10}
+rownames(annot) <- annot$sample
+annot2 <- annot[,-1]
+
+pheatmap(ratios, cluster.rows = TRUE, cluster.cols = TRUE, annotation_col = annot2,
+         scale = 'none', show_rownames = FALSE)
+
+## note the scaling and centering by column
+pheatmap(ratios, cluster.rows = TRUE, cluster.cols = TRUE, annotation_col = annot2,
+         scale = 'column', show_rownames = FALSE)
+
+```
+
+
+# Clustering (CH)
+
+Simple approach: cluster the overall rate of meth/unmeth per motif (this is biased by methylation level).
+
+```{r, fig.height = 6, fig.width = 6}
+ 
+ratios <- sapply(d$cg, function(x) return(x$meth$count))/
+    (sapply(d$cg, function(x) return(x$unmeth$count)) + sapply(d$cg, function(x) return(x$meth$count)) ) 
+
+rownames(ratios) <- d$cg[[1]]$unmeth$motif
+
+## ratios <- ratios[,c(targets, grep('*merged*', colnames(ratios), value = TRUE))]
+    
+hc <- hclust(dist(t(ratios)), method = 'ward.D')
+plot(hc)
+
+```
+
+Annotated clustering
+
+
+```{r, fig.width=8, fig.height=5}
+## hc2 <- hc
+
+## hc2$labels <- sprintf('%s\n(%s)', hc$labels, annot[hc$labels,'id'])
+dend <- as.dendrogram(hc)
+
+## labels_colors(dend) <- as.numeric(as.factor( annot[hc$labels,'id']))
+par(mar = c(4,10,1,22), xpd=TRUE)
+plot(dend, horiz = TRUE)
+colored_bars(cbind(as.numeric(as.factor(annot[hc$labels,c('id_short')])),
+                   as.numeric(as.factor(annot[hc$labels,c('tech')])),
+                   as.numeric(as.factor(annot[hc$labels,c('celltype')]))), dend, horiz = TRUE,
+             rowLabels = c('id', 'tech','celltype'))
+
+legend("bottomleft",inset=c(-0.5,0), title ='id',
+       legend = levels(as.factor(annot[hc$labels,'id_short'])),
+       fill = 1:nlevels(as.factor(annot[hc$labels,'id'])))
+
+legend("topleft", inset=c(-0.5,0), title = 'tech',
+       legend = levels(as.factor(annot[hc$labels,'tech'])),
+       fill = 1:nlevels(as.factor(annot[hc$labels,'tech'])))
+
+```
+
+```{r, fig.height =8, fig.width = 10}
+rownames(annot) <- annot$sample
+annot2 <- annot[,-1]
+
+pheatmap(ratios, cluster.rows = TRUE, cluster.cols = TRUE, annotation_col = annot2,
+         scale = 'none', show_rownames = FALSE)
+
+## note the scaling and centering by column
+pheatmap(ratios, cluster.rows = TRUE, cluster.cols = TRUE, annotation_col = annot2,
+         scale = 'column', show_rownames = FALSE)
+
+```
+
+
+
+
+# Timestamp
+
+```{r sessionInfo, cache = 0}
+date()
+sessionInfo()
+devtools::session_info()
+
+```
