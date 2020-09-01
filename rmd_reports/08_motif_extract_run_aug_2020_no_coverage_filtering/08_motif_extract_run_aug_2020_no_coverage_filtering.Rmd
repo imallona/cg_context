@@ -1,13 +1,16 @@
 ---
-title: "CG and CH seq preferences with masks (no coverage filtering)"
+title: "CG and CH seq preferences (no coverage filtering) - August 2020 Ino runs"
 author: "Izaskun Mallona"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
-    keep_md: true
     toc: true
     toc_float: true
-    toc_depth: 4
+    code_folding: hide
+    code_download: true
+    number_sections: true
+    df_print: kable
+    theme: lumen
 params:
   seed: 11
 
@@ -65,12 +68,12 @@ m2beta <- function(m) {
     return(beta)
 }
 
-opts_chunk$set(fig.width = 12,
-               fig.height = 12,
+opts_chunk$set(fig.width = 6,
+               fig.height = 6,
                fig.path = file.path(WD, TASK, 'RmdFigs'),
                output.dir = WD,
                root.dir = WD,
-               cache = TRUE,
+               cache = FALSE,
                include = TRUE,
                cache.lazy = FALSE,
                warning = TRUE,
@@ -82,14 +85,11 @@ opts_chunk$set(fig.width = 12,
 Please check/update annotations:
 
 ```{r}
-annot <- read.table(text = "20151223.B-MmES_TKOD3A1c1-3_R,tko+d3a1,bwa_hiseq2k,+a1,es
-qko+d3b1_merged,qko+d3b1,merged,+b1,es
-tko+d3a2_merged,tko+d3a2,merged,+a2,es
-tko+d3b1_merged,tko+d3b1,merged,+b1,es
-20200826.A-Sample1_pool1,IK_WGBS_TKO_WT,aug2020,tko_wt,es
-20200826.A-Sample2_pool1,IK_WGBS_TKO_DNMT3B_9R,aug2020,3b_9r,es
-20200826.A-Sample3_pool1,IK_WGBS_TKO_DNMT3A2_R836K_A2,aug2020,3a2_r836k_a2,es
-20200826.A-Sample4_pool1,IK_WGBS_TKO_DNMT3A2_R836K_D1,aug2020,3a2_r836k_d1,es
+annot <- read.table(text = "
+20200826.A-Sample1_pool1_motifs,IK_WGBS_TKO_WT,aug2020,tko_wt,es
+20200826.A-Sample2_pool1_motifs,IK_WGBS_TKO_DNMT3B_9R,aug2020,3b_9r,es
+20200826.A-Sample3_pool1_motifs,IK_WGBS_TKO_DNMT3A2_R836K_A2,aug2020,3a2_r836k_a2,es
+20200826.A-Sample4_pool1_motifs,IK_WGBS_TKO_DNMT3A2_R836K_D1,aug2020,3a2_r836k_d1,es
 ",
 col.names = c('sample', 'id', 'tech', 'id_short', 'celltype'),
 sep = ',')
@@ -163,10 +163,6 @@ DT::datatable(as.data.frame(tmp),
 
 ## Design
 
-```{r design, include = TRUE, cache = TRUE, fig.width = 20}
-knitr::include_graphics("/home/imallona/src/cg_context/stranded_dnameth.png")
-
-```
 
 -   Flow
     -   Call DNA methylation for every CpG in a strand-specific manner
@@ -376,11 +372,11 @@ for (context in names(d)) {
 
 ## Processing steps in detail
 
-Let's visualize the calculations for sample `tko+d3a2_merged` and a context `CG`
+Let's visualize the calculations for sample `20200826.A-Sample1_pool1_motifs` and a context `CG`
 
 ```{r}
 
-context <- 'cg' ; genotype <- 'tko+d3a2_merged'
+context <- 'cg' ; genotype <- '20200826.A-Sample1_pool1_motifs'
 
 selected <- d[[context]][[genotype]]$meth
 
@@ -442,7 +438,7 @@ print(kable(deviations))
 
 All experiments
 
-```{r, fig.height = 20, fig.width = 8}
+```{r}
 
 for (context in names(outer)) {
     melted2 <- do.call(rbind.data.frame, outer[[context]])
@@ -464,7 +460,7 @@ for (context in names(outer)) {
 Coverage (total number of methylated plus unmethylated motifs detected).
 
 
-```{r, fig.height = 8, fig.width=5}
+```{r}
 
 counts <- list()
 for (context in names(d)) {
@@ -513,7 +509,7 @@ for (context in names(counts)) {
 
 And by sequencing technology
 
-```{r, fig.height = 10, fig.width = 10}
+```{r}
 for (context in names(counts)) {
     sums <- aggregate(counts[[context]]$count,
                       by=list(counts[[context]]$sample,
@@ -536,7 +532,7 @@ Total number of motifs detected at least once (methylated or unmethylated).
 
 Note that for CG we expect 4^6=4096, and for CH 4^6*3=12288.
 
-```{r fig.height = 10, fig.width = 10}
+```{r}
 for (context in names(counts)) {
     detects <- aggregate(counts[[context]]$count,
                       by=list(counts[[context]]$sample,
@@ -560,7 +556,7 @@ for (context in names(counts)) {
 
 ## Per nucleotide and sample
 
-```{r, fig.height = 12, fig.width = 8}
+```{r}
 for (context in names(d)) {
     
     melted2 <- do.call(rbind.data.frame, outer[[context]])
@@ -583,7 +579,7 @@ for (context in names(d)) {
 
 <!-- ## Per nucleotide and sample; sorted by log2FC in nucleotide C2 -->
 
-```{r, fig.height = 12, fig.width = 8, eval = FALSE}
+```{r}
 
 for (context in names(d)) {
     idx <- names(sort(sapply(outer[[context]], function(x)
@@ -611,7 +607,7 @@ for (context in names(d)) {
 ## Per nucleotide, celltype and annotation
 
 
-```{r, fig.height = 6, fig.width = 8}
+```{r}
 
 for (context in names(d)) {
     tmp <- as.numeric(annot[names(outer$cg),'id_short'])
@@ -642,7 +638,7 @@ for (context in names(d)) {
 
 ## Per celltype, annotation and nucleotide
 
-```{r, fig.height = 6, fig.width = 8}
+```{r}
 
 for (context in names(d)) {
    
@@ -692,7 +688,7 @@ for (context in names(d)) {
 
 ## Per sample and nucleotide
 
-```{r, fig.height = 16, fig.width = 10}
+```{r}
 for (context in names(d)) {
     
     melted2 <- do.call(rbind.data.frame, outer[[context]])
@@ -716,164 +712,16 @@ for (context in names(d)) {
 ```
 
 
-## Naive Bayes
-
-(ongoing)
-
-```{r, eval = FALSE, include = FALSE}
-
-counts <- list()
-for (context in names(d)) {
-    tmp <- list()
-    for (sample in names(d[[context]])) {
-        meth <- d[[context]][[sample]]$meth
-        meth$sample <- sample
-        meth$context <- context
-        meth$status <- 'meth'
-        
-        unmeth <- d[[context]][[sample]]$unmeth
-
-        unmeth$sample <- sample
-        unmeth$context <- context
-        unmeth$status <- 'unmeth'
-        
-        tmp[[sample]] <- rbind(meth, unmeth)
-       
-        
-    }
-
-    counts[[context]] <- do.call(rbind.data.frame, tmp)
-  
-}
-
-for (context in names(d)) {
-    melted <- counts[[context]]
-    ## colnames(melted) <- c('nucleotide', 'position', 'deviation', 'sample')
-    melted <- merge(melted, annot, by = 'sample', all.x = TRUE)
-
-    melted <- na.omit(melted)
-   
-
-    set.seed(1)
-    idx <- sample(nrow(melted), size = 500)
-    train <- melted[idx, ]
-    test <- melted[setdiff(1:nrow(melted), idx), c('motif', 'status', 'count')]
-    nb <- naive_bayes(id ~ motif + status + count, train)
-    predict(nb, test, type = "class")
-}
-
-```
-
-# Subset
-
-Plotting some genotypes only
-
-```{r, , results = "asis", echo = FALSE, fig.width = 10, fig.height= 10}
-
-targets <- unique(grep(paste(c('tko+d3a1_merged',
-                               'tko+d3a2_merged',
-                               'tko+d3b1_merged',
-                               'qko+d3b1_merged',
-                               '20181207.A-WGBS_IL12',
-                               '20181207.A-WGBS_IL14',
-                               '20181207.A-WGBS_IL18',
-                               '20181207.A-WGBS_IL19',
-                               '20151223.B-MmES_TKOD3A1c1-3_R',
-                               '20180913.A-WGBS_3',
-                               '20180913.A-WGBS_4',
-                               '20190524.A-TBWGBS_A',
-                               '20190524.A-TBWGBS_B',
-                               '20190524.A-TBWGBS_K',
-                               '20190524.A-TBWGBS_W'),
-                             collapse = '|'),
-                       names(d$cg),
-                       value = TRUE))
-
-
-for (context in names(d)) {
-    melted <- list()
-    for (genotype in targets) {
-        
-        selected <- d[[context]][[genotype]]$meth
-
-        for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
-                              C = NA,
-                              G = NA,
-                              T = NA)
-
-        for (i in 1:nchar(selected$motif[1])) {
-            id <- paste0('d',i)
-            selected[, id] <- substr(selected$motif, i, i)
-            for (nt in c('A', 'T', 'C', 'G')) {
-                tsum <- 0
-                tsum <- sum(selected[selected[,id] == nt,'count'])
-                for_pwm[i, nt] <- tsum 
-                
-            }
-        }
-        pwm <- makePWM(apply(for_pwm, 1, proportion))
-
-        pwm_meth <- pwm
-
-        selected <- d[[context]][[genotype]]$unmeth
-
-        for_pwm <- data.frame(A = rep(NA, nchar(selected$motif[1])),
-                              C = NA,
-                              G = NA,
-                              T = NA)
-
-        for (i in 1:nchar(selected$motif[1])) {
-            id <- paste0('d',i)
-            selected[, id] <- substr(selected$motif, i, i)
-            for (nt in c('A', 'T', 'C', 'G')) {
-                tsum <- 0
-                tsum <- sum(selected[selected[,id] == nt,'count'])
-                for_pwm[i, nt] <- tsum 
-                
-            }
-        }
-        pwm <- makePWM(apply(for_pwm, 1, proportion))
-        pwm_unmeth <- pwm
-
-        deviations <- log2(pwm_meth@pwm /pwm_unmeth@pwm)
-        
-        data.m <- melt(deviations)
-        
-        data.m$genotype <- genotype
-        melted[[genotype]] <- data.m
-
-        
-    }
-    melted2 <- do.call(rbind.data.frame, melted)
-    colnames(melted2) <- c('nucleotide', 'position', 'deviation', 'sample')
-   
-    print(ggplot(melted2, aes(position, deviation, fill=as.factor(sample)))+
-          geom_bar(position="dodge",stat="identity") +
-          scale_x_continuous(breaks = 1:8) +
-          facet_wrap(~nucleotide,nrow=4) + xlab("position") + ylab('log2fc meth/unmeth')
-          + ggtitle(context))
-
-    print(ggplot(melted2, aes(position, deviation, fill=as.factor(nucleotide)))+
-          geom_bar(position="dodge",stat="identity") +
-          scale_x_continuous(breaks = 1:8) +
-          facet_wrap(~sample,nrow=4) + xlab("position") + ylab('log2fc meth/unmeth')
-          + ggtitle(context))
-
-}
-
-```
-
 # Clustering
 
 Simple approach: cluster the overall rate of meth/unmeth per motif (this is biased by methylation level).
 
-```{r, fig.height = 6, fig.width = 6}
+```{r}
 ratios <- sapply(d$cg, function(x) return(x$meth$count))/
     (sapply(d$cg, function(x) return(x$unmeth$count)) + sapply(d$cg, function(x) return(x$meth$count)) ) 
 
 rownames(ratios) <- d$cg[[1]]$unmeth$motif
 
-ratios <- ratios[,c(targets, grep('*merged*', colnames(ratios), value = TRUE))]
     
 hc <- hclust(dist(t(ratios)), method = 'ward.D')
 plot(hc)
