@@ -61,3 +61,8 @@ For each sample, we next combined all 8-mer information to generate position wei
 * tuncay.baubec ta uzh tod ch
 
 * izaskun.mallona ta gmail tod com
+
+# Citation
+
+Izaskun Mallona,  Ioana Mariuca Ilie,  Ino Dominiek Karemaker,  Stefan Butz, Massimiliano Manzo,  Amedeo Caflisch,  Tuncay Baubec
+ (2020) [Flanking sequence preference modulates de novo DNA methylation in the mouse genome](https://doi.org/10.1093/nar/gkaa1168)

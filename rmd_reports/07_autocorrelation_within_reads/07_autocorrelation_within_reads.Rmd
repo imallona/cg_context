@@ -1,0 +1,1121 @@
+---
+title: "07 autocorrelation within reads"
+author: "Izaskun Mallona"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    code_download: true
+    number_sections: true
+    df_print: kable
+    theme: lumen
+---
+
+# Aim
+
+Postprocesses  `methtutple_bismark_read_correlation.sh`.
+
+Reviewer's comment:
+
+```
+The trimming data down to 75bp limits the analysis of neighbourhood effects particularly the presence of non-CpG methylation (CpH) in the context of CpG methylation on the same strand. In other words how much is the methylation of CpG’s and neighbouring CpH methylation influenced by flanking sequences on the same molecule.
+```
+
+# Approach in short
+
+We process conventionally (bismark) paired end sequencing reads from SRR1274743, as a representative of our WGBSs. We map and process it as single end.
+
+
+We compute the events of co-methylation of all pairs of CpNs in the genome: for each pair of contiguous CpNs, we store how often they are both methylated within the same sequencing read, and how often only one is methylated, and how often none is.
+
+With this information, we extract the sequence context of each motif from the motif pair, and evaluate how much of the CA-motifs methylation is correlated with the closest, within the same read, CG-motif methylation. This we call `within` read comethylation.
+
+To have an external `across` read value, we slide along the genome and take pairs of motifs that are at least 75 nt apart (not within the same read because of the read length limitations).
+
+Both `within` and `across` tables start with a loci-bound shape e.g. 
+
+```
+chr cg1 cg2 MM MU UM MU dist
+chr1 120 132 2 0 0 M0 12
+
+```
+
+Then, a co-methylation score MM/ (MM + MU + UM + UU) is built.
+
+Then, they are aggregated (mean score, sd score, number of events) by motif, e.g.
+
+```
+motif1 motif2 mean.cometh sd.cometh, n.cometh
+cgcCGatg cacCGcaa 0.1 0.3 150
+
+```
+
+
+We also compute a background of DNA methylation proportion (probability), to have an expectation of what rate of co-methylation we might expect (for motif A and B) given their individual methylation probability (we assume independence and expect the product).
+
+Next, some extra information is added to `within` and `across`: whether they are CpH, CpG, and the co-methylation expectation (product of the individual motifs mean methylation rates).
+
+Summarization is done at the pair of 4-mers and 6-mers level. CG and CA-only.
+
+
+# Set up
+
+Knitted under `R_LIBS=/home/Shared_taupo/Rlib/release-3.11-lib /usr/local/R/R-4.0.0/bin/R`
+
+
+## Libraries
+
+```{r}
+suppressPackageStartupMessages({
+    library(pheatmap)
+    library(knitr)
+    library(ggplot2)
+    library(reshape2)
+    library(DT)
+    library(MASS)
+    library(ggExtra)
+    library(rsq)
+})
+```
+
+```{r}
+opts_chunk$set(fig.width = 5,
+               fig.height = 5,
+               cache = FALSE,
+               include = TRUE,
+               cache.lazy = FALSE,
+               warning = TRUE,
+               message = TRUE)
+```
+
+
+```{r}
+logit <- function(p) { log(p/(1-p)) }
+arcsin <- function(p) { asin(sqrt(p)) }
+```
+
+## Data load
+
+```{r}
+WD <- file.path('/home', 'Shared_s3it', 'imallona', 'cg_context',
+                'nar_review', 'autocorrelation')
+
+```
+
+We downsize the data to:
+- only `NTUPLES` tuples  (as the CNN context readouts are pretty large).
+- We filter tuples with at least two methylation events within the read (to have some data for CNN). That is, those with from columns 9
+
+
+```{r}
+## NTUPLES <- 1e9 # feasible
+
+NTUPLES <- 1e9
+d <- list()
+
+header <- c('chr', 'strand', 'pos1', 'pos2', 'MM', 'MU', 'UM', 'UU',
+            'region1', 'motif1', 'region2', 'motif2')
+
+## 9 is the first tuple column
+## column 72 is all unmeth, so shouldn't be included
+## 69 is the last column with two Ms at least
+## awk '{x=0;for(i=9;i<=69;i++) if($i>=2) x+=1; if(x>1)print}' SRR1274743_1_cutadapt_sickle_bismark_pe.CG_CHG_CHH.6.tsv | less
+
+## awk '{x=0;for(i=9;i<=69;i++) if($i>=1) x+=1; if(x>1) print}' SRR1274743_1_cutadapt_sickle_bismark_pe.CG_CHG_CHH.6.tsv | less
+
+## d$cg <- read.table(pipe(
+##     sprintf("awk '{x=0;for(i=9;i<=69;i++) if($i>=1) x+=1; if(x>1) print}' %s",
+##             file.path(WD, 'SRR1274743_1_cutadapt_sickle_bismark_pe.CG.6.tsv'))),
+##     col.names = header,
+##     nrows = NTUPLES)
+
+## d$ch <- read.table(file.path(WD, 'tmp_SRR1274743_1_cutadapt_sickle_bismark.deduplicated.CG_CHG_CHH.2.tsv.gz'),
+##                    col.names = header,
+##                    sep = '\t',
+##                    nrows = NTUPLES)
+
+## d$cg <- read.table(file.path(WD, 'tmp_SRR1274743_1_cutadapt_sickle_bismark_pe.CG.2.tsv.gz'),
+##                    col.names = header,
+##                    sep = '\t',
+##                    nrows = NTUPLES)
+
+
+d$cnn <- read.table(file.path(WD, 'tmp_SRR1274743_chr10.CG_CHG_CHH.2.tsv.gz'),
+                   col.names = header,
+                   sep = '\t',
+                   nrows = NTUPLES) 
+```
+
+# Collapse into frequencies
+
+
+Comethylation proportion respect to the total, and not the number of tuples that at least are methylated once
+
+```{r}
+for (item in names(d)) {
+    d[[item]]$dist <- d[[item]]$pos2 - d[[item]]$pos1
+    d[[item]]$cometh_prop <- d[[item]]$MM/(d[[item]]$UM + d[[item]]$MU + d[[item]]$MM + d[[item]]$UU)
+     ## d[[item]]$cometh_prop <- d[[item]]$MM/(d[[item]]$UM + d[[item]]$MU + d[[item]]$MM)
+}
+```
+
+```{r}
+
+lapply(d, function(x) table(x$cometh_prop == 1))
+lapply(d, function(x) summary(x$cometh_prop))
+
+```
+
+Extract eight-motifs, and filter for CG and CA contexts only
+
+```{r noway, eval = TRUE}
+for (item in names(d)) {
+    d[[item]]$type <- paste(tolower(substr(d[[item]]$motif1, 4, 5)),
+                            tolower(substr(d[[item]]$motif2, 4, 5)),
+                            sep = '_')
+
+    d[[item]]$type_simple <- 'ch_ch'
+    d[[item]]$type_simple <- ifelse(
+        test = (tolower(substr(d[[item]]$motif1, 4, 5)) == 'cg' |
+                tolower(substr(d[[item]]$motif2, 4, 5)) == 'cg'),
+        yes = 'cg_ch',
+        no = 'ch_ch')
+    
+    d[[item]]$type_simple[d[[item]]$type == 'cg_cg'] <- 'cg_cg'
+
+    d[[item]] <- d[[item]][d[[item]]$type %in% c('cg_cg', 'ca_cg', 'cg_ca', 'ca_ca'), ]
+}
+
+
+```
+
+
+<!-- ```{r} -->
+
+<!-- motifs <- unique(tolower(c(d[[item]]$motif1, d[[item]]$motif2))) -->
+<!-- mapping <- data.frame(motif = motifs, -->
+<!--                       six =  substr(motifs, 2, 7), -->
+<!--                       four = substr(motifs, 3, 6)) -->
+
+
+<!-- mapping$type <-  ifelse(test = tolower(substr(mapping$four, 2, 3)) == 'cg', -->
+<!--                         yes = 'cg',   no = 'ch') -->
+
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- d[[item]]$type_simple <- paste( -->
+<!--     mapping[mapping$motif == d[[item]]$motif1, 'type'], -->
+<!--     mapping[mapping$motif == d[[item]]$motif2, 'type'], -->
+<!--     sep = "_") -->
+
+<!-- ``` -->
+
+Extract six-mers, and filter for CG and CA contexts only
+
+
+```{r}
+for (item in names(d)) {
+    d[[item]]$six1 <- tolower(substr(d[[item]]$motif1, 2, 7))
+    
+    d[[item]]$six2 <- tolower(substr(d[[item]]$motif2, 2, 7))
+}
+```
+
+Extract four-mers
+
+```{r}
+for (item in names(d)) {
+    d[[item]]$four1 <- tolower(substr(d[[item]]$motif1, 3, 6))
+    
+    d[[item]]$four2 <- tolower(substr(d[[item]]$motif2, 3, 6))
+}
+```
+
+```{r}
+table(d$cnn$type)
+```
+
+
+
+```{r}
+item <- 'cnn'
+
+boxplot(list(MM = d[[item]][d[[item]]$cometh_prop == 1, 'dist'],
+             UU = d[[item]][(d[[item]]$cometh_prop > 0 &
+                             d[[item]]$cometh_prop < 1), 'dist'],
+             UU = d[[item]][d[[item]]$cometh_prop == 0, 'dist']))
+```    
+
+
+<!-- Plot events of at least one methylation event by distance and by motif? -->
+
+
+<!-- ```{r} -->
+<!-- for (item in names(d)) { -->
+
+<!--     plot(x = d[[item]][(d[[item]]$MM > 0 | d[[item]]$UM > 0 | d[[item]]$UM > 0), 'dist'], -->
+<!--          d[[item]][(d[[item]]$MM > 0 | d[[item]]$UM > 0 | d[[item]]$UM > 0), 'cometh_prop'], -->
+<!--          pch = 19, -->
+<!--          col = as.numeric(as.factor( -->
+<!--              d[[item]][(d[[item]]$MM > 0 | d[[item]]$UM > 0 | d[[item]]$UM > 0), -->
+<!--                        'type_simple']))) -->
+
+<!--     ss10 <- smooth.spline( -->
+<!--         d[[item]][(d[[item]]$MM > 0 | d[[item]]$UM > 0 | d[[item]]$UM > 0), 'dist'], -->
+<!--         d[[item]][(d[[item]]$MM > 0 | d[[item]]$UM > 0 | d[[item]]$UM > 0), 'cometh_prop']) -->
+    
+
+<!--     lines(ss10, col = "gray") -->
+<!-- } -->
+<!-- ``` -->
+
+
+# Decay with distance
+
+Stratified by type
+
+```{r, fig.width = 6, fig.height= 6}
+## methylated at least once
+m <-  d[[item]][(d[[item]]$MM > 0 | d[[item]]$UM > 0 | d[[item]]$UM > 0),]
+ggplot(m, aes(dist, cometh_prop)) + geom_point() + facet_grid(~type_simple) + 
+    geom_smooth()
+```
+
+# Four-mers
+
+## Within reads vs across reads
+
+### Within read tuple definition
+
+Within reads (with at least 20 events)
+
+```{r}
+within <- aggregate(cometh_prop ~ four1 + four2, data=d[[item]],
+                    FUN = function(x) c(mean = mean(x), sd = sd(x), length = length(x)))
+
+within <- cbind(within[-ncol(within)], within[[ncol(within)]])
+colnames(within) <- c('four1', 'four2', 'cometh.mean', 'cometh.sd', 'cometh.n')
+within <- within[within$cometh.n >= 20,]
+```
+
+Within-reads comethylation data shape.
+
+```{r}
+
+DT::datatable(within %>% as.data.frame(),
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
+```
+
+### Background motif definition
+
+Overall background: per motif, get the proportion of methylated statuses. We only focus, for each tuple, in the first position, and count methylation events as MM or MU only. This we do not to check the position twice if it there are positions across multiple tuples but possibly with some shared readss, e.g. (A, B), (B, C) etc.
+
+
+```{r}
+
+## only two positions free, plus another with either C or A
+stopifnot(length(unique(d$cnn$four1)) == 2 * 4^2)
+
+bg <- data.frame(motif = unique(d$cnn$four1),
+                 meth.mean = NA,
+                 meth.sd = NA,
+                 meth.n = NA)
+
+for (i in 1:nrow(bg)) {
+    m <- bg[i, 'motif']
+  
+    curr <- d$cnn[d$cnn$four1 == m, ]
+
+    ## bg[i,'meth_prop.mean'] = mean(curr$cometh_prop)
+    ## bg[i,'meth_prop.sd'] = sd(curr$cometh_prop)
+    ## bg[i,'meth_prop.length'] = length(curr$cometh_prop)
+    
+    bg[i,'meth.mean']  <- mean((curr$MM + curr$MU)/(curr$UM + curr$MU + curr$MM + curr$UU))
+    bg[i,'meth.sd']  <- sd((curr$MM + curr$MU)/(curr$UM + curr$MU + curr$MM + curr$UU))
+    bg[i,'meth.n']  <- length((curr$MM + curr$MU)/(curr$UM + curr$MU + curr$MM + curr$UU))
+    
+}
+```
+
+Background of co-methylation events of a motif against any other motif (only the left C of a tuple considered).
+
+```{r}
+DT::datatable(bg %>% as.data.frame(),
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
+
+
+```
+
+
+```{r}
+within <- merge(within, bg, by.x = 'four1', by.y = 'motif', suffixes = c('', '.bg1'))
+
+colnames(within)[6:8] <- paste0('bg1.', colnames(within)[6:8])
+
+within <- merge(within, bg, by.x = 'four2', by.y = 'motif', suffixes = c('', '.bg1'))
+
+colnames(within)[9:11] <- paste0('bg2.', colnames(within)[9:11])
+
+```
+
+### Co-methylation vs motif methylations
+
+Co-methylation proportion = probability (for 2-tuples of 4-mers) vs methylation proportions of 4-mers.
+
+```{r}
+
+## table(within$cometh.mean != 0)
+within <- within[within$cometh.mean != 0,]
+within <- within[order(within$cometh.mean, decreasing = TRUE),]
+
+plot(within$cometh.mean, xaxt = 'n',  xlab = '', pch = 19,
+     col = 'blue',
+     ylab = 'proportion of methylated tuples or motifs')
+
+axis(1, at = 1:nrow(within), las = 2, labels = paste(within$four1, within$four2, sep = '_'))
+
+points(within$bg1.meth.mean,  col = 'black', pch = 19, cex = 0.5)
+## ## arrows(xx, low, xx, up, col = repcols, angle = 90, length = 0.03, code = 3)
+## ## arrows(1:nrow(within), within$bg1.meth_prop.mean - within$bg1.meth_prop.sd ,
+## ##        1:nrow(within), within$bg1.meth_prop.mean + within$bg1.meth_prop.sd,
+## ##        code=3, length=0.02, angle = 90)
+
+points(within$bg2.meth.mean, col = 'black', pch = 19, cex = 0.5)
+
+## for (i in 1:nrow(within)) {
+##     lines(x = rep(i, 2), y = c(within$bg1.meth.mean[i], within$bg2.meth.mean[i]),
+##           lwd = 0.5, type ='b', pch = 4, cex = 0.5)
+## }
+
+legend('topright',
+       legend=c("within strand cometh",
+                "background meth"),
+       col=c("blue", "black"),
+       lty= rep(1,2), pch = c(19, 19))
+
+
+```
+
+### Co-methylation vs product of expected motif methylations
+
+Assuming that preferences towards individual motifs are independent, we can assume that their co-ocurrence is the product of their proportions/probabilities.
+
+
+```{r}
+within$expected.cometh <- within$bg1.meth.mean * within$bg2.meth.mean
+
+
+plot(within$cometh.mean, xaxt = 'n',  xlab = '', pch = 19,
+     col = 'blue',
+     ylab = 'proportion of methylated tuples or motifs')
+
+axis(1, at = 1:nrow(within), las = 2, labels = paste(within$four1, within$four2, sep = '_'))
+
+points(within$expected.cometh,  col = 'black', pch = 19, cex = 0.5)
+
+legend('topright',
+       legend=c("within strand cometh",
+                "expected cometh"),
+       col=c("blue", "black"),
+       lty= rep(1,2), pch = c(19, 19))
+
+```
+
+Deviations from the expectation (mean of methylation proportions either having motif1 or motif2, but not both) as compared to the observed comethylation proportions.
+
+## Across-reads
+
+Only for the pairs that I measured within reads. Not necessarily across reads, but surely not contiguous and with a distance filter of MINDIST.
+
+MINDIST:
+
+```{r}
+MINDIST <- 75
+
+print(MINDIST)
+```
+
+
+Subsetting the tuples data to be MINDIST apart (not overlapping reads, due to read length constraints).
+
+```{r}
+## making sure each element within this subset is in a different read
+## assumes run within a chromosome only
+d$cnn$keep <- FALSE
+prev_pos <- 0
+for (i in 1:nrow(d$cnn)) {
+        if ((d$cnn[i, 'pos1'] - prev_pos) >= MINDIST) {
+            d$cnn$keep[i] <- TRUE
+            prev_pos <- d$cnn[i, 'pos1']
+        }
+}
+
+```
+
+Number of tuples kept.
+
+```{r}
+table(d$cnn$keep)
+```
+          
+
+```{r}
+
+across <- data.frame(four1 = within$four1,
+                     four2 = within$four2,
+                     cometh.mean = NA,
+                     cometh.sd = NA,
+                     cometh.n = NA)
+
+for (i in 1:nrow(across)) {
+        m1 <- across[i, 'four1']
+        m2 <- across[i, 'four2']
+        curr <- d$cnn[d$cnn$keep & ((d$cnn$four1 == m1 & d$cnn$four2 != m2) |
+                      (d$cnn$four1 == m2 & d$cnn$four2 != m1)), ]
+        
+   
+        across[i,'cometh.mean'] = mean(curr$cometh)
+        across[i,'cometh.sd'] = sd(curr$cometh)
+        across[i,'cometh.n'] = length(curr$cometh)
+}
+```
+
+Across-reads comethylation events
+
+```{r}
+DT::datatable(across %>% as.data.frame(), 
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
+
+
+```
+
+Add a color code (cg-cg, cg-ca, ca-ca)
+
+```{r}
+across$type <- paste(tolower(substr(across$four1, 2, 3)),
+                     tolower(substr(across$four2, 2, 3)),
+                     sep = '_')
+
+across$type_simple <- 'ch_ch'
+across$type_simple <- ifelse(
+    test = (tolower(substr(across$four1, 2, 3)) == 'cg' |
+            tolower(substr(across$four2, 2, 3)) == 'cg'),
+    yes = 'cg_ch',
+    no = 'ch_ch')
+
+across$type_simple[across$type == 'cg_cg'] <- 'cg_cg'
+
+
+```
+
+## Plot within vs across
+
+Plotting only those motif pairs with at least one methylation event
+
+
+
+
+```{r}
+plot(x = log(across$cometh.mean), y = log(within$cometh.mean),
+     pch = as.numeric(as.factor(across$type_simple)),
+     xlim = c(-10, -2), ylim = c(-10, -2),
+     col = as.numeric(as.factor(across$type_simple)),
+     xlab = 'log mean cometh across reads, per 4-mers',
+     ylab = 'log mean cometh within reads, per 4-mers')
+
+lines(x = c(-10,-2), y = c(-10, -2))
+
+legend('bottomright',
+       legend= levels(as.factor(across$type_simple)),
+       pch = 1:3,
+       col = 1:3)
+
+## Split for CG, CA, and CGCA
+```
+
+```{r}
+
+plot(x = across$cometh.mean, y = within$cometh.mean, 
+     xlim = c(0, 0.15),
+     ylim = c(0, 0.15),
+     col = as.numeric(as.factor(across$type_simple)),
+     pch = as.numeric(as.factor(across$type_simple)))
+
+legend('topright',
+       legend= levels(as.factor(across$type_simple)),    
+       col = 1:3, pch = 1:3)
+     
+```
+
+```{r}
+
+plot(x = across$cometh.mean, y = within$cometh.mean,
+     pch = as.numeric(as.factor(across$type_simple)),
+     col = as.numeric(as.factor(across$type_simple)))
+
+legend('topright',
+       legend= levels(as.factor(across$type_simple)),
+       pch = 1:3,
+       col = 1:3)
+     
+```
+
+
+## Models
+
+To answer the reviewer's question and given the linearity of the cometh patterns (across and within reads), we fit a linear model that predicts the within read comethylation as a function of across reads comethylation plus whether cg-ch/ch*ch/cg-cg.
+
+
+###  Comethylation variance explained: motif, type, and across or within-strand
+<!-- ```{r} -->
+
+<!-- x <- data.frame(motifs = paste(across$four1, across$four2, sep = "_"), -->
+<!--                 type = across$type_simple, -->
+<!--                 across = across$cometh.mean) -->
+
+<!-- within$motifs <- paste(within$four1, within$four2, sep = "_") -->
+<!-- rownames(within) <- within$motifs -->
+
+<!-- x$within <- within[x$motifs, 'cometh.mean'] -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- summary(lm(x$within ~ 0 + x$across)) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- summary(lm(x$within ~ 0 + x$across * x$type)) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- summary(lm(x$within ~ 0 + x$across + x$type)) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- summary(lm(x$within ~ 0 + x$across + x$type)) -->
+<!-- ``` -->
+
+```{r}
+
+
+across$motifs <- paste(across$four1, across$four2, sep = "_")
+within$motifs <- paste(within$four1, within$four2, sep = "_")
+within <- merge(within, across[,c('motifs', 'type_simple')], all.x = TRUE, by = 'motifs')
+    
+x <- rbind(data.frame(cometh = across$cometh.mean,
+                      read = 'across',
+                      type =  across$type_simple,
+                      motifs = paste(across$four1, across$four2, sep = "_")),
+           data.frame(cometh = within$cometh.mean,
+                      read = 'within',
+                      type =  within$type_simple,
+                      motifs = paste(within$four1, within$four2, sep = "_")))
+
+           
+```
+
+
+
+
+```{r}
+fit <- lm(arcsin(x$cometh) ~ x$read + x$type)
+
+## https://rdrr.io/cran/rsq/man/rsq.partial.html
+summary(fit)
+print(rsq::rsq.partial(fit, adj = TRUE))
+plot(fit)
+```
+
+
+```{r}
+fit2 <- lm(arcsin(x$cometh) ~ x$read * x$type)
+
+summary(fit2)
+
+print(rsq::rsq.partial(fit2, adj = TRUE))
+plot(fit2)
+```
+
+
+###  Comethylation variance explained by the motif with highest methylation
+
+Reasoning: we do see more co-methylation than expected, but only for some motifs. Then, it might be some of the motifs we see as methylated are not in fact so, but a by-product of being close in sequence to the DNMT 'favoured' target. Thus, the alternative hypothesis is that most of the signal is just comethylation. But using the most methylated motif (which cannot be due to co-methylation), we could quantify how much co-methylation with this motif explains the other motifs.
+
+```{r}
+
+
+tops <- head(bg[order(bg$meth.mean, decreasing = TRUE), 'motif'], 20)
+
+x <- rbind(data.frame(cometh = across$cometh.mean,
+                      read = 'across',
+                      type =  across$type_simple,
+                      motifs = paste(across$four1, across$four2, sep = "_")),
+           data.frame(cometh = within$cometh.mean,
+                      read = 'within',
+                      type =  within$type_simple,
+                      motifs = paste(within$four1, within$four2, sep = "_")))
+
+# the top motif should be at least ten times as part of a comethylating pair
+for (i in 1:10) {
+    ## print(sum(grepl(tops[i], x$motifs)) >= 10)
+    if (sum(grepl(tops[i], x$motifs)) >= 10) {
+        top <- tops[i]
+        break
+    }
+    
+}
+
+x$has_top <- grepl(top, x$motifs)
+
+table(x$has_top)
+```
+
+```{r}
+fit <- lm(arcsin(x$cometh) ~ as.factor(x$has_top))
+
+summary(fit)
+print(rsq::rsq.partial(fit, adj = TRUE))
+
+plot(fit)
+
+```
+
+## Trace
+
+```{r}
+save(file = 'four.RData', list = c('d', 'across', 'within'))
+```
+
+
+# Six- mers
+
+```{r}
+rm(within, across)
+```
+
+## Within reads vs across reads
+
+### Within read tuple definition
+
+Within reads (with at least 20 events in the genome)
+
+```{r}
+within <- aggregate(cometh_prop ~ six1 + six2, data=d[[item]],
+                    FUN = function(x) c(mean = mean(x), sd = sd(x), length = length(x)))
+
+within <- cbind(within[-ncol(within)], within[[ncol(within)]])
+colnames(within) <- c('six1', 'six2', 'cometh.mean', 'cometh.sd', 'cometh.n')
+within <- within[within$cometh.n >= 20,]
+```
+
+Within-reads comethylation data shape.
+
+```{r}
+DT::datatable(within %>% as.data.frame(), 
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
+```
+
+### Background motif definition
+
+Overall background: per motif, get the proportion of methylated statuses. We only focus, for each tuple, in the first position, and count methylation events as MM or MU only. This we do not to check the position twice if it there are positions across multiple tuples but possibly with some shared readss, e.g. (A, B), (B, C) etc.
+
+
+```{r}
+
+## only two positions free, plus another with either C or A
+## stopifnot(length(unique(d$cnn$six1)) == 2 * 4^4)
+
+bg <- data.frame(motif = unique(d$cnn$six1),
+                 meth.mean = NA,
+                 meth.sd = NA,
+                 meth.n = NA)
+
+for (i in 1:nrow(bg)) {
+    m <- bg[i, 'motif']
+  
+    curr <- d$cnn[d$cnn$six1 == m, ]
+
+    ## bg[i,'meth_prop.mean'] = mean(curr$cometh_prop)
+    ## bg[i,'meth_prop.sd'] = sd(curr$cometh_prop)
+    ## bg[i,'meth_prop.length'] = length(curr$cometh_prop)
+    
+    bg[i,'meth.mean']  <- mean((curr$MM + curr$MU)/(curr$UM + curr$MU + curr$MM + curr$UU))
+    bg[i,'meth.sd']  <- sd((curr$MM + curr$MU)/(curr$UM + curr$MU + curr$MM + curr$UU))
+    bg[i,'meth.n']  <- length((curr$MM + curr$MU)/(curr$UM + curr$MU + curr$MM + curr$UU))
+    
+}
+```
+
+Background of co-methylation events of a motif against any other motif (only the left C of a tuple considered).
+
+```{r}
+DT::datatable(bg %>% as.data.frame(), 
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
+
+```
+
+
+```{r}
+within <- merge(within, bg, by.x = 'six1', by.y = 'motif', suffixes = c('', '.bg1'))
+
+colnames(within)[6:8] <- paste0('bg1.', colnames(within)[6:8])
+
+within <- merge(within, bg, by.x = 'six2', by.y = 'motif', suffixes = c('', '.bg1'))
+
+colnames(within)[9:11] <- paste0('bg2.', colnames(within)[9:11])
+
+```
+
+### Co-methylation vs motif methylations
+
+Co-methylation proportion = probability (for 2-tuples of 4-mers) vs methylation proportions of 4-mers.
+
+```{r, fig.width = 6, fig.height = 8}
+
+## table(within$cometh.mean != 0)
+within <- within[within$cometh.mean != 0,]
+within <- within[order(within$cometh.mean, decreasing = TRUE),]
+
+## c(bottom, left, top, right)
+par(oma = c(10,3,3,3))
+
+plot(within$cometh.mean, xaxt = 'n',  xlab = '', pch = 19,
+     col = 'blue',
+     ylab = 'proportion of methylated tuples or motifs')
+
+axis(1, at = 1:nrow(within), las = 2, labels = paste(within$six1, within$six2, sep = '_'))
+
+points(within$bg1.meth.mean,  col = 'black', pch = 19, cex = 0.5)
+## ## arrows(xx, low, xx, up, col = repcols, angle = 90, length = 0.03, code = 3)
+## ## arrows(1:nrow(within), within$bg1.meth_prop.mean - within$bg1.meth_prop.sd ,
+## ##        1:nrow(within), within$bg1.meth_prop.mean + within$bg1.meth_prop.sd,
+## ##        code=3, length=0.02, angle = 90)
+
+points(within$bg2.meth.mean, col = 'black', pch = 19, cex = 0.5)
+
+## for (i in 1:nrow(within)) {
+##     lines(x = rep(i, 2), y = c(within$bg1.meth.mean[i], within$bg2.meth.mean[i]),
+##           lwd = 0.5, type ='b', pch = 4, cex = 0.5)
+## }
+
+legend('topright',
+       legend=c("within strand cometh",
+                "background meth"),
+       col=c("blue", "black"),
+       lty= rep(1,2), pch = c(19, 19))
+
+
+```
+
+### Co-methylation vs product of expected methylations
+
+Assuming that preferences towards individual motifs are independent, we can assume that their co-ocurrence is the product of their proportions/probabilities.
+
+
+```{r, fig.height = 8, fig.width = 6}
+within$expected.cometh <- within$bg1.meth.mean * within$bg2.meth.mean
+
+par(oma = c(10,3,3,3))
+
+plot(within$cometh.mean, xaxt = 'n',  xlab = '', pch = 19,
+     col = 'blue',
+     ylab = 'proportion of methylated tuples or motifs')
+
+axis(1, at = 1:nrow(within), las = 2, labels = paste(within$six1, within$six2, sep = '_'))
+
+points(within$expected.cometh,  col = 'black', pch = 19, cex = 0.5)
+
+legend('topright',
+       legend=c("within strand cometh",
+                "expected cometh"),
+       col=c("blue", "black"),
+       lty= rep(1,2), pch = c(19, 19))
+
+```
+
+Deviations from the expectation (mean of methylation proportions either having motif1 or motif2, but not both) as compared to the observed comethylation proportions.
+
+## Across-reads
+
+Only for the pairs that I measured within reads. Not necessarily across reads, but surely not contiguous and with a distance filter of MINDIST.
+
+MINDIST:
+
+```{r}
+MINDIST <- 75
+
+print(MINDIST)
+```
+
+
+Subsetting the tuples data to be MINDIST apart (not overlapping reads, due to read length constraints).
+
+```{r}
+## making sure each element within this subset is in a different read
+## assumes run within a chromosome only
+d$cnn$keep <- FALSE
+prev_pos <- 0
+for (i in 1:nrow(d$cnn)) {
+        if ((d$cnn[i, 'pos1'] - prev_pos) >= MINDIST) {
+            d$cnn$keep[i] <- TRUE
+            prev_pos <- d$cnn[i, 'pos1']
+        }
+}
+
+```
+
+Number of tuples kept.
+
+```{r}
+table(d$cnn$keep)
+```
+          
+
+```{r}
+
+across <- data.frame(six1 = within$six1,
+                     six2 = within$six2,
+                     cometh.mean = NA,
+                     cometh.sd = NA,
+                     cometh.n = NA)
+
+for (i in 1:nrow(across)) {
+        m1 <- across[i, 'six1']
+        m2 <- across[i, 'six2']
+        curr <- d$cnn[d$cnn$keep & ((d$cnn$six1 == m1 & d$cnn$six2 != m2) |
+                      (d$cnn$six1 == m2 & d$cnn$six2 != m1)), ]
+        
+   
+        across[i,'cometh.mean'] = mean(curr$cometh)
+        across[i,'cometh.sd'] = sd(curr$cometh)
+        across[i,'cometh.n'] = length(curr$cometh)
+}
+```
+
+Across-reads comethylation events
+
+```{r}
+DT::datatable(across %>% as.data.frame(), 
+              extensions = c("Buttons", "FixedColumns"),
+              rownames = FALSE, 
+              options = list(dom = "Bfrtip",
+                             scrollX = TRUE, 
+                             fixedColumns = list(leftColumns = 1),
+                             buttons = c("csv", "excel")))
+   
+```
+
+Plot variance vs variance (within and across)
+
+```{r}
+
+plot(across$cometh.sd, within$cometh.sd)
+
+```
+
+
+Add a color code (cg-cg, cg-ca, ca-ca)
+
+```{r}
+across$type <- paste(tolower(substr(across$six1, 3, 4)),
+                     tolower(substr(across$six2, 3, 4)),
+                     sep = '_')
+
+across$type_simple <- 'ch_ch'
+across$type_simple <- ifelse(
+    test = (tolower(substr(across$six1, 3, 4)) == 'cg' |
+            tolower(substr(across$six2, 3, 4)) == 'cg'),
+    yes = 'cg_ch',
+    no = 'ch_ch')
+
+across$type_simple[across$type == 'cg_cg'] <- 'cg_cg'
+
+
+```
+
+## Plot within vs across
+
+Plotting only those motif pairs with at least one methylation event
+
+
+
+
+
+```{r}
+plot(x = log(across$cometh.mean), y = log(within$cometh.mean),
+     pch = as.numeric(as.factor(across$type_simple)),
+     xlim = c(-8, 0), ylim = c(-8, 0),
+     col = as.numeric(as.factor(across$type_simple)),
+     xlab = 'log mean cometh across reads, per 6-mers',
+     ylab = 'log mean cometh within reads, per 6-mers')
+
+lines(x = c(-8,0), y = c(-8, 0))
+
+legend('bottomright',
+       legend= levels(as.factor(across$type_simple)),
+       pch = 1:3,
+       col = 1:3)
+```
+
+
+```{r}
+
+plot(x = across$cometh.mean, y = within$cometh.mean, 
+     ## xlim = c(0, 0.15),
+     ## ylim = c(0, 0.15),
+     col = as.numeric(as.factor(across$type_simple)),
+     pch = as.numeric(as.factor(across$type_simple)))
+
+legend('topright',
+       legend= levels(as.factor(across$type_simple)),    
+       col = 1:3, pch = 1:3)
+     
+```
+
+
+```{r}
+
+plot(x = across$cometh.mean, y = within$cometh.mean,
+     pch = as.numeric(as.factor(across$type_simple)),
+     col = as.numeric(as.factor(across$type_simple)))
+
+legend('topright',
+       legend= levels(as.factor(across$type_simple)),
+       pch = 1:3,
+       col = 1:3)
+     
+```
+
+## Model
+
+###  Comethylation variance explained: motif, type, and across or within-strand
+
+To answer the reviewer's question and given the linearity of the cometh patterns (across and within reads), we fit a linear model that predicts the within read comethylation as a function of across reads comethylation plus whether cg-ch/ch*ch/cg-cg.
+
+```{r}
+
+
+across$motifs <- paste(across$six1, across$six2, sep = "_")
+within$motifs <- paste(within$six1, within$six2, sep = "_")
+
+within <- merge(within, across[,c('motifs', 'type_simple')], all.x = TRUE, by = 'motifs')
+    
+x <- rbind(data.frame(cometh = across$cometh.mean,
+                      read = 'across',
+                      type =  across$type_simple,
+                      motifs = paste(across$six1, across$six2, sep = "_")),
+           data.frame(cometh = within$cometh.mean,
+                      read = 'within',
+                      type =  within$type_simple,
+                      motifs = paste(within$six1, within$six2, sep = "_")))
+
+           
+```
+
+
+
+
+
+```{r}
+fit <- lm(arcsin(x$cometh) ~ x$read + x$type)
+
+## https://rdrr.io/cran/rsq/man/rsq.partial.html
+summary(fit)
+print(rsq::rsq.partial(fit, adj = TRUE))
+plot(fit)
+```
+
+
+```{r}
+fit2 <- lm(arcsin(x$cometh) ~ x$read * x$type)
+summary(fit2)
+print(rsq::rsq.partial(fit2, adj = TRUE))
+plot(fit2)
+```
+
+
+###  Comethylation variance explained by the motif with highest methylation
+
+Reasoning: we do see more co-methylation than expected, but only for some motifs. Then, it might be some of the motifs we see as methylated are not in fact so, but a by-product of being close in sequence to the DNMT 'favoured' target. Thus, the alternative hypothesis is that most of the signal is just comethylation. But using the most methylated motif (which cannot be due to co-methylation), we could quantify how much co-methylation with this motif explains the other motifs.
+
+```{r}
+
+tops <- head(bg[order(bg$meth.mean, decreasing = TRUE), 'motif'], 20)
+
+
+x <- rbind(data.frame(cometh = across$cometh.mean,
+                      read = 'across',
+                      type =  across$type_simple,
+                      motifs = paste(across$six1, across$six2, sep = "_")),
+           data.frame(cometh = within$cometh.mean,
+                      read = 'within',
+                      type =  within$type_simple,
+                      motifs = paste(within$six1, within$six2, sep = "_")))
+
+# the top motif should be at least ten times as part of a comethylating pair
+for (i in 1:10) {
+    if (sum(grepl(tops[i], x$motifs)) >= 10) {
+        top <- topps[i]
+        break
+    }
+    
+}
+
+x$has_top <- grepl(top, x$motifs)
+table(x$has_top)
+```
+
+
+```{r}
+fit <- lm(arcsin(x$cometh) ~ as.factor(x$has_top))
+
+summary(fit)
+print(rsq::rsq.partial(fit, adj = TRUE))
+plot(fit)
+
+```
+
+
+## Trace
+
+```{r}
+save(file = 'six.RData', list = c('d', 'across', 'within'))
+```
+
+
+# Timestamp
+
+```{r sessionInfo, cache = FALSE}
+date()
+sessionInfo()
+devtools::session_info()
+
+```
